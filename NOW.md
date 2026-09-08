@@ -2,7 +2,7 @@
 repo: krishanraja/AEO-Engine
 product: AEO-Engine
 as_of: 2026-09-08
-head: d7db4fd6
+head: 59153d08
 lifecycle: building
 production_url: none
 state_doc: docs/STATE.md
@@ -31,6 +31,7 @@ Krish reads the digest on Monday and acts the same week. The packet answers, per
 
 ## What changed recently
 
+- 2026-09-08 **The digest writes in a voice that was already on file.** Why: Krish asked whether the machine could learn who inspires him and what he wants to sound like, and would rather say it once than repeat it. He already had, on the Content side of Control Center: the krish-voice body in `system_config.content_voice_block`, and the ten writers he rates in `content_creators`, each with the move he rates them for. The context route now sends both and `digestSystem()` builds the prompt from them, with the voice held to register only so it can never loosen the evidence rules, and the people never named to the model.
 - 2026-09-08 **The engine exists.** Why: the AEO research agent Krish described has to run unattended every Sunday and end in an action, and Control Center already holds every input (subjects, the map's buyer questions, striking-distance keywords, four weeks of probes, last week's digest). The whole repo lands in one day: the contract first, then clients with offline twins so the pipeline can be tested without spending, then the stages as pure functions with the clients injected. Decisions worth knowing: prospects are probed on their own leaders' questions and read for Mindmake's presence; query ids carry across weeks by a normalised match so trends are honest; the digest model writes prose only and every number comes from the score table; a missing Fireflies key is reported as unavailable, never as a quiet week. Mechanism and failures: `docs/BUILD-LOG.md`.
 
 ## What is next and what is waiting on Krish
