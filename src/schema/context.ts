@@ -88,6 +88,14 @@ export interface AeoContext {
     /** The writers Krish rates, each with the move he rates them for. The
      *  same registry the Content engine's Tuesday scrape reads. */
     voices_he_rates?: Array<{ name: string; why: string }>
+    /** The business canon: 00_NORTH_STAR.md from the business repo, the file
+     *  that repo calls the one to read if you read only one. Positioning,
+     *  what is sold, who the buyer is, what the business believes and what it
+     *  refuses to say. The digest needs it to judge which answers are
+     *  winnable rather than merely unoccupied. Absent or empty on an older
+     *  Control Center, and on a read failure: the digest then makes no
+     *  winnability claim rather than one it guessed at. */
+    canon?: string
   }
   icp: { room_face: { who: string; who_not: string } }
   subjects: ContextSubject[]

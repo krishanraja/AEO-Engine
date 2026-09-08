@@ -131,7 +131,27 @@
           "angle": { "type": "string", "minLength": 1, "maxLength": 600 },
           "evidence": { "type": "array", "maxItems": 6, "items": { "type": "string", "maxLength": 300 } },
           "engines": { "type": "array", "items": { "$ref": "#/$defs/engine" } },
-          "demand": { "type": "integer", "minimum": 0, "maximum": 100 }
+          "demand": { "type": "integer", "minimum": 0, "maximum": 100 },
+          "why_you_can_win": {
+            "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 300 }, { "type": "null" }],
+            "description": "The specific reason this subject can win THIS answer when the sites cited today structurally cannot, drawn from the business canon or from measured evidence. Never a generality. Null when the digest could not justify one, which is a bug in the digest and not a licence to recommend anyway. Additive in v1: absent on a packet written before the winnability gate."
+          }
+        }
+      }
+    },
+    "not_worth_chasing": {
+      "type": "array",
+      "maxItems": 6,
+      "description": "Questions that were probed and scored and that the subject should NOT try to win. Worth more than a bad recommendation, because it stops a week being spent on an answer a social network, a video platform, a national business title or a big consultancy already owns. Every query_id is one of this packet's queries and is not also a recommendation. Additive in v1: absent on a packet written before the winnability gate.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["query_id", "query", "owned_by", "why_not"],
+        "properties": {
+          "query_id": { "$ref": "#/$defs/uuid" },
+          "query": { "type": "string", "minLength": 1, "maxLength": 400 },
+          "owned_by": { "type": "array", "maxItems": 8, "items": { "type": "string", "minLength": 1, "maxLength": 120 }, "description": "The hosts that own the answer now, most cited first." },
+          "why_not": { "type": "string", "minLength": 1, "maxLength": 300, "description": "One plain sentence on why this subject will not displace them. No hedging." }
         }
       }
     },

@@ -70,6 +70,7 @@ export async function runSubject(subject: ContextSubject, shared: Shared, deps: 
     queries,
     strongest_signal: digest.strongest_signal,
     recommendations: digest.recommendations,
+    not_worth_chasing: digest.not_worth_chasing,
     watch_list: digest.watch_list,
     competitor_gap: digest.competitor_gap,
     playbook: digest.playbook,

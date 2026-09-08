@@ -9,7 +9,8 @@
         "demand 30 (llm 30, transcript 0, volume 0)",
         "absent on perplexity, chatgpt",
         "cited instead: example-saas-blog.com, example-vc.com"
-      ]
+      ],
+      "why_you_can_win": "The sites cited are a SaaS blog and a venture fund, both writing about other people's pricing. This studio ships the product and can publish the free tier it actually set, with the numbers behind it."
     },
     {
       "query_id": "6fe1ec29-1ae2-4e61-8f9c-785ccda46cf5",
@@ -19,7 +20,8 @@
         "demand 30 (llm 30, transcript 0, volume 0)",
         "absent on perplexity, chatgpt",
         "cited instead: example-saas-blog.com, example-vc.com"
-      ]
+      ],
+      "why_you_can_win": "Every page cited here is written by someone selling advice about writing. The studio can answer from a product its own readers use, which is the one thing an advice site cannot borrow."
     },
     {
       "query_id": "451bb3c0-0177-443f-897e-2bd8736cf5ba",
@@ -30,6 +32,16 @@
         "absent on chatgpt, claude",
         "cited instead: example-vc.com, example-saas-blog.com"
       ]
+    }
+  ],
+  "not_worth_chasing": [
+    {
+      "query_id": "4c921e9a-2a5d-4fd3-8486-89248de962d0",
+      "owned_by": [
+        "example-vc.com",
+        "example-saas-blog.com"
+      ],
+      "why_not": "A general founder question a venture fund and a large SaaS blog already own on reach. One essay does not move that, and the studio has nothing here that they structurally cannot say."
     }
   ],
   "watch_list": [

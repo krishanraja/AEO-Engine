@@ -43,6 +43,21 @@ test('offline dry run writes packets that validate and ctrl matches the expected
   assert.equal(typeof prospect.approach_hook, 'string')
   assert.equal(aspiration.themes_status, 'not_applicable')
   assert.ok(Array.isArray(aspiration.playbook) && aspiration.playbook.length > 0)
+
+  // The winnability gate, end to end. The venture's digest walled off a
+  // category term and recommended four questions it could name a reason for.
+  assert.equal(ctrl.recommendations.length, 4)
+  assert.ok(ctrl.recommendations.every(r => typeof r.why_you_can_win === 'string' && r.why_you_can_win.length > 0))
+  assert.equal(ctrl.not_worth_chasing.length, 2)
+  // The prospect fell back, so it named no reason to win anything and walled
+  // off only what it could see: the question the big platforms are cited on.
+  assert.ok(prospect.recommendations.every(r => r.why_you_can_win === null))
+  assert.equal(prospect.not_worth_chasing.length, 1)
+  assert.deepEqual(prospect.not_worth_chasing[0].owned_by, ['forbes.com', 'hbr.org', 'mckinsey.com', 'youtube.com'])
+  assert.ok(prospect.queries.some(q => q.query_id === prospect.not_worth_chasing[0].query_id))
+  // A recommendation the model wrote no reason for is carried with null, not hidden.
+  assert.ok(aspiration.recommendations.some(r => r.why_you_can_win === null))
+  for (const p of packets) for (const w of p.not_worth_chasing) assert.ok(p.queries.some(q => q.query_id === w.query_id), `${p.subject.slug}: ${w.query_id}`)
   const report = JSON.parse(r.stdout)
   assert.equal(report.ledger.calls, ctrl.stats.probes + prospect.stats.probes + aspiration.stats.probes + ctrl.stats.probes_failed + 2 + 1 + 3 + 3)
 })
