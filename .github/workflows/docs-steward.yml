@@ -1,0 +1,38 @@
+# Docs steward caller. Copy this file to .github/workflows/docs-steward.yml in
+# a fleet repo. The procedure, schema and scripts live in
+# krishanraja/control-center (docs/steward/); this file only calls them.
+#
+# One-time setup per repo: run `claude setup-token` locally and add the
+# result as the repository secret CLAUDE_CODE_OAUTH_TOKEN. Until it exists
+# the run fails with a message naming it, never silently.
+#
+# Pick a distinct minute for the nightly cron so eight repos do not hit the
+# subscription together. Cron is UTC; 20:xx UTC is 06:xx Brisbane.
+
+name: Docs steward
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "45 20 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Digest and validate only; Claude does not run and nothing is pushed"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+
+jobs:
+  steward:
+    if: ${{ github.event_name != 'push' || !startsWith(github.event.head_commit.message, 'docs(steward):') }}
+    uses: krishanraja/control-center/.github/workflows/docs-steward.yml@main
+    with:
+      dry_run: ${{ inputs.dry_run || false }}
+    secrets: inherit
