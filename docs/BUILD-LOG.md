@@ -2,6 +2,49 @@
 
 Dated entries, newest first. Each one says why it was done, what failed or would have failed without it, and the mechanism. Control Center's build-signal ingest reads this file; keep names of people, prospects and secrets out of it.
 
+## 2026-09-08 (last): one job per subject, because a subject is independent
+
+Asking one question's three assistants together bought back most of an hour,
+and it was still not enough. The next live run finished its first product in
+twenty-six minutes and had four to go. Five products in one job is a little
+over two hours of hosted web search on a job that GitHub was killing at
+fifty-five minutes, so every run would have landed one product and lost the
+other four. The measurement matters more than the arithmetic: a hosted web
+search takes about a second and a half, and nothing done inside one job
+changes that.
+
+The unit of work here is a subject, and subjects do not touch each other. A
+subject reads its own context, proposes its own questions, probes them, scores
+them, writes its own digest and POSTs its own packet. Nothing is shared but
+the spend ceiling. That is a matrix, not a loop, and running it as a loop was
+the mistake.
+
+So the workflow is now two jobs. `plan` makes one cheap call to
+`/api/aeo/context?subject=all`, which is the only place the subject list
+lives, and emits the slugs as a matrix and a per-subject share of
+`AEO_MAX_USD_PER_RUN`. The ceiling stays a ceiling for the whole run: five
+subjects each get a fifth, and a single-subject manual run gets the lot.
+`research` fans out over those slugs, three at a time, with `fail-fast: false`
+so a subject that fails fails alone and the rest of the week still lands.
+
+Three details worth keeping:
+
+- **The timeout is ninety minutes, not fifty-five.** One subject measured at
+  twenty-six, and an attempt plus a five-minute wait plus a retry is about
+  fifty-seven. The old hour would have killed the retry rather than the work,
+  which is the failure mode the retry exists to prevent.
+- **The two attempts are one step with a loop.** GitHub Actions rejects YAML
+  anchors, so two steps would mean naming eight secrets twice, and a secret
+  named in two places is a secret that will one day be named in one. The loop
+  ends in `exit 1`, which is what sends the failure email.
+- **The dispatch payload never reaches a shell.** The subject and command id
+  arrive through the environment and are checked against a slug and a number
+  before anything is done with them. A repository dispatch is data, and data
+  interpolated into a script is a way in.
+
+Retrying a subject that already POSTed is safe: Control Center returns
+`deduped` for a repeated `run_id` and replaces the week for a new one.
+
 ## 2026-09-08 (later still): absence is not opportunity
 
 The first output was read and rejected. The verdict was that the

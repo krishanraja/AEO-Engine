@@ -1,8 +1,19 @@
 # The weekly research run. Sunday 04:00 UTC reports the week that began the
-# previous Monday (week_start is mondayOf(now) in UTC). Three attempts fifteen
-# minutes apart, then the failure is preserved so GitHub notifies. Control
-# Center dedupes a repeated run_id and replaces an earlier attempt's week, so
-# a retry after a partial POST is safe.
+# previous Monday (week_start is mondayOf(now) in UTC).
+#
+# One job per subject, not one job for all of them. The first live run took
+# twenty-six minutes on a single product and was killed by the job timeout
+# with four still to go, because a hosted web search takes a minute and no
+# amount of tidying inside one job changes that. A subject is independent of
+# every other subject: it reads its own context, asks its own questions and
+# posts its own packet, so the honest shape is a matrix. A subject that fails
+# now fails alone, and the rest of the week still lands.
+#
+# The spend ceiling stays a ceiling for the whole run: the plan job divides
+# AEO_MAX_USD_PER_RUN by the number of subjects and hands each job its share.
+#
+# Control Center dedupes a repeated run_id and replaces an earlier attempt's
+# week, so a retry after a partial POST is safe.
 
 name: AEO weekly
 
@@ -32,9 +43,85 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  research:
+  # Which subjects are in this run, and what each may spend. One cheap call to
+  # Control Center, which is the only place the subject list lives.
+  plan:
     runs-on: ubuntu-latest
-    timeout-minutes: 55
+    timeout-minutes: 5
+    outputs:
+      subjects: ${{ steps.subjects.outputs.list }}
+      cap: ${{ steps.subjects.outputs.cap }}
+      dry: ${{ steps.subjects.outputs.dry }}
+      command_id: ${{ steps.subjects.outputs.command_id }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resolve the subjects and the per-subject cap
+        id: subjects
+        shell: bash
+        env:
+          CONTROL_CENTER_URL: ${{ secrets.CONTROL_CENTER_URL }}
+          AEO_ENGINE_SECRET: ${{ secrets.AEO_ENGINE_SECRET }}
+          AEO_MAX_USD_PER_RUN: ${{ vars.AEO_MAX_USD_PER_RUN }}
+          # Through the environment, never interpolated into the script: a
+          # dispatch payload is data, and data that becomes shell is a way in.
+          EVENT_NAME: ${{ github.event_name }}
+          DISPATCH_SUBJECT: ${{ github.event.client_payload.subject }}
+          DISPATCH_COMMAND_ID: ${{ github.event.client_payload.command_id }}
+          INPUT_SUBJECT: ${{ inputs.subject }}
+          INPUT_DRY: ${{ inputs.dry }}
+        run: |
+          set -euo pipefail
+          asked="all"
+          command_id=""
+          dry="false"
+          if [ "$EVENT_NAME" = "repository_dispatch" ]; then
+            asked="${DISPATCH_SUBJECT:-all}"
+            command_id="${DISPATCH_COMMAND_ID:-}"
+          elif [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            asked="${INPUT_SUBJECT:-all}"
+            dry="${INPUT_DRY:-false}"
+          fi
+          # A slug or a uuid and nothing else. Anything stranger is refused
+          # rather than passed on to a shell or a URL.
+          if ! printf '%s' "$asked" | grep -Eq '^[A-Za-z0-9_-]{1,64}$'; then
+            echo "refusing subject: $asked" >&2
+            exit 1
+          fi
+          if [ -n "$command_id" ] && ! printf '%s' "$command_id" | grep -Eq '^[0-9]{1,12}$'; then
+            echo "refusing command id" >&2
+            exit 1
+          fi
+          echo "dry=$dry" >> "$GITHUB_OUTPUT"
+          echo "command_id=$command_id" >> "$GITHUB_OUTPUT"
+
+          if [ "$asked" != "all" ]; then
+            list="[\"$asked\"]"
+            count=1
+          else
+            body=$(curl -sS --max-time 60 -H "Authorization: Bearer $AEO_ENGINE_SECRET" "$CONTROL_CENTER_URL/api/aeo/context?subject=all")
+            list=$(printf '%s' "$body" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);const v=(j.subjects||[]).map(x=>x.slug);if(!v.length){console.error("no active subjects");process.exit(1)}process.stdout.write(JSON.stringify(v))})')
+            count=$(printf '%s' "$list" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(String(JSON.parse(s).length)))')
+          fi
+          total="${AEO_MAX_USD_PER_RUN:-25}"
+          cap=$(node -e "process.stdout.write((Number(process.argv[1])/Number(process.argv[2])).toFixed(2))" "$total" "$count")
+          echo "list=$list" >> "$GITHUB_OUTPUT"
+          echo "cap=$cap" >> "$GITHUB_OUTPUT"
+          echo "Subjects: $list ($count), $cap USD each of $total"
+
+  research:
+    needs: plan
+    runs-on: ubuntu-latest
+    # One subject measured at 26 minutes on the first live run. An attempt, a
+    # wait and a retry is about 57, so the hour the single-job version had
+    # would have killed the retry rather than the work.
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      # Three at a time: enough to finish inside the hour, gentle enough that
+      # the assistants are not asked fifteen questions at once.
+      max-parallel: 3
+      matrix:
+        subject: ${{ fromJson(needs.plan.outputs.subjects) }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -42,27 +129,12 @@ jobs:
           node-version: '20'
           cache: 'npm'
       - run: npm ci
-      - name: Resolve the run
-        id: plan
-        shell: bash
-        run: |
-          subject="all"
-          extra=""
-          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
-            subject="${{ github.event.client_payload.subject || 'all' }}"
-            if [ -n "${{ github.event.client_payload.command_id }}" ]; then
-              extra="--command-id ${{ github.event.client_payload.command_id }}"
-            fi
-          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            subject="${{ inputs.subject || 'all' }}"
-            if [ "${{ inputs.dry }}" = "true" ]; then extra="--dry --out out/packets.json"; fi
-          fi
-          echo "args=--subject $subject $extra" >> "$GITHUB_OUTPUT"
-          echo "Run: --subject $subject $extra"
-      - name: Attempt 1
-        id: attempt1
-        continue-on-error: true
-        env: &aeo_env
+      # Two attempts in the one step, five minutes apart. GitHub Actions
+      # rejects YAML anchors, so a second step would mean naming eight
+      # secrets twice; a loop names them once and still ends in exit 1, which
+      # is what sends the failure email.
+      - name: Research this subject
+        env:
           CONTROL_CENTER_URL: ${{ secrets.CONTROL_CENTER_URL }}
           AEO_ENGINE_SECRET: ${{ secrets.AEO_ENGINE_SECRET }}
           FIREFLIES_API_KEY: ${{ secrets.FIREFLIES_API_KEY }}
@@ -71,33 +143,30 @@ jobs:
           PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
           XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
           EXA_API_KEY: ${{ secrets.EXA_API_KEY }}
-          AEO_MAX_USD_PER_RUN: ${{ vars.AEO_MAX_USD_PER_RUN }}
-        run: npm run --silent run -- ${{ steps.plan.outputs.args }}
-      - name: Wait before attempt 2
-        if: steps.attempt1.outcome == 'failure'
-        run: sleep 900
-      - name: Attempt 2
-        id: attempt2
-        if: steps.attempt1.outcome == 'failure'
-        continue-on-error: true
-        env: *aeo_env
-        run: npm run --silent run -- ${{ steps.plan.outputs.args }}
-      - name: Wait before attempt 3
-        if: steps.attempt2.outcome == 'failure'
-        run: sleep 900
-      - name: Attempt 3
-        id: attempt3
-        if: steps.attempt2.outcome == 'failure'
-        continue-on-error: true
-        env: *aeo_env
-        run: npm run --silent run -- ${{ steps.plan.outputs.args }}
-      - name: Keep the dry-run packets
-        if: github.event_name == 'workflow_dispatch' && inputs.dry
+          SUBJECT: ${{ matrix.subject }}
+          CAP: ${{ needs.plan.outputs.cap }}
+          COMMAND_ID: ${{ needs.plan.outputs.command_id }}
+          DRY: ${{ needs.plan.outputs.dry }}
+        run: |
+          set -uo pipefail
+          args=(--subject "$SUBJECT" --cap-usd "$CAP")
+          if [ -n "$COMMAND_ID" ]; then args+=(--command-id "$COMMAND_ID"); fi
+          if [ "$DRY" = "true" ]; then args+=(--dry --out "out/packet.$SUBJECT.json"); fi
+          for attempt in 1 2; do
+            echo "::group::$SUBJECT attempt $attempt"
+            npm run --silent run -- "${args[@]}" && { echo "::endgroup::"; exit 0; }
+            echo "::endgroup::"
+            if [ "$attempt" = "1" ]; then
+              echo "$SUBJECT failed, waiting five minutes before the retry"
+              sleep 300
+            fi
+          done
+          echo "$SUBJECT failed twice"
+          exit 1
+      - name: Keep the dry-run packet
+        if: ${{ always() && needs.plan.outputs.dry == 'true' }}
         uses: actions/upload-artifact@v4
         with:
-          name: aeo-packets
+          name: aeo-packet-${{ matrix.subject }}
           path: out/
           if-no-files-found: ignore
-      - name: Preserve GitHub failure notification
-        if: steps.attempt3.outcome == 'failure'
-        run: exit 1
