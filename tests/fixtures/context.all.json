@@ -1,0 +1,132 @@
+{
+  "ok": true,
+  "week_start": "2026-09-07",
+  "generated_at": "2026-09-08T04:00:00.000Z",
+  "krish": {
+    "name": "Krish Raja",
+    "domains": ["mindmake.co", "krishraja.com", "mindmakerlive.substack.com", "linkedin.com/in/krishraja"]
+  },
+  "icp": {
+    "room_face": {
+      "who": "A senior leader at a PE or VC backed media, adtech, publishing or data business, quietly behind on what is coming and unable to say so inside their organisation",
+      "who_not": "Anyone whose employer sells AI tools; anyone with no warm path"
+    }
+  },
+  "subjects": [
+    {
+      "id": "1b7f3c2e-4a5d-4c8b-9e1f-2a3b4c5d6e7f",
+      "kind": "venture",
+      "slug": "ctrl",
+      "name": "CTRL",
+      "domains": ["ctrl.mindmake.co", "mindmake.co"],
+      "competitor_domains": [],
+      "icp_line": "A senior operator who writes a lot and wants an AI assistant that sounds like them, not like a model",
+      "seed_topics": ["personal AI writing voice", "building your own AI skill", "generic AI output"],
+      "never_say": [],
+      "product_slug": "ctrl",
+      "lane_slug": "mm_ctrl",
+      "room_target": null,
+      "touchpoints": [
+        {
+          "id": "a1000000-0000-4000-8000-000000000001",
+          "icp_trigger": "how do I get an AI assistant to write like me / should I build my own AI skill",
+          "watering_hole": "LinkedIn",
+          "coverage_status": "unaddressed",
+          "cost_efficiency_score": 8
+        },
+        {
+          "id": "a1000000-0000-4000-8000-000000000002",
+          "icp_trigger": "how do I stop AI output sounding generic",
+          "watering_hole": "Substack",
+          "coverage_status": "partial",
+          "cost_efficiency_score": 6
+        }
+      ],
+      "striking_distance": [
+        { "query": "personal ai writing style", "current_position": 14, "previous_position": 18, "search_volume": 320, "priority": 3, "last_checked_at": "2026-09-06T02:00:00.000Z" },
+        { "query": "how to train ai on your writing", "current_position": 22, "previous_position": 21, "search_volume": 880, "priority": 2, "last_checked_at": "2026-09-06T02:00:00.000Z" },
+        { "query": "custom gpt for my voice", "current_position": 9, "previous_position": 12, "search_volume": 90, "priority": 1, "last_checked_at": "2026-09-06T02:00:00.000Z" }
+      ],
+      "probes_4w": [
+        { "id": "e1000000-0000-4000-8000-000000000001", "question": "How do I get an AI assistant to write like me?", "engine": "perplexity", "we_cited": false, "competitors_cited": ["https://www.example-writer-tools.com/guide/voice", "https://help.example-assistant.com/style"], "run_at": "2026-08-31T04:10:00.000Z", "run_id": null, "query_id": "b1000000-0000-4000-8000-000000000001" },
+        { "id": "e1000000-0000-4000-8000-000000000002", "question": "How do I get an AI assistant to write like me?", "engine": "chatgpt", "we_cited": false, "competitors_cited": ["https://www.example-writer-tools.com/blog/2026/train-your-voice"], "run_at": "2026-08-31T04:11:00.000Z", "run_id": null, "query_id": "b1000000-0000-4000-8000-000000000001" },
+        { "id": "e1000000-0000-4000-8000-000000000003", "question": "How do I stop AI output sounding generic?", "engine": "claude", "we_cited": true, "competitors_cited": ["https://mindmake.co/ctrl", "https://www.example-writer-tools.com/guide/voice"], "run_at": "2026-08-31T04:12:00.000Z", "run_id": null, "query_id": "b1000000-0000-4000-8000-000000000003" },
+        { "id": "e1000000-0000-4000-8000-000000000004", "question": "Should I build my own AI skill?", "engine": "perplexity", "we_cited": false, "competitors_cited": ["https://forum.example-dev.org/t/skills/123"], "run_at": "2026-08-31T04:13:00.000Z", "run_id": null, "query_id": "b1000000-0000-4000-8000-000000000002" }
+      ],
+      "prior": {
+        "week_start": "2026-08-31",
+        "watch_list": [
+          { "query_id": "b1000000-0000-4000-8000-000000000002", "query": "Should I build my own AI skill?", "why": "demand 30, new; cited on 0 of 1 probed engine" }
+        ],
+        "queries": [
+          { "query_id": "b1000000-0000-4000-8000-000000000001", "query": "How do I get an AI assistant to write like me?", "demand_score": 45, "status": "recommend", "trend": "new" },
+          { "query_id": "b1000000-0000-4000-8000-000000000002", "query": "Should I build my own AI skill?", "demand_score": 30, "status": "watch", "trend": "new" },
+          { "query_id": "b1000000-0000-4000-8000-000000000003", "query": "How do I stop AI output sounding generic?", "demand_score": 55, "status": "recommend", "trend": "new" }
+        ],
+        "recommendations": [
+          { "title": "Answer \"How do I get an AI assistant to write like me?\"", "target_query": "How do I get an AI assistant to write like me?", "query_id": "b1000000-0000-4000-8000-000000000001" }
+        ]
+      }
+    },
+    {
+      "id": "2c8a4d3f-5b6e-4d9c-8f2a-3b4c5d6e7f80",
+      "kind": "prospect",
+      "slug": "sample-media",
+      "name": "Sample Media Group",
+      "domains": ["sample-media.example"],
+      "competitor_domains": [],
+      "icp_line": "A PE-backed regional media group deciding how to use AI across its newsroom and ad operations",
+      "seed_topics": ["AI in newsroom workflows", "ad operations automation", "first-party data strategy"],
+      "never_say": ["Sample Media Group"],
+      "product_slug": null,
+      "lane_slug": null,
+      "room_target": {
+        "id": "c1000000-0000-4000-8000-000000000001",
+        "company": "Sample Media Group",
+        "title": "Chief Product Officer",
+        "why_face": "Runs product across three regional titles and has said in public that the newsroom is behind on AI",
+        "trigger_signal": "Announced a newsroom AI working group in August",
+        "trigger_source_url": "https://sample-media.example/news/ai-working-group",
+        "state": "listed"
+      },
+      "touchpoints": [],
+      "striking_distance": [],
+      "probes_4w": [
+        { "id": "e2000000-0000-4000-8000-000000000001", "question": "How should a regional media group use AI in its newsroom?", "engine": "perplexity", "we_cited": false, "competitors_cited": ["https://www.example-press-institute.org/ai-newsroom-guide", "https://www.example-consultancy.com/insights/media-ai"], "run_at": "2026-08-31T04:20:00.000Z", "run_id": null, "query_id": null },
+        { "id": "e2000000-0000-4000-8000-000000000002", "question": "How should a regional media group use AI in its newsroom?", "engine": "chatgpt", "we_cited": false, "competitors_cited": ["https://www.example-press-institute.org/ai-newsroom-guide"], "run_at": "2026-08-31T04:21:00.000Z", "run_id": null, "query_id": null }
+      ],
+      "prior": null
+    },
+    {
+      "id": "3d9b5e40-6c7f-4ea1-9a3b-4c5d6e7f8091",
+      "kind": "aspiration",
+      "slug": "sample-studio",
+      "name": "Sample Studio",
+      "domains": ["sample-studio.example"],
+      "competitor_domains": [],
+      "icp_line": "An independent AI product studio whose essays are cited by assistants when founders ask about pricing and building in public",
+      "seed_topics": ["how to price AI products", "building in public", "usage-based pricing"],
+      "never_say": [],
+      "product_slug": null,
+      "lane_slug": null,
+      "room_target": null,
+      "touchpoints": [],
+      "striking_distance": [],
+      "probes_4w": [
+        { "id": "e3000000-0000-4000-8000-000000000001", "question": "How should I price an AI product?", "engine": "perplexity", "we_cited": true, "competitors_cited": ["https://sample-studio.example/essays/2026/pricing-ai-products", "https://www.example-vc.com/blog/ai-pricing"], "run_at": "2026-08-31T04:30:00.000Z", "run_id": null, "query_id": "d1000000-0000-4000-8000-000000000001" },
+        { "id": "e3000000-0000-4000-8000-000000000002", "question": "How should I price an AI product?", "engine": "chatgpt", "we_cited": true, "competitors_cited": ["https://sample-studio.example/essays/2025/usage-based-pricing"], "run_at": "2026-08-31T04:31:00.000Z", "run_id": null, "query_id": "d1000000-0000-4000-8000-000000000001" },
+        { "id": "e3000000-0000-4000-8000-000000000003", "question": "How do I build an AI product in public?", "engine": "claude", "we_cited": false, "competitors_cited": ["https://www.example-vc.com/blog/build-in-public"], "run_at": "2026-08-31T04:32:00.000Z", "run_id": null, "query_id": null }
+      ],
+      "prior": {
+        "week_start": "2026-08-31",
+        "watch_list": [
+          { "query_id": "d1000000-0000-4000-8000-000000000001", "query": "How should I price an AI product?", "why": "demand 40, new; cited on 2 of 2 probed engines" }
+        ],
+        "queries": [
+          { "query_id": "d1000000-0000-4000-8000-000000000001", "query": "How should I price an AI product?", "demand_score": 40, "status": "watch", "trend": "new" }
+        ],
+        "recommendations": []
+      }
+    }
+  ]
+}

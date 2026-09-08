@@ -1,0 +1,7 @@
+{
+  "text": "Here is the practical answer: the question of I price an AI product comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+  "citations": [
+    "https://sample-studio.example/essays/2026/pricing-ai-products",
+    "https://www.example-vc.com/blog/ai-pricing"
+  ]
+}

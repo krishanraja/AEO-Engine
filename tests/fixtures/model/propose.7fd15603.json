@@ -1,0 +1,129 @@
+{
+  "queries": [
+    {
+      "query": "How do I get an AI assistant to write like me?",
+      "source": "transcript",
+      "touchpoint_id": null
+    },
+    {
+      "query": "How do I stop AI output sounding generic?",
+      "source": "transcript",
+      "touchpoint_id": null
+    },
+    {
+      "query": "Should I build my own AI skill or buy one?",
+      "source": "transcript",
+      "touchpoint_id": null
+    },
+    {
+      "query": "How much of my own writing does an AI need to learn my style?",
+      "source": "transcript",
+      "touchpoint_id": null
+    },
+    {
+      "query": "How do I keep a consistent voice across email, posts and decks with AI?",
+      "source": "transcript",
+      "touchpoint_id": null
+    },
+    {
+      "query": "What is a personal AI writing style?",
+      "source": "striking_distance",
+      "touchpoint_id": null
+    },
+    {
+      "query": "How do I train an AI on my writing?",
+      "source": "striking_distance",
+      "touchpoint_id": null
+    },
+    {
+      "query": "Is a custom GPT for my voice worth it?",
+      "source": "striking_distance",
+      "touchpoint_id": null
+    },
+    {
+      "query": "Should I build my own AI skill?",
+      "source": "watch_carry",
+      "touchpoint_id": null
+    },
+    {
+      "query": "How do I get an AI assistant to write like me?",
+      "source": "seed",
+      "touchpoint_id": "a1000000-0000-4000-8000-000000000001"
+    },
+    {
+      "query": "Which AI writing tools learn your voice?",
+      "source": "gap",
+      "touchpoint_id": null
+    },
+    {
+      "query": "How do I give an AI assistant examples of my writing?",
+      "source": "gap",
+      "touchpoint_id": null
+    },
+    {
+      "query": "Why does AI writing sound the same for everyone?",
+      "source": "gap",
+      "touchpoint_id": null
+    },
+    {
+      "query": "How do I write a style guide for an AI assistant?",
+      "source": "seed",
+      "touchpoint_id": null
+    },
+    {
+      "query": "Can an AI learn my tone from my emails?",
+      "source": "seed",
+      "touchpoint_id": null
+    },
+    {
+      "query": "How do I stop ChatGPT from sounding like ChatGPT?",
+      "source": "seed",
+      "touchpoint_id": null
+    },
+    {
+      "query": "What should a personal AI skill contain?",
+      "source": "seed",
+      "touchpoint_id": null
+    },
+    {
+      "query": "How do I test whether an AI sounds like me?",
+      "source": "seed",
+      "touchpoint_id": null
+    },
+    {
+      "query": "Should a founder train their own AI writing model?",
+      "source": "seed",
+      "touchpoint_id": null
+    },
+    {
+      "query": "How do I brief an AI assistant on my voice for LinkedIn posts?",
+      "source": "seed",
+      "touchpoint_id": null
+    },
+    {
+      "query": "What is the difference between a custom GPT and a personal AI skill?",
+      "source": "seed",
+      "touchpoint_id": null
+    },
+    {
+      "query": "How do I keep an AI assistant from drifting back to generic writing?",
+      "source": "seed",
+      "touchpoint_id": null
+    },
+    {
+      "query": "How do executives use AI to draft in their own voice?",
+      "source": "seed",
+      "touchpoint_id": null
+    },
+    {
+      "query": "How do I turn my past writing into rules an AI can follow?",
+      "source": "seed",
+      "touchpoint_id": null
+    },
+    {
+      "query": "Is it worth paying for a tool that writes in my voice?",
+      "source": "seed",
+      "touchpoint_id": null
+    }
+  ]
+}

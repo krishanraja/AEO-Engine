@@ -1,0 +1,22 @@
+{
+  "id": "ff-7c1e2a",
+  "title": "CTRL onboarding call",
+  "date": "2026-09-03T14:00:00.000Z",
+  "sentences": [
+    { "text": "Thanks for making the time. What made you look at this now?", "speaker_name": "Speaker 1" },
+    { "text": "Everything I get out of the assistant reads like a press release. My team can tell in one line that I did not write it.", "speaker_name": "Speaker 2" },
+    { "text": "So the problem is the voice, not the facts.", "speaker_name": "Speaker 1" },
+    { "text": "Right. I have tried pasting in old posts, I have tried a custom GPT, and it still drifts back to generic within three replies.", "speaker_name": "Speaker 2" },
+    { "text": "How much of your own writing do you have to hand?", "speaker_name": "Speaker 1" },
+    { "text": "Years of it. Emails, decks, a newsletter. I do not know how much of that the model actually needs to learn me.", "speaker_name": "Speaker 2" },
+    { "text": "The other question I keep hitting is whether I should build my own skill for this or just buy something.", "speaker_name": "Speaker 2" },
+    { "text": "What would consistent look like for you?", "speaker_name": "Speaker 1" },
+    { "text": "The same voice in a two-line email, a LinkedIn post and a board deck, without me rewriting every draft from scratch.", "speaker_name": "Speaker 2" },
+    { "text": "That is what the compile step is for. It grades your own examples and only keeps rules your grading supports.", "speaker_name": "Speaker 1" }
+  ],
+  "summary": {
+    "overview": "A senior operator wants an assistant that writes in their own voice; current tools drift to generic output and they are weighing building a personal skill against buying one.",
+    "keywords": ["voice", "generic output", "custom skill", "consistency"],
+    "action_items": ["Send the intake link", "Follow up on Friday"]
+  }
+}

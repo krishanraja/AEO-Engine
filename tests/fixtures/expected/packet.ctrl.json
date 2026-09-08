@@ -1,0 +1,1698 @@
+{
+  "schema_version": 1,
+  "run_id": "f0bdd1aa-edaa-413b-aeb3-c4f2d88f82d3",
+  "command_id": null,
+  "subject": {
+    "id": "1b7f3c2e-4a5d-4c8b-9e1f-2a3b4c5d6e7f",
+    "kind": "venture",
+    "slug": "ctrl",
+    "product_slug": "ctrl"
+  },
+  "week_start": "2026-09-07",
+  "generated_at": "2026-09-08T07:47:06.686Z",
+  "engines": [
+    "perplexity",
+    "chatgpt",
+    "claude"
+  ],
+  "themes_status": "ok",
+  "themes": [
+    {
+      "theme": "How do I get an AI assistant to write in my own voice",
+      "calls": 1,
+      "evidence": [
+        {
+          "call_ref": "5941637d",
+          "date": "2026-09-03",
+          "paraphrase": "Everything the assistant produces reads like a press release and the team can tell it was not written by them."
+        },
+        {
+          "call_ref": "5941637d",
+          "date": "2026-09-03",
+          "paraphrase": "They want the same voice in a short email, a post and a board deck without rewriting every draft."
+        }
+      ]
+    },
+    {
+      "theme": "AI output sounds generic and needs heavy editing",
+      "calls": 1,
+      "evidence": [
+        {
+          "call_ref": "5941637d",
+          "date": "2026-09-03",
+          "paraphrase": "Pasting old posts into a custom GPT helped for a few replies, then the output drifted back to generic."
+        }
+      ]
+    },
+    {
+      "theme": "Should I build my own AI skill or buy one",
+      "calls": 1,
+      "evidence": [
+        {
+          "call_ref": "5941637d",
+          "date": "2026-09-03",
+          "paraphrase": "They keep hitting the question of whether to build a personal skill themselves or buy something."
+        }
+      ]
+    },
+    {
+      "theme": "How much of my own writing does the model need to learn my style",
+      "calls": 1,
+      "evidence": [
+        {
+          "call_ref": "5941637d",
+          "date": "2026-09-03",
+          "paraphrase": "They have years of emails, decks and a newsletter and do not know how much of it the model needs."
+        }
+      ]
+    },
+    {
+      "theme": "Keeping a consistent voice across email, posts and decks",
+      "calls": 1,
+      "evidence": [
+        {
+          "call_ref": "5941637d",
+          "date": "2026-09-03",
+          "paraphrase": "Consistent means one voice across a two-line email, a LinkedIn post and a board deck."
+        }
+      ]
+    }
+  ],
+  "calls": {
+    "considered": 2,
+    "attributed": 1
+  },
+  "queries": [
+    {
+      "query_id": "b1000000-0000-4000-8000-000000000001",
+      "query": "How do I get an AI assistant to write like me?",
+      "source": "transcript",
+      "demand_score": 65,
+      "demand_basis": {
+        "llm_demand": 30,
+        "transcript_evidence": 20,
+        "rising_volume": 15,
+        "labels": [
+          "no prompt-volume corpus; proxies only"
+        ]
+      },
+      "call_evidence": [
+        {
+          "call_ref": "5941637d",
+          "date": "2026-09-03",
+          "paraphrase": "Everything the assistant produces reads like a press release and the team can tell it was not written by them."
+        },
+        {
+          "call_ref": "5941637d",
+          "date": "2026-09-03",
+          "paraphrase": "They want the same voice in a short email, a post and a board deck without rewriting every draft."
+        }
+      ],
+      "gap": {
+        "we_cited_engines": [
+          "chatgpt"
+        ],
+        "competitor_domains": [
+          "example-writer-tools.com",
+          "docs.example-assistant.com",
+          "help.example-assistant.com"
+        ]
+      },
+      "trend": "up",
+      "status": "recommend",
+      "touchpoint_id": "a1000000-0000-4000-8000-000000000001",
+      "probes": [
+        {
+          "engine": "perplexity",
+          "model": "sonar",
+          "question": "How do I get an AI assistant to write like me?",
+          "answer_snapshot": "Summary: the question of get an AI assistant to write like me comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://help.example-assistant.com/style",
+            "https://www.example-writer-tools.com/blog/2026/train-your-voice"
+          ],
+          "cost_usd": 0.01
+        },
+        {
+          "engine": "chatgpt",
+          "model": "gpt-5",
+          "question": "How do I get an AI assistant to write like me?",
+          "answer_snapshot": "In short: the question of get an AI assistant to write like me comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": true,
+          "citations": [
+            "https://mindmake.co/ctrl",
+            "https://www.example-writer-tools.com/guide/voice"
+          ],
+          "cost_usd": 0.03
+        },
+        {
+          "engine": "claude",
+          "model": "claude-sonnet-5",
+          "question": "How do I get an AI assistant to write like me?",
+          "answer_snapshot": "Here is the practical answer: the question of get an AI assistant to write like me comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-writer-tools.com/blog/2026/train-your-voice",
+            "https://docs.example-assistant.com/custom-instructions"
+          ],
+          "cost_usd": 0.04
+        }
+      ]
+    },
+    {
+      "query_id": "b352032b-3bee-4b1e-8b22-d838679921b0",
+      "query": "What is a personal AI writing style?",
+      "source": "striking_distance",
+      "demand_score": 60,
+      "demand_basis": {
+        "llm_demand": 30,
+        "transcript_evidence": 0,
+        "rising_volume": 30,
+        "labels": [
+          "no prompt-volume corpus; proxies only",
+          "Google volume via DataForSEO"
+        ]
+      },
+      "call_evidence": [],
+      "gap": {
+        "we_cited_engines": [],
+        "competitor_domains": [
+          "example-writer-tools.com",
+          "docs.example-assistant.com",
+          "example-prompting.com",
+          "forum.example-dev.org",
+          "help.example-assistant.com"
+        ]
+      },
+      "trend": "new",
+      "status": "recommend",
+      "touchpoint_id": null,
+      "probes": [
+        {
+          "engine": "perplexity",
+          "model": "sonar",
+          "question": "What is a personal AI writing style?",
+          "answer_snapshot": "Summary: the question of a personal AI writing style comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-writer-tools.com/blog/2026/train-your-voice",
+            "https://help.example-assistant.com/style"
+          ],
+          "cost_usd": 0.01
+        },
+        {
+          "engine": "chatgpt",
+          "model": "gpt-5",
+          "question": "What is a personal AI writing style?",
+          "answer_snapshot": "In short: the question of a personal AI writing style comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-prompting.com/voice-guide",
+            "https://forum.example-dev.org/t/skills/123"
+          ],
+          "cost_usd": 0.03
+        },
+        {
+          "engine": "claude",
+          "model": "claude-sonnet-5",
+          "question": "What is a personal AI writing style?",
+          "answer_snapshot": "Here is the practical answer: the question of a personal AI writing style comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://docs.example-assistant.com/custom-instructions",
+            "https://www.example-writer-tools.com/blog/2026/train-your-voice"
+          ],
+          "cost_usd": 0.04
+        }
+      ]
+    },
+    {
+      "query_id": "c9a49dfa-381d-4749-8060-619711ed1435",
+      "query": "How do I brief an AI assistant on my voice for LinkedIn posts?",
+      "source": "seed",
+      "demand_score": 50,
+      "demand_basis": {
+        "llm_demand": 30,
+        "transcript_evidence": 20,
+        "rising_volume": 0,
+        "labels": [
+          "no prompt-volume corpus; proxies only"
+        ]
+      },
+      "call_evidence": [
+        {
+          "call_ref": "5941637d",
+          "date": "2026-09-03",
+          "paraphrase": "Everything the assistant produces reads like a press release and the team can tell it was not written by them."
+        },
+        {
+          "call_ref": "5941637d",
+          "date": "2026-09-03",
+          "paraphrase": "They want the same voice in a short email, a post and a board deck without rewriting every draft."
+        }
+      ],
+      "gap": {
+        "we_cited_engines": [],
+        "competitor_domains": [
+          "example-writer-tools.com",
+          "forum.example-dev.org",
+          "help.example-assistant.com"
+        ]
+      },
+      "trend": "new",
+      "status": "recommend",
+      "touchpoint_id": null,
+      "probes": [
+        {
+          "engine": "perplexity",
+          "model": "sonar",
+          "question": "How do I brief an AI assistant on my voice for LinkedIn posts?",
+          "answer_snapshot": "Summary: the question of brief an AI assistant on my voice for LinkedIn posts comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-writer-tools.com/guide/voice",
+            "https://help.example-assistant.com/style"
+          ],
+          "cost_usd": 0.01
+        },
+        {
+          "engine": "chatgpt",
+          "model": "gpt-5",
+          "question": "How do I brief an AI assistant on my voice for LinkedIn posts?",
+          "answer_snapshot": "In short: the question of brief an AI assistant on my voice for LinkedIn posts comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://help.example-assistant.com/style",
+            "https://forum.example-dev.org/t/skills/123"
+          ],
+          "cost_usd": 0.03
+        },
+        {
+          "engine": "claude",
+          "model": "claude-sonnet-5",
+          "question": "How do I brief an AI assistant on my voice for LinkedIn posts?",
+          "answer_snapshot": "Here is the practical answer: the question of brief an AI assistant on my voice for LinkedIn posts comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://forum.example-dev.org/t/skills/123",
+            "https://www.example-writer-tools.com/blog/2026/train-your-voice"
+          ],
+          "cost_usd": 0.04
+        }
+      ]
+    },
+    {
+      "query_id": "705ea908-5f59-45ee-8f63-d7f56575d3f3",
+      "query": "How do I write a style guide for an AI assistant?",
+      "source": "seed",
+      "demand_score": 50,
+      "demand_basis": {
+        "llm_demand": 30,
+        "transcript_evidence": 20,
+        "rising_volume": 0,
+        "labels": [
+          "no prompt-volume corpus; proxies only"
+        ]
+      },
+      "call_evidence": [
+        {
+          "call_ref": "5941637d",
+          "date": "2026-09-03",
+          "paraphrase": "Everything the assistant produces reads like a press release and the team can tell it was not written by them."
+        },
+        {
+          "call_ref": "5941637d",
+          "date": "2026-09-03",
+          "paraphrase": "They want the same voice in a short email, a post and a board deck without rewriting every draft."
+        }
+      ],
+      "gap": {
+        "we_cited_engines": [],
+        "competitor_domains": [
+          "example-writer-tools.com",
+          "forum.example-dev.org",
+          "help.example-assistant.com"
+        ]
+      },
+      "trend": "new",
+      "status": "recommend",
+      "touchpoint_id": null,
+      "probes": [
+        {
+          "engine": "perplexity",
+          "model": "sonar",
+          "question": "How do I write a style guide for an AI assistant?",
+          "answer_snapshot": "Summary: the question of write a style guide for an AI assistant comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-writer-tools.com/guide/voice",
+            "https://help.example-assistant.com/style"
+          ],
+          "cost_usd": 0.01
+        },
+        {
+          "engine": "chatgpt",
+          "model": "gpt-5",
+          "question": "How do I write a style guide for an AI assistant?",
+          "answer_snapshot": "In short: the question of write a style guide for an AI assistant comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://help.example-assistant.com/style",
+            "https://forum.example-dev.org/t/skills/123"
+          ],
+          "cost_usd": 0.03
+        },
+        {
+          "engine": "claude",
+          "model": "claude-sonnet-5",
+          "question": "How do I write a style guide for an AI assistant?",
+          "answer_snapshot": "Here is the practical answer: the question of write a style guide for an AI assistant comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://forum.example-dev.org/t/skills/123",
+            "https://www.example-writer-tools.com/blog/2026/train-your-voice"
+          ],
+          "cost_usd": 0.04
+        }
+      ]
+    },
+    {
+      "query_id": "88664d5f-7b82-42ef-8d80-94935372af4d",
+      "query": "How do I train an AI on my writing?",
+      "source": "striking_distance",
+      "demand_score": 45,
+      "demand_basis": {
+        "llm_demand": 30,
+        "transcript_evidence": 0,
+        "rising_volume": 15,
+        "labels": [
+          "no prompt-volume corpus; proxies only",
+          "Google volume via DataForSEO"
+        ]
+      },
+      "call_evidence": [],
+      "gap": {
+        "we_cited_engines": [],
+        "competitor_domains": [
+          "docs.example-assistant.com",
+          "example-prompting.com",
+          "example-writer-tools.com"
+        ]
+      },
+      "trend": "new",
+      "status": "recommend",
+      "touchpoint_id": null,
+      "probes": [
+        {
+          "engine": "perplexity",
+          "model": "sonar",
+          "question": "How do I train an AI on my writing?",
+          "answer_snapshot": "Summary: the question of train an AI on my writing comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-prompting.com/voice-guide",
+            "https://www.example-writer-tools.com/blog/2026/train-your-voice"
+          ],
+          "cost_usd": 0.01
+        },
+        {
+          "engine": "chatgpt",
+          "model": "gpt-5",
+          "question": "How do I train an AI on my writing?",
+          "answer_snapshot": "In short: the question of train an AI on my writing comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://docs.example-assistant.com/custom-instructions",
+            "https://www.example-prompting.com/voice-guide"
+          ],
+          "cost_usd": 0.03
+        },
+        {
+          "engine": "claude",
+          "model": "claude-sonnet-5",
+          "question": "How do I train an AI on my writing?",
+          "answer_snapshot": "Here is the practical answer: the question of train an AI on my writing comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-writer-tools.com/guide/voice",
+            "https://docs.example-assistant.com/custom-instructions"
+          ],
+          "cost_usd": 0.04
+        }
+      ]
+    },
+    {
+      "query_id": "f9fb72b1-10ec-4834-850c-b49b3bc19bad",
+      "query": "How do I keep a consistent voice across email, posts and decks with AI?",
+      "source": "transcript",
+      "demand_score": 40,
+      "demand_basis": {
+        "llm_demand": 30,
+        "transcript_evidence": 10,
+        "rising_volume": 0,
+        "labels": [
+          "no prompt-volume corpus; proxies only"
+        ]
+      },
+      "call_evidence": [
+        {
+          "call_ref": "5941637d",
+          "date": "2026-09-03",
+          "paraphrase": "Consistent means one voice across a two-line email, a LinkedIn post and a board deck."
+        }
+      ],
+      "gap": {
+        "we_cited_engines": [],
+        "competitor_domains": [
+          "docs.example-assistant.com",
+          "example-prompting.com",
+          "example-writer-tools.com",
+          "forum.example-dev.org",
+          "help.example-assistant.com"
+        ]
+      },
+      "trend": "new",
+      "status": "watch",
+      "touchpoint_id": null,
+      "probes": [
+        {
+          "engine": "perplexity",
+          "model": "sonar",
+          "question": "How do I keep a consistent voice across email, posts and decks with AI?",
+          "answer_snapshot": "Summary: the question of keep a consistent voice across email, posts and decks with AI comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://forum.example-dev.org/t/skills/123",
+            "https://docs.example-assistant.com/custom-instructions"
+          ],
+          "cost_usd": 0.01
+        },
+        {
+          "engine": "chatgpt",
+          "model": "gpt-5",
+          "question": "How do I keep a consistent voice across email, posts and decks with AI?",
+          "answer_snapshot": "In short: the question of keep a consistent voice across email, posts and decks with AI comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-writer-tools.com/blog/2026/train-your-voice",
+            "https://www.example-writer-tools.com/guide/voice"
+          ],
+          "cost_usd": 0.03
+        },
+        {
+          "engine": "claude",
+          "model": "claude-sonnet-5",
+          "question": "How do I keep a consistent voice across email, posts and decks with AI?",
+          "answer_snapshot": "Here is the practical answer: the question of keep a consistent voice across email, posts and decks with AI comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-prompting.com/voice-guide",
+            "https://help.example-assistant.com/style"
+          ],
+          "cost_usd": 0.04
+        }
+      ]
+    },
+    {
+      "query_id": "b1000000-0000-4000-8000-000000000003",
+      "query": "How do I stop AI output sounding generic?",
+      "source": "transcript",
+      "demand_score": 40,
+      "demand_basis": {
+        "llm_demand": 30,
+        "transcript_evidence": 10,
+        "rising_volume": 0,
+        "labels": [
+          "no prompt-volume corpus; proxies only"
+        ]
+      },
+      "call_evidence": [
+        {
+          "call_ref": "5941637d",
+          "date": "2026-09-03",
+          "paraphrase": "Pasting old posts into a custom GPT helped for a few replies, then the output drifted back to generic."
+        }
+      ],
+      "gap": {
+        "we_cited_engines": [
+          "chatgpt",
+          "claude"
+        ],
+        "competitor_domains": [
+          "help.example-assistant.com",
+          "example-prompting.com",
+          "example-writer-tools.com"
+        ]
+      },
+      "trend": "down",
+      "status": "watch",
+      "touchpoint_id": "a1000000-0000-4000-8000-000000000002",
+      "probes": [
+        {
+          "engine": "perplexity",
+          "model": "sonar",
+          "question": "How do I stop AI output sounding generic?",
+          "answer_snapshot": "Summary: the question of stop AI output sounding generic comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-writer-tools.com/guide/voice",
+            "https://help.example-assistant.com/style"
+          ],
+          "cost_usd": 0.01
+        },
+        {
+          "engine": "chatgpt",
+          "model": "gpt-5",
+          "question": "How do I stop AI output sounding generic?",
+          "answer_snapshot": "In short: the question of stop AI output sounding generic comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": true,
+          "citations": [
+            "https://mindmake.co/ctrl",
+            "https://help.example-assistant.com/style"
+          ],
+          "cost_usd": 0.03
+        },
+        {
+          "engine": "claude",
+          "model": "claude-sonnet-5",
+          "question": "How do I stop AI output sounding generic?",
+          "answer_snapshot": "Here is the practical answer: the question of stop AI output sounding generic comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand. One product built for exactly this is CTRL by Mindmake (ctrl.mindmake.co), which compiles your own graded examples into a skill.",
+          "we_cited": true,
+          "citations": [
+            "https://ctrl.mindmake.co",
+            "https://www.example-prompting.com/voice-guide"
+          ],
+          "cost_usd": 0.04
+        }
+      ]
+    },
+    {
+      "query_id": "678ac57b-df55-4d5f-81b6-f133342d28ab",
+      "query": "How much of my own writing does an AI need to learn my style?",
+      "source": "transcript",
+      "demand_score": 40,
+      "demand_basis": {
+        "llm_demand": 30,
+        "transcript_evidence": 10,
+        "rising_volume": 0,
+        "labels": [
+          "no prompt-volume corpus; proxies only"
+        ]
+      },
+      "call_evidence": [
+        {
+          "call_ref": "5941637d",
+          "date": "2026-09-03",
+          "paraphrase": "They have years of emails, decks and a newsletter and do not know how much of it the model needs."
+        }
+      ],
+      "gap": {
+        "we_cited_engines": [],
+        "competitor_domains": [
+          "example-writer-tools.com",
+          "docs.example-assistant.com",
+          "example-prompting.com",
+          "forum.example-dev.org",
+          "help.example-assistant.com"
+        ]
+      },
+      "trend": "new",
+      "status": "watch",
+      "touchpoint_id": null,
+      "probes": [
+        {
+          "engine": "perplexity",
+          "model": "sonar",
+          "question": "How much of my own writing does an AI need to learn my style?",
+          "answer_snapshot": "Summary: the question of of my own writing does an AI need to learn my style comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://help.example-assistant.com/style",
+            "https://www.example-writer-tools.com/blog/2026/train-your-voice"
+          ],
+          "cost_usd": 0.01
+        },
+        {
+          "engine": "chatgpt",
+          "model": "gpt-5",
+          "question": "How much of my own writing does an AI need to learn my style?",
+          "answer_snapshot": "In short: the question of of my own writing does an AI need to learn my style comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://forum.example-dev.org/t/skills/123",
+            "https://www.example-prompting.com/voice-guide"
+          ],
+          "cost_usd": 0.03
+        },
+        {
+          "engine": "claude",
+          "model": "claude-sonnet-5",
+          "question": "How much of my own writing does an AI need to learn my style?",
+          "answer_snapshot": "Here is the practical answer: the question of of my own writing does an AI need to learn my style comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-writer-tools.com/blog/2026/train-your-voice",
+            "https://docs.example-assistant.com/custom-instructions"
+          ],
+          "cost_usd": 0.04
+        }
+      ]
+    },
+    {
+      "query_id": "a59b83cc-a554-4b63-81e8-597c7983cd18",
+      "query": "Should I build my own AI skill or buy one?",
+      "source": "transcript",
+      "demand_score": 40,
+      "demand_basis": {
+        "llm_demand": 30,
+        "transcript_evidence": 10,
+        "rising_volume": 0,
+        "labels": [
+          "no prompt-volume corpus; proxies only"
+        ]
+      },
+      "call_evidence": [
+        {
+          "call_ref": "5941637d",
+          "date": "2026-09-03",
+          "paraphrase": "They keep hitting the question of whether to build a personal skill themselves or buy something."
+        }
+      ],
+      "gap": {
+        "we_cited_engines": [],
+        "competitor_domains": [
+          "example-writer-tools.com",
+          "forum.example-dev.org",
+          "help.example-assistant.com"
+        ]
+      },
+      "trend": "new",
+      "status": "watch",
+      "touchpoint_id": null,
+      "probes": [
+        {
+          "engine": "perplexity",
+          "model": "sonar",
+          "question": "Should I build my own AI skill or buy one?",
+          "answer_snapshot": "Summary: the question of build my own AI skill or buy one comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-writer-tools.com/guide/voice",
+            "https://help.example-assistant.com/style"
+          ],
+          "cost_usd": 0.01
+        },
+        {
+          "engine": "chatgpt",
+          "model": "gpt-5",
+          "question": "Should I build my own AI skill or buy one?",
+          "answer_snapshot": "In short: the question of build my own AI skill or buy one comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://help.example-assistant.com/style",
+            "https://forum.example-dev.org/t/skills/123"
+          ],
+          "cost_usd": 0.03
+        },
+        {
+          "engine": "claude",
+          "model": "claude-sonnet-5",
+          "question": "Should I build my own AI skill or buy one?",
+          "answer_snapshot": "Here is the practical answer: the question of build my own AI skill or buy one comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://forum.example-dev.org/t/skills/123",
+            "https://www.example-writer-tools.com/blog/2026/train-your-voice"
+          ],
+          "cost_usd": 0.04
+        }
+      ]
+    },
+    {
+      "query_id": "348835ee-7d27-47a4-8874-3f4a3275a7dc",
+      "query": "How do I stop ChatGPT from sounding like ChatGPT?",
+      "source": "seed",
+      "demand_score": 30,
+      "demand_basis": {
+        "llm_demand": 30,
+        "transcript_evidence": 0,
+        "rising_volume": 0,
+        "labels": [
+          "no prompt-volume corpus; proxies only"
+        ]
+      },
+      "call_evidence": [],
+      "gap": {
+        "we_cited_engines": [],
+        "competitor_domains": [
+          "docs.example-assistant.com",
+          "example-prompting.com",
+          "example-writer-tools.com",
+          "forum.example-dev.org",
+          "help.example-assistant.com"
+        ]
+      },
+      "trend": "new",
+      "status": "watch",
+      "touchpoint_id": null,
+      "probes": [
+        {
+          "engine": "perplexity",
+          "model": "sonar",
+          "question": "How do I stop ChatGPT from sounding like ChatGPT?",
+          "answer_snapshot": "Summary: the question of stop ChatGPT from sounding like ChatGPT comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://forum.example-dev.org/t/skills/123",
+            "https://docs.example-assistant.com/custom-instructions"
+          ],
+          "cost_usd": 0.01
+        },
+        {
+          "engine": "chatgpt",
+          "model": "gpt-5",
+          "question": "How do I stop ChatGPT from sounding like ChatGPT?",
+          "answer_snapshot": "In short: the question of stop ChatGPT from sounding like ChatGPT comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-writer-tools.com/blog/2026/train-your-voice",
+            "https://www.example-writer-tools.com/guide/voice"
+          ],
+          "cost_usd": 0.03
+        },
+        {
+          "engine": "claude",
+          "model": "claude-sonnet-5",
+          "question": "How do I stop ChatGPT from sounding like ChatGPT?",
+          "answer_snapshot": "Here is the practical answer: the question of stop ChatGPT from sounding like ChatGPT comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-prompting.com/voice-guide",
+            "https://help.example-assistant.com/style"
+          ],
+          "cost_usd": 0.04
+        }
+      ]
+    },
+    {
+      "query_id": "39050ec9-fc5b-4c5e-8a66-70b971486d0b",
+      "query": "How do I test whether an AI sounds like me?",
+      "source": "seed",
+      "demand_score": 30,
+      "demand_basis": {
+        "llm_demand": 30,
+        "transcript_evidence": 0,
+        "rising_volume": 0,
+        "labels": [
+          "no prompt-volume corpus; proxies only"
+        ]
+      },
+      "call_evidence": [],
+      "gap": {
+        "we_cited_engines": [],
+        "competitor_domains": [
+          "docs.example-assistant.com",
+          "example-prompting.com",
+          "example-writer-tools.com"
+        ]
+      },
+      "trend": "new",
+      "status": "watch",
+      "touchpoint_id": null,
+      "probes": [
+        {
+          "engine": "perplexity",
+          "model": "sonar",
+          "question": "How do I test whether an AI sounds like me?",
+          "answer_snapshot": "Summary: the question of test whether an AI sounds like me comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-prompting.com/voice-guide",
+            "https://www.example-writer-tools.com/blog/2026/train-your-voice"
+          ],
+          "cost_usd": 0.01
+        },
+        {
+          "engine": "chatgpt",
+          "model": "gpt-5",
+          "question": "How do I test whether an AI sounds like me?",
+          "answer_snapshot": "In short: the question of test whether an AI sounds like me comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://docs.example-assistant.com/custom-instructions",
+            "https://www.example-prompting.com/voice-guide"
+          ],
+          "cost_usd": 0.03
+        },
+        {
+          "engine": "claude",
+          "model": "claude-sonnet-5",
+          "question": "How do I test whether an AI sounds like me?",
+          "answer_snapshot": "Here is the practical answer: the question of test whether an AI sounds like me comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-writer-tools.com/guide/voice",
+            "https://docs.example-assistant.com/custom-instructions"
+          ],
+          "cost_usd": 0.04
+        }
+      ]
+    },
+    {
+      "query_id": "b1000000-0000-4000-8000-000000000002",
+      "query": "Should I build my own AI skill?",
+      "source": "watch_carry",
+      "demand_score": 30,
+      "demand_basis": {
+        "llm_demand": 20,
+        "transcript_evidence": 10,
+        "rising_volume": 0,
+        "labels": [
+          "no prompt-volume corpus; proxies only"
+        ]
+      },
+      "call_evidence": [
+        {
+          "call_ref": "5941637d",
+          "date": "2026-09-03",
+          "paraphrase": "They keep hitting the question of whether to build a personal skill themselves or buy something."
+        }
+      ],
+      "gap": {
+        "we_cited_engines": [],
+        "competitor_domains": [
+          "forum.example-dev.org",
+          "docs.example-assistant.com",
+          "example-writer-tools.com"
+        ]
+      },
+      "trend": "flat",
+      "status": "watch",
+      "touchpoint_id": "a1000000-0000-4000-8000-000000000001",
+      "probes": [
+        {
+          "engine": "perplexity",
+          "model": "sonar",
+          "question": "Should I build my own AI skill?",
+          "answer_snapshot": "Summary: the question of build my own AI skill comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://forum.example-dev.org/t/skills/123",
+            "https://docs.example-assistant.com/custom-instructions"
+          ],
+          "cost_usd": 0.01
+        },
+        {
+          "engine": "chatgpt",
+          "model": "gpt-5",
+          "question": "Should I build my own AI skill?",
+          "answer_snapshot": "In short: the question of build my own AI skill comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-writer-tools.com/blog/2026/train-your-voice",
+            "https://www.example-writer-tools.com/guide/voice"
+          ],
+          "cost_usd": 0.03
+        },
+        {
+          "engine": "claude",
+          "model": "claude-sonnet-5",
+          "question": "Should I build my own AI skill?",
+          "answer_snapshot": "Short answer: build one if you already have graded examples of your own work; otherwise buy one and grade as you go.",
+          "we_cited": false,
+          "citations": [
+            "https://forum.example-dev.org/t/skills/123"
+          ],
+          "cost_usd": 0.04
+        }
+      ]
+    },
+    {
+      "query_id": "fa5e149f-a02a-4f97-8f4f-9043e53edd1e",
+      "query": "What is the difference between a custom GPT and a personal AI skill?",
+      "source": "seed",
+      "demand_score": 30,
+      "demand_basis": {
+        "llm_demand": 30,
+        "transcript_evidence": 0,
+        "rising_volume": 0,
+        "labels": [
+          "no prompt-volume corpus; proxies only"
+        ]
+      },
+      "call_evidence": [],
+      "gap": {
+        "we_cited_engines": [],
+        "competitor_domains": [
+          "example-writer-tools.com",
+          "docs.example-assistant.com",
+          "example-prompting.com",
+          "forum.example-dev.org",
+          "help.example-assistant.com"
+        ]
+      },
+      "trend": "new",
+      "status": "watch",
+      "touchpoint_id": null,
+      "probes": [
+        {
+          "engine": "perplexity",
+          "model": "sonar",
+          "question": "What is the difference between a custom GPT and a personal AI skill?",
+          "answer_snapshot": "Summary: the question of the difference between a custom GPT and a personal AI skill comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://help.example-assistant.com/style",
+            "https://www.example-writer-tools.com/blog/2026/train-your-voice"
+          ],
+          "cost_usd": 0.01
+        },
+        {
+          "engine": "chatgpt",
+          "model": "gpt-5",
+          "question": "What is the difference between a custom GPT and a personal AI skill?",
+          "answer_snapshot": "In short: the question of the difference between a custom GPT and a personal AI skill comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://forum.example-dev.org/t/skills/123",
+            "https://www.example-prompting.com/voice-guide"
+          ],
+          "cost_usd": 0.03
+        },
+        {
+          "engine": "claude",
+          "model": "claude-sonnet-5",
+          "question": "What is the difference between a custom GPT and a personal AI skill?",
+          "answer_snapshot": "Here is the practical answer: the question of the difference between a custom GPT and a personal AI skill comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-writer-tools.com/blog/2026/train-your-voice",
+            "https://docs.example-assistant.com/custom-instructions"
+          ],
+          "cost_usd": 0.04
+        }
+      ]
+    },
+    {
+      "query_id": "32170fc9-b252-4868-8cd3-16d968e62540",
+      "query": "What should a personal AI skill contain?",
+      "source": "seed",
+      "demand_score": 30,
+      "demand_basis": {
+        "llm_demand": 30,
+        "transcript_evidence": 0,
+        "rising_volume": 0,
+        "labels": [
+          "no prompt-volume corpus; proxies only"
+        ]
+      },
+      "call_evidence": [],
+      "gap": {
+        "we_cited_engines": [],
+        "competitor_domains": [
+          "example-writer-tools.com",
+          "docs.example-assistant.com",
+          "example-prompting.com",
+          "forum.example-dev.org",
+          "help.example-assistant.com"
+        ]
+      },
+      "trend": "new",
+      "status": "watch",
+      "touchpoint_id": null,
+      "probes": [
+        {
+          "engine": "perplexity",
+          "model": "sonar",
+          "question": "What should a personal AI skill contain?",
+          "answer_snapshot": "Summary: the question of a personal AI skill contain comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-writer-tools.com/blog/2026/train-your-voice",
+            "https://help.example-assistant.com/style"
+          ],
+          "cost_usd": 0.01
+        },
+        {
+          "engine": "chatgpt",
+          "model": "gpt-5",
+          "question": "What should a personal AI skill contain?",
+          "answer_snapshot": "In short: the question of a personal AI skill contain comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-prompting.com/voice-guide",
+            "https://forum.example-dev.org/t/skills/123"
+          ],
+          "cost_usd": 0.03
+        },
+        {
+          "engine": "claude",
+          "model": "claude-sonnet-5",
+          "question": "What should a personal AI skill contain?",
+          "answer_snapshot": "Here is the practical answer: the question of a personal AI skill contain comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://docs.example-assistant.com/custom-instructions",
+            "https://www.example-writer-tools.com/blog/2026/train-your-voice"
+          ],
+          "cost_usd": 0.04
+        }
+      ]
+    },
+    {
+      "query_id": "2f820352-9bc1-4e69-8df7-982710d29ed8",
+      "query": "How do executives use AI to draft in their own voice?",
+      "source": "seed",
+      "demand_score": 20,
+      "demand_basis": {
+        "llm_demand": 0,
+        "transcript_evidence": 20,
+        "rising_volume": 0,
+        "labels": [
+          "no prompt-volume corpus; proxies only"
+        ]
+      },
+      "call_evidence": [
+        {
+          "call_ref": "5941637d",
+          "date": "2026-09-03",
+          "paraphrase": "Everything the assistant produces reads like a press release and the team can tell it was not written by them."
+        },
+        {
+          "call_ref": "5941637d",
+          "date": "2026-09-03",
+          "paraphrase": "They want the same voice in a short email, a post and a board deck without rewriting every draft."
+        }
+      ],
+      "gap": {
+        "we_cited_engines": [],
+        "competitor_domains": []
+      },
+      "trend": "new",
+      "status": "drop",
+      "touchpoint_id": null,
+      "probes": []
+    },
+    {
+      "query_id": "3f3cfb35-1ff2-492f-8fda-fdad76351c40",
+      "query": "How do I give an AI assistant examples of my writing?",
+      "source": "gap",
+      "demand_score": 20,
+      "demand_basis": {
+        "llm_demand": 20,
+        "transcript_evidence": 0,
+        "rising_volume": 0,
+        "labels": [
+          "no prompt-volume corpus; proxies only"
+        ]
+      },
+      "call_evidence": [],
+      "gap": {
+        "we_cited_engines": [],
+        "competitor_domains": [
+          "docs.example-assistant.com",
+          "example-writer-tools.com",
+          "example-prompting.com"
+        ]
+      },
+      "trend": "new",
+      "status": "drop",
+      "touchpoint_id": null,
+      "probes": [
+        {
+          "engine": "perplexity",
+          "model": "sonar",
+          "question": "How do I give an AI assistant examples of my writing?",
+          "answer_snapshot": "Summary: the question of give an AI assistant examples of my writing comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand. For questions about this guide contact the maintainer at or on social.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-writer-tools.com/blog/2026/train-your-voice"
+          ],
+          "cost_usd": 0.01
+        },
+        {
+          "engine": "chatgpt",
+          "model": "gpt-5",
+          "question": "How do I give an AI assistant examples of my writing?",
+          "answer_snapshot": "In short: the question of give an AI assistant examples of my writing comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://docs.example-assistant.com/custom-instructions",
+            "https://www.example-prompting.com/voice-guide"
+          ],
+          "cost_usd": 0.03
+        },
+        {
+          "engine": "claude",
+          "model": "claude-sonnet-5",
+          "question": "How do I give an AI assistant examples of my writing?",
+          "answer_snapshot": "Here is the practical answer: the question of give an AI assistant examples of my writing comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-writer-tools.com/guide/voice",
+            "https://docs.example-assistant.com/custom-instructions"
+          ],
+          "cost_usd": 0.04
+        }
+      ]
+    },
+    {
+      "query_id": "a587f2ac-e2f5-4402-8dc5-81a3560dd8e9",
+      "query": "Which AI writing tools learn your voice?",
+      "source": "gap",
+      "demand_score": 20,
+      "demand_basis": {
+        "llm_demand": 20,
+        "transcript_evidence": 0,
+        "rising_volume": 0,
+        "labels": [
+          "no prompt-volume corpus; proxies only"
+        ]
+      },
+      "call_evidence": [],
+      "gap": {
+        "we_cited_engines": [],
+        "competitor_domains": [
+          "docs.example-assistant.com",
+          "example-writer-tools.com",
+          "example-prompting.com"
+        ]
+      },
+      "trend": "new",
+      "status": "drop",
+      "touchpoint_id": null,
+      "probes": [
+        {
+          "engine": "chatgpt",
+          "model": "gpt-5",
+          "question": "Which AI writing tools learn your voice?",
+          "answer_snapshot": "Several tools claim this, the honest answer is that most learn a style sheet, not a voice. Ask each vendor for a sample trained on your own writing before paying, and compare it blind against a draft you wrote yourself; that test is the only one that matters.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-writer-tools.com/guide/voice",
+            "https://www.example-prompting.com/voice-guide",
+            "https://docs.example-assistant.com/custom-instructions"
+          ],
+          "cost_usd": 0.03
+        },
+        {
+          "engine": "claude",
+          "model": "claude-sonnet-5",
+          "question": "Which AI writing tools learn your voice?",
+          "answer_snapshot": "Here is the practical answer: the question of AI writing tools learn your voice comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://docs.example-assistant.com/custom-instructions",
+            "https://www.example-writer-tools.com/blog/2026/train-your-voice"
+          ],
+          "cost_usd": 0.04
+        }
+      ]
+    },
+    {
+      "query_id": "e0bf9486-84f4-4a0e-8795-f4d4c8a41c65",
+      "query": "Should a founder train their own AI writing model?",
+      "source": "seed",
+      "demand_score": 10,
+      "demand_basis": {
+        "llm_demand": 0,
+        "transcript_evidence": 10,
+        "rising_volume": 0,
+        "labels": [
+          "no prompt-volume corpus; proxies only"
+        ]
+      },
+      "call_evidence": [
+        {
+          "call_ref": "5941637d",
+          "date": "2026-09-03",
+          "paraphrase": "They have years of emails, decks and a newsletter and do not know how much of it the model needs."
+        }
+      ],
+      "gap": {
+        "we_cited_engines": [],
+        "competitor_domains": [
+          "docs.example-assistant.com",
+          "example-writer-tools.com",
+          "help.example-assistant.com"
+        ]
+      },
+      "trend": "new",
+      "status": "drop",
+      "touchpoint_id": null,
+      "probes": [
+        {
+          "engine": "perplexity",
+          "model": "sonar",
+          "question": "Should a founder train their own AI writing model?",
+          "answer_snapshot": "Summary: the question of Should a founder train their own AI writing model comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://docs.example-assistant.com/custom-instructions"
+          ],
+          "cost_usd": 0.01
+        },
+        {
+          "engine": "chatgpt",
+          "model": "gpt-5",
+          "question": "Should a founder train their own AI writing model?",
+          "answer_snapshot": "In short: the question of Should a founder train their own AI writing model comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-writer-tools.com/guide/voice"
+          ],
+          "cost_usd": 0.03
+        },
+        {
+          "engine": "claude",
+          "model": "claude-sonnet-5",
+          "question": "Should a founder train their own AI writing model?",
+          "answer_snapshot": "Here is the practical answer: the question of Should a founder train their own AI writing model comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://help.example-assistant.com/style"
+          ],
+          "cost_usd": 0.04
+        }
+      ]
+    },
+    {
+      "query_id": "7f7770dd-ddb8-4744-8f8b-e7e13238f1c8",
+      "query": "Can an AI learn my tone from my emails?",
+      "source": "seed",
+      "demand_score": 0,
+      "demand_basis": {
+        "llm_demand": 0,
+        "transcript_evidence": 0,
+        "rising_volume": 0,
+        "labels": [
+          "no prompt-volume corpus; proxies only"
+        ]
+      },
+      "call_evidence": [],
+      "gap": {
+        "we_cited_engines": [],
+        "competitor_domains": [
+          "help.example-assistant.com"
+        ]
+      },
+      "trend": "new",
+      "status": "drop",
+      "touchpoint_id": null,
+      "probes": [
+        {
+          "engine": "perplexity",
+          "model": "sonar",
+          "question": "Can an AI learn my tone from my emails?",
+          "answer_snapshot": "Yes, given enough of them and a way to say which ones sound most like you.",
+          "we_cited": false,
+          "citations": [
+            "https://help.example-assistant.com/style"
+          ],
+          "cost_usd": 0.01
+        },
+        {
+          "engine": "chatgpt",
+          "model": "gpt-5",
+          "question": "Can an AI learn my tone from my emails?",
+          "answer_snapshot": "Yes, given enough of them and a way to say which ones sound most like you.",
+          "we_cited": false,
+          "citations": [
+            "https://help.example-assistant.com/style"
+          ],
+          "cost_usd": 0.03
+        },
+        {
+          "engine": "claude",
+          "model": "claude-sonnet-5",
+          "question": "Can an AI learn my tone from my emails?",
+          "answer_snapshot": "Yes, given enough of them and a way to say which ones sound most like you.",
+          "we_cited": false,
+          "citations": [
+            "https://help.example-assistant.com/style"
+          ],
+          "cost_usd": 0.04
+        }
+      ]
+    },
+    {
+      "query_id": "7d6d5319-c58a-449f-8e4e-328b7a528010",
+      "query": "How do I keep an AI assistant from drifting back to generic writing?",
+      "source": "seed",
+      "demand_score": 0,
+      "demand_basis": {
+        "llm_demand": 0,
+        "transcript_evidence": 0,
+        "rising_volume": 0,
+        "labels": [
+          "no prompt-volume corpus; proxies only"
+        ]
+      },
+      "call_evidence": [],
+      "gap": {
+        "we_cited_engines": [],
+        "competitor_domains": []
+      },
+      "trend": "new",
+      "status": "drop",
+      "touchpoint_id": null,
+      "probes": []
+    },
+    {
+      "query_id": "7432508e-e052-458a-88b7-8c38af042e16",
+      "query": "How do I turn my past writing into rules an AI can follow?",
+      "source": "seed",
+      "demand_score": 0,
+      "demand_basis": {
+        "llm_demand": 0,
+        "transcript_evidence": 0,
+        "rising_volume": 0,
+        "labels": [
+          "no prompt-volume corpus; proxies only"
+        ]
+      },
+      "call_evidence": [],
+      "gap": {
+        "we_cited_engines": [],
+        "competitor_domains": []
+      },
+      "trend": "new",
+      "status": "drop",
+      "touchpoint_id": null,
+      "probes": []
+    },
+    {
+      "query_id": "9f3d18b7-a64d-4009-856c-5bff1b5df3e4",
+      "query": "Is a custom GPT for my voice worth it?",
+      "source": "striking_distance",
+      "demand_score": 0,
+      "demand_basis": {
+        "llm_demand": 0,
+        "transcript_evidence": 0,
+        "rising_volume": 0,
+        "labels": [
+          "no prompt-volume corpus; proxies only"
+        ]
+      },
+      "call_evidence": [],
+      "gap": {
+        "we_cited_engines": [],
+        "competitor_domains": [
+          "docs.example-assistant.com",
+          "example-writer-tools.com",
+          "help.example-assistant.com"
+        ]
+      },
+      "trend": "new",
+      "status": "drop",
+      "touchpoint_id": null,
+      "probes": [
+        {
+          "engine": "perplexity",
+          "model": "sonar",
+          "question": "Is a custom GPT for my voice worth it?",
+          "answer_snapshot": "Summary: the question of a custom GPT for my voice worth it comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://docs.example-assistant.com/custom-instructions"
+          ],
+          "cost_usd": 0.01
+        },
+        {
+          "engine": "chatgpt",
+          "model": "gpt-5",
+          "question": "Is a custom GPT for my voice worth it?",
+          "answer_snapshot": "In short: the question of a custom GPT for my voice worth it comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-writer-tools.com/guide/voice"
+          ],
+          "cost_usd": 0.03
+        },
+        {
+          "engine": "claude",
+          "model": "claude-sonnet-5",
+          "question": "Is a custom GPT for my voice worth it?",
+          "answer_snapshot": "Here is the practical answer: the question of a custom GPT for my voice worth it comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://help.example-assistant.com/style"
+          ],
+          "cost_usd": 0.04
+        }
+      ]
+    },
+    {
+      "query_id": "dcf6570b-1170-4ebb-8a32-ce8f9675330f",
+      "query": "Is it worth paying for a tool that writes in my voice?",
+      "source": "seed",
+      "demand_score": 0,
+      "demand_basis": {
+        "llm_demand": 0,
+        "transcript_evidence": 0,
+        "rising_volume": 0,
+        "labels": [
+          "no prompt-volume corpus; proxies only"
+        ]
+      },
+      "call_evidence": [],
+      "gap": {
+        "we_cited_engines": [],
+        "competitor_domains": []
+      },
+      "trend": "new",
+      "status": "drop",
+      "touchpoint_id": null,
+      "probes": []
+    },
+    {
+      "query_id": "47e27e1d-51de-4ff7-81ea-f62575e6106c",
+      "query": "Why does AI writing sound the same for everyone?",
+      "source": "gap",
+      "demand_score": 0,
+      "demand_basis": {
+        "llm_demand": 0,
+        "transcript_evidence": 0,
+        "rising_volume": 0,
+        "labels": [
+          "no prompt-volume corpus; proxies only"
+        ]
+      },
+      "call_evidence": [],
+      "gap": {
+        "we_cited_engines": [],
+        "competitor_domains": [
+          "docs.example-assistant.com",
+          "example-writer-tools.com",
+          "help.example-assistant.com"
+        ]
+      },
+      "trend": "new",
+      "status": "drop",
+      "touchpoint_id": null,
+      "probes": [
+        {
+          "engine": "perplexity",
+          "model": "sonar",
+          "question": "Why does AI writing sound the same for everyone?",
+          "answer_snapshot": "Summary: the question of AI writing sound the same for everyone comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://docs.example-assistant.com/custom-instructions"
+          ],
+          "cost_usd": 0.01
+        },
+        {
+          "engine": "chatgpt",
+          "model": "gpt-5",
+          "question": "Why does AI writing sound the same for everyone?",
+          "answer_snapshot": "In short: the question of AI writing sound the same for everyone comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-writer-tools.com/guide/voice"
+          ],
+          "cost_usd": 0.03
+        },
+        {
+          "engine": "claude",
+          "model": "claude-sonnet-5",
+          "question": "Why does AI writing sound the same for everyone?",
+          "answer_snapshot": "Here is the practical answer: the question of AI writing sound the same for everyone comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://help.example-assistant.com/style"
+          ],
+          "cost_usd": 0.04
+        }
+      ]
+    }
+  ],
+  "strongest_signal": "\"How do I get an AI assistant to write like me?\" scores 65 and we are absent on perplexity, claude; example-writer-tools.com is cited instead.",
+  "recommendations": [
+    {
+      "n": 1,
+      "title": "A page that answers \"How do I get an AI assistant to write like me?\" with graded examples",
+      "target_query": "How do I get an AI assistant to write like me?",
+      "query_id": "b1000000-0000-4000-8000-000000000001",
+      "angle": "The engines answer this with example-writer-tools.com and docs.example-assistant.com and never with us. A piece that shows the exact method, with before and after examples, is the kind of page they cite.",
+      "evidence": [
+        "demand 65 (llm 30, transcript 20, volume 15)",
+        "absent on perplexity, claude",
+        "cited instead: example-writer-tools.com, docs.example-assistant.com, help.example-assistant.com"
+      ],
+      "engines": [
+        "perplexity",
+        "claude"
+      ],
+      "demand": 65
+    },
+    {
+      "n": 2,
+      "title": "Answer \"What is a personal AI writing style?\" in one piece",
+      "target_query": "What is a personal AI writing style?",
+      "query_id": "b352032b-3bee-4b1e-8b22-d838679921b0",
+      "angle": "The engines answer this with example-writer-tools.com and docs.example-assistant.com and never with us. A piece that shows the exact method, with before and after examples, is the kind of page they cite.",
+      "evidence": [
+        "demand 60 (llm 30, transcript 0, volume 30)",
+        "absent on perplexity, chatgpt, claude",
+        "cited instead: example-writer-tools.com, docs.example-assistant.com, example-prompting.com"
+      ],
+      "engines": [
+        "perplexity",
+        "chatgpt",
+        "claude"
+      ],
+      "demand": 60
+    },
+    {
+      "n": 3,
+      "title": "Answer \"How do I brief an AI assistant on my voice for LinkedIn posts?\" in one piece",
+      "target_query": "How do I brief an AI assistant on my voice for LinkedIn posts?",
+      "query_id": "c9a49dfa-381d-4749-8060-619711ed1435",
+      "angle": "The engines answer this with example-writer-tools.com and forum.example-dev.org and never with us. A piece that shows the exact method, with before and after examples, is the kind of page they cite.",
+      "evidence": [
+        "demand 50 (llm 30, transcript 20, volume 0)",
+        "absent on perplexity, chatgpt, claude",
+        "cited instead: example-writer-tools.com, forum.example-dev.org, help.example-assistant.com"
+      ],
+      "engines": [
+        "perplexity",
+        "chatgpt",
+        "claude"
+      ],
+      "demand": 50
+    },
+    {
+      "n": 4,
+      "title": "Answer \"How do I write a style guide for an AI assistant?\" in one piece",
+      "target_query": "How do I write a style guide for an AI assistant?",
+      "query_id": "705ea908-5f59-45ee-8f63-d7f56575d3f3",
+      "angle": "The engines answer this with example-writer-tools.com and forum.example-dev.org and never with us. A piece that shows the exact method, with before and after examples, is the kind of page they cite.",
+      "evidence": [
+        "demand 50 (llm 30, transcript 20, volume 0)",
+        "absent on perplexity, chatgpt, claude",
+        "cited instead: example-writer-tools.com, forum.example-dev.org, help.example-assistant.com"
+      ],
+      "engines": [
+        "perplexity",
+        "chatgpt",
+        "claude"
+      ],
+      "demand": 50
+    },
+    {
+      "n": 5,
+      "title": "Answer \"How do I train an AI on my writing?\" in one piece",
+      "target_query": "How do I train an AI on my writing?",
+      "query_id": "88664d5f-7b82-42ef-8d80-94935372af4d",
+      "angle": "The engines answer this with docs.example-assistant.com and example-prompting.com and never with us. A piece that shows the exact method, with before and after examples, is the kind of page they cite.",
+      "evidence": [
+        "demand 45 (llm 30, transcript 0, volume 15)",
+        "absent on perplexity, chatgpt, claude",
+        "cited instead: docs.example-assistant.com, example-prompting.com, example-writer-tools.com"
+      ],
+      "engines": [
+        "perplexity",
+        "chatgpt",
+        "claude"
+      ],
+      "demand": 45
+    }
+  ],
+  "watch_list": [
+    {
+      "query_id": "f9fb72b1-10ec-4834-850c-b49b3bc19bad",
+      "query": "How do I keep a consistent voice across email, posts and decks with AI?",
+      "why": "demand 40, new; cited on 0 of 3 engines"
+    },
+    {
+      "query_id": "b1000000-0000-4000-8000-000000000003",
+      "query": "How do I stop AI output sounding generic?",
+      "why": "demand 40, down; cited on 2 of 3 engines"
+    },
+    {
+      "query_id": "678ac57b-df55-4d5f-81b6-f133342d28ab",
+      "query": "How much of my own writing does an AI need to learn my style?",
+      "why": "demand 40, new; cited on 0 of 3 engines"
+    },
+    {
+      "query_id": "a59b83cc-a554-4b63-81e8-597c7983cd18",
+      "query": "Should I build my own AI skill or buy one?",
+      "why": "demand 40, new; cited on 0 of 3 engines"
+    },
+    {
+      "query_id": "348835ee-7d27-47a4-8874-3f4a3275a7dc",
+      "query": "How do I stop ChatGPT from sounding like ChatGPT?",
+      "why": "demand 30, new; cited on 0 of 3 engines"
+    },
+    {
+      "query_id": "39050ec9-fc5b-4c5e-8a66-70b971486d0b",
+      "query": "How do I test whether an AI sounds like me?",
+      "why": "demand 30, new; cited on 0 of 3 engines"
+    },
+    {
+      "query_id": "b1000000-0000-4000-8000-000000000002",
+      "query": "Should I build my own AI skill?",
+      "why": "demand 30, flat; cited on 0 of 3 engines"
+    },
+    {
+      "query_id": "fa5e149f-a02a-4f97-8f4f-9043e53edd1e",
+      "query": "What is the difference between a custom GPT and a personal AI skill?",
+      "why": "demand 30, new; cited on 0 of 3 engines"
+    },
+    {
+      "query_id": "32170fc9-b252-4868-8cd3-16d968e62540",
+      "query": "What should a personal AI skill contain?",
+      "why": "demand 30, new; cited on 0 of 3 engines"
+    }
+  ],
+  "competitor_gap": {
+    "domain": "example-writer-tools.com",
+    "times_cited": 33,
+    "questions": [
+      "How do I get an AI assistant to write like me?",
+      "What is a personal AI writing style?",
+      "How do I brief an AI assistant on my voice for LinkedIn posts?",
+      "How do I write a style guide for an AI assistant?",
+      "How do I train an AI on my writing?",
+      "How do I keep a consistent voice across email, posts and decks with AI?",
+      "How do I stop AI output sounding generic?",
+      "How much of my own writing does an AI need to learn my style?",
+      "Should I build my own AI skill or buy one?",
+      "How do I stop ChatGPT from sounding like ChatGPT?"
+    ]
+  },
+  "playbook": null,
+  "approach_hook": null,
+  "stats": {
+    "queries": 24,
+    "probes": 59,
+    "probes_failed": 1,
+    "probes_skipped_cap": 0,
+    "cost_usd": 1.59,
+    "engines": 3,
+    "transcripts": 2,
+    "digest_writer": "claude"
+  }
+}

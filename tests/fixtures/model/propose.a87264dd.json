@@ -1,0 +1,104 @@
+{
+  "queries": [
+    {
+      "query": "How should a regional media group use AI in its newsroom?",
+      "source": "gap",
+      "touchpoint_id": null
+    },
+    {
+      "query": "How do we sequence AI across the newsroom and ad operations?",
+      "source": "room_signal",
+      "touchpoint_id": null
+    },
+    {
+      "query": "What should a newsroom AI working group deliver in its first 90 days?",
+      "source": "room_signal",
+      "touchpoint_id": null
+    },
+    {
+      "query": "How do regional publishers automate ad operations reporting with AI?",
+      "source": "seed",
+      "touchpoint_id": null
+    },
+    {
+      "query": "What is a first-party data strategy for a regional media group?",
+      "source": "seed",
+      "touchpoint_id": null
+    },
+    {
+      "query": "How do PE-backed media groups measure AI return on investment?",
+      "source": "room_signal",
+      "touchpoint_id": null
+    },
+    {
+      "query": "Which newsroom tasks should AI take over first?",
+      "source": "seed",
+      "touchpoint_id": null
+    },
+    {
+      "query": "How do we answer a board that asks what the AI plan is?",
+      "source": "room_signal",
+      "touchpoint_id": null
+    },
+    {
+      "query": "How do media companies avoid AI errors reaching print?",
+      "source": "seed",
+      "touchpoint_id": null
+    },
+    {
+      "query": "Should a regional publisher build or buy AI tools for the newsroom?",
+      "source": "seed",
+      "touchpoint_id": null
+    },
+    {
+      "query": "How do we train editors to use AI without losing quality?",
+      "source": "seed",
+      "touchpoint_id": null
+    },
+    {
+      "query": "What does an AI policy for a local news group look like?",
+      "source": "seed",
+      "touchpoint_id": null
+    },
+    {
+      "query": "How do we use AI to grow subscription revenue at a regional title?",
+      "source": "seed",
+      "touchpoint_id": null
+    },
+    {
+      "query": "How do publishers use AI for ad sales proposals?",
+      "source": "seed",
+      "touchpoint_id": null
+    },
+    {
+      "query": "How are other regional media groups using AI in 2026?",
+      "source": "seed",
+      "touchpoint_id": null
+    },
+    {
+      "query": "What happens to ad ops jobs when reporting is automated?",
+      "source": "seed",
+      "touchpoint_id": null
+    },
+    {
+      "query": "How do we keep readers' trust while using AI in the newsroom?",
+      "source": "seed",
+      "touchpoint_id": null
+    },
+    {
+      "query": "How do we choose an AI partner for a media business?",
+      "source": "seed",
+      "touchpoint_id": null
+    },
+    {
+      "query": "How do we run an AI pilot in a newsroom without disrupting deadlines?",
+      "source": "seed",
+      "touchpoint_id": null
+    },
+    {
+      "query": "What does a media group need in a data platform before using AI?",
+      "source": "seed",
+      "touchpoint_id": null
+    }
+  ]
+}

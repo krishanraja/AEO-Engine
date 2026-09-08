@@ -1,0 +1,59 @@
+{
+  "themes": [
+    {
+      "theme": "How do I get an AI assistant to write in my own voice",
+      "evidence": [
+        {
+          "call_ref": "5941637d",
+          "date": "2026-09-03",
+          "paraphrase": "Everything the assistant produces reads like a press release and the team can tell it was not written by them."
+        },
+        {
+          "call_ref": "5941637d",
+          "date": "2026-09-03",
+          "paraphrase": "They want the same voice in a short email, a post and a board deck without rewriting every draft."
+        }
+      ]
+    },
+    {
+      "theme": "AI output sounds generic and needs heavy editing",
+      "evidence": [
+        {
+          "call_ref": "5941637d",
+          "date": "2026-09-03",
+          "paraphrase": "Pasting old posts into a custom GPT helped for a few replies, then the output drifted back to generic."
+        }
+      ]
+    },
+    {
+      "theme": "Should I build my own AI skill or buy one",
+      "evidence": [
+        {
+          "call_ref": "5941637d",
+          "date": "2026-09-03",
+          "paraphrase": "They keep hitting the question of whether to build a personal skill themselves or buy something."
+        }
+      ]
+    },
+    {
+      "theme": "How much of my own writing does the model need to learn my style",
+      "evidence": [
+        {
+          "call_ref": "5941637d",
+          "date": "2026-09-03",
+          "paraphrase": "They have years of emails, decks and a newsletter and do not know how much of it the model needs."
+        }
+      ]
+    },
+    {
+      "theme": "Keeping a consistent voice across email, posts and decks",
+      "evidence": [
+        {
+          "call_ref": "5941637d",
+          "date": "2026-09-03",
+          "paraphrase": "Consistent means one voice across a two-line email, a LinkedIn post and a board deck."
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "id": "ff-9d4b1f",
+  "title": "Intro conversation",
+  "date": "2026-09-05T09:30:00.000Z",
+  "sentences": [
+    { "text": "We are a regional group, three titles, and the board keeps asking what the AI plan is.", "speaker_name": "Speaker 1" },
+    { "text": "What is the honest answer today?", "speaker_name": "Speaker 2" },
+    { "text": "A working group, a few pilots in the newsroom, nothing in ad ops yet, and no one who can say out loud how far behind we are.", "speaker_name": "Speaker 1" },
+    { "text": "Where does the pressure land first, the newsroom or the revenue side?", "speaker_name": "Speaker 2" },
+    { "text": "Revenue. If the ad operations team could automate the reporting we would free up a whole role.", "speaker_name": "Speaker 1" },
+    { "text": "Let me send you a note on how other groups have sequenced it.", "speaker_name": "Speaker 2" }
+  ],
+  "summary": {
+    "overview": "An early conversation with a regional media group about sequencing AI across the newsroom and ad operations.",
+    "keywords": ["newsroom", "ad operations", "board pressure"],
+    "action_items": ["Send a sequencing note"]
+  }
+}

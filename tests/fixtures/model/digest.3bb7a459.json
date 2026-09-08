@@ -1,0 +1,112 @@
+{
+  "strongest_signal": "\"How do I set a free tier for an AI product?\" scores 30 and we are absent on perplexity, chatgpt; example-vc.com is cited instead.",
+  "recommendations": [
+    {
+      "query_id": "99bae8b3-b6f2-43cd-8839-bfd7b0fdb897",
+      "title": "A page that answers \"How do I set a free tier for an AI product?\" with graded examples",
+      "angle": "The engines answer this with example-saas-blog.com and example-vc.com and never with us. A piece that shows the exact method, with before and after examples, is the kind of page they cite.",
+      "evidence": [
+        "demand 30 (llm 30, transcript 0, volume 0)",
+        "absent on perplexity, chatgpt",
+        "cited instead: example-saas-blog.com, example-vc.com"
+      ]
+    },
+    {
+      "query_id": "6fe1ec29-1ae2-4e61-8f9c-785ccda46cf5",
+      "title": "Answer \"How do I write about my product so AI assistants cite it?\" in one piece",
+      "angle": "The engines answer this with example-saas-blog.com and example-vc.com and never with us. A piece that shows the exact method, with before and after examples, is the kind of page they cite.",
+      "evidence": [
+        "demand 30 (llm 30, transcript 0, volume 0)",
+        "absent on perplexity, chatgpt",
+        "cited instead: example-saas-blog.com, example-vc.com"
+      ]
+    },
+    {
+      "query_id": "451bb3c0-0177-443f-897e-2bd8736cf5ba",
+      "title": "Answer \"How do studios show their work without giving away the product?\" in one piece",
+      "angle": "The engines answer this with example-vc.com and example-saas-blog.com and never with us. A piece that shows the exact method, with before and after examples, is the kind of page they cite.",
+      "evidence": [
+        "demand 30 (llm 30, transcript 0, volume 0)",
+        "absent on chatgpt, claude",
+        "cited instead: example-vc.com, example-saas-blog.com"
+      ]
+    }
+  ],
+  "watch_list": [
+    {
+      "query_id": "4c921e9a-2a5d-4fd3-8486-89248de962d0",
+      "why": "demand 30, new; cited on 2 of 3 engines"
+    },
+    {
+      "query_id": "fa8b019b-9e10-44ec-80b3-624c2776c135",
+      "why": "demand 30, new; cited on 2 of 3 engines"
+    },
+    {
+      "query_id": "5c37d9e8-c6e2-4ceb-8197-b3981baf5849",
+      "why": "demand 30, new; cited on 3 of 3 engines"
+    },
+    {
+      "query_id": "6eb855ba-2439-4cb9-88e6-9a5756ab0d8d",
+      "why": "demand 30, new; cited on 3 of 3 engines"
+    },
+    {
+      "query_id": "8c7cbf04-1890-4e8e-8b10-9e97dde1e845",
+      "why": "demand 30, new; cited on 3 of 3 engines"
+    },
+    {
+      "query_id": "82faef94-a906-43c5-824a-c08eedc09883",
+      "why": "demand 30, new; cited on 2 of 3 engines"
+    },
+    {
+      "query_id": "088d2579-7619-4731-8a2c-0bfc188ade80",
+      "why": "demand 30, new; cited on 3 of 3 engines"
+    },
+    {
+      "query_id": "da5bc6ba-ca0d-457d-8a49-eb9a6691f235",
+      "why": "demand 30, new; cited on 2 of 3 engines"
+    },
+    {
+      "query_id": "d1000000-0000-4000-8000-000000000001",
+      "why": "demand 30, down; cited on 3 of 3 engines"
+    },
+    {
+      "query_id": "1276feec-eaba-4126-8451-dbb8a4123944",
+      "why": "demand 30, new; cited on 3 of 3 engines"
+    },
+    {
+      "query_id": "0f81a898-37a4-4bc7-84f3-9c5b52cb82b6",
+      "why": "demand 30, new; cited on 3 of 3 engines"
+    },
+    {
+      "query_id": "99e5e572-4ee1-40e2-8499-3c987a4b5b8b",
+      "why": "demand 30, new; cited on 2 of 3 engines"
+    },
+    {
+      "query_id": "0b1c72c8-9324-40fe-8e1c-4b7d7905d4ab",
+      "why": "demand 30, new; cited on 3 of 3 engines"
+    },
+    {
+      "query_id": "568809cb-6598-4d90-86ec-766872b9d448",
+      "why": "demand 30, new; cited on 3 of 3 engines"
+    },
+    {
+      "query_id": "49ddfd71-acde-4651-8986-d7064e30a9b8",
+      "why": "demand 30, new; cited on 3 of 3 engines"
+    }
+  ],
+  "approach_hook": null,
+  "playbook": [
+    {
+      "url": "https://sample-studio.example/essays/2026/pricing-ai-products",
+      "why": "A /essays/n page: a dated essay that states a position on pricing with numbers, which is what the engines pull when a founder asks."
+    },
+    {
+      "url": "https://sample-studio.example/pricing",
+      "why": "A /pricing page: a dated essay that states a position on pricing with numbers, which is what the engines pull when a founder asks."
+    },
+    {
+      "url": "https://sample-studio.example/notes/2026/09/building-in-public",
+      "why": "A /notes/n page: a dated essay that states a position on pricing with numbers, which is what the engines pull when a founder asks."
+    }
+  ]
+}

@@ -1,0 +1,95 @@
+{
+  "strongest_signal": "\"How do I get an AI assistant to write like me?\" scores 65 and we are absent on perplexity, claude; example-writer-tools.com is cited instead.",
+  "recommendations": [
+    {
+      "query_id": "b1000000-0000-4000-8000-000000000001",
+      "title": "A page that answers \"How do I get an AI assistant to write like me?\" with graded examples",
+      "angle": "The engines answer this with example-writer-tools.com and docs.example-assistant.com and never with us. A piece that shows the exact method, with before and after examples, is the kind of page they cite.",
+      "evidence": [
+        "demand 65 (llm 30, transcript 20, volume 15)",
+        "absent on perplexity, claude",
+        "cited instead: example-writer-tools.com, docs.example-assistant.com, help.example-assistant.com"
+      ]
+    },
+    {
+      "query_id": "b352032b-3bee-4b1e-8b22-d838679921b0",
+      "title": "Answer \"What is a personal AI writing style?\" in one piece",
+      "angle": "The engines answer this with example-writer-tools.com and docs.example-assistant.com and never with us. A piece that shows the exact method, with before and after examples, is the kind of page they cite.",
+      "evidence": [
+        "demand 60 (llm 30, transcript 0, volume 30)",
+        "absent on perplexity, chatgpt, claude",
+        "cited instead: example-writer-tools.com, docs.example-assistant.com, example-prompting.com"
+      ]
+    },
+    {
+      "query_id": "c9a49dfa-381d-4749-8060-619711ed1435",
+      "title": "Answer \"How do I brief an AI assistant on my voice for LinkedIn posts?\" in one piece",
+      "angle": "The engines answer this with example-writer-tools.com and forum.example-dev.org and never with us. A piece that shows the exact method, with before and after examples, is the kind of page they cite.",
+      "evidence": [
+        "demand 50 (llm 30, transcript 20, volume 0)",
+        "absent on perplexity, chatgpt, claude",
+        "cited instead: example-writer-tools.com, forum.example-dev.org, help.example-assistant.com"
+      ]
+    },
+    {
+      "query_id": "705ea908-5f59-45ee-8f63-d7f56575d3f3",
+      "title": "Answer \"How do I write a style guide for an AI assistant?\" in one piece",
+      "angle": "The engines answer this with example-writer-tools.com and forum.example-dev.org and never with us. A piece that shows the exact method, with before and after examples, is the kind of page they cite.",
+      "evidence": [
+        "demand 50 (llm 30, transcript 20, volume 0)",
+        "absent on perplexity, chatgpt, claude",
+        "cited instead: example-writer-tools.com, forum.example-dev.org, help.example-assistant.com"
+      ]
+    },
+    {
+      "query_id": "88664d5f-7b82-42ef-8d80-94935372af4d",
+      "title": "Answer \"How do I train an AI on my writing?\" in one piece",
+      "angle": "The engines answer this with docs.example-assistant.com and example-prompting.com and never with us. A piece that shows the exact method, with before and after examples, is the kind of page they cite.",
+      "evidence": [
+        "demand 45 (llm 30, transcript 0, volume 15)",
+        "absent on perplexity, chatgpt, claude",
+        "cited instead: docs.example-assistant.com, example-prompting.com, example-writer-tools.com"
+      ]
+    }
+  ],
+  "watch_list": [
+    {
+      "query_id": "f9fb72b1-10ec-4834-850c-b49b3bc19bad",
+      "why": "demand 40, new; cited on 0 of 3 engines"
+    },
+    {
+      "query_id": "b1000000-0000-4000-8000-000000000003",
+      "why": "demand 40, down; cited on 2 of 3 engines"
+    },
+    {
+      "query_id": "678ac57b-df55-4d5f-81b6-f133342d28ab",
+      "why": "demand 40, new; cited on 0 of 3 engines"
+    },
+    {
+      "query_id": "a59b83cc-a554-4b63-81e8-597c7983cd18",
+      "why": "demand 40, new; cited on 0 of 3 engines"
+    },
+    {
+      "query_id": "348835ee-7d27-47a4-8874-3f4a3275a7dc",
+      "why": "demand 30, new; cited on 0 of 3 engines"
+    },
+    {
+      "query_id": "39050ec9-fc5b-4c5e-8a66-70b971486d0b",
+      "why": "demand 30, new; cited on 0 of 3 engines"
+    },
+    {
+      "query_id": "b1000000-0000-4000-8000-000000000002",
+      "why": "demand 30, flat; cited on 0 of 3 engines"
+    },
+    {
+      "query_id": "fa5e149f-a02a-4f97-8f4f-9043e53edd1e",
+      "why": "demand 30, new; cited on 0 of 3 engines"
+    },
+    {
+      "query_id": "32170fc9-b252-4868-8cd3-16d968e62540",
+      "why": "demand 30, new; cited on 0 of 3 engines"
+    }
+  ],
+  "approach_hook": null,
+  "playbook": []
+}

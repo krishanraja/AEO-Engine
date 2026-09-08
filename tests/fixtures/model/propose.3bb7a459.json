@@ -1,0 +1,104 @@
+{
+  "queries": [
+    {
+      "query": "How should I price an AI product?",
+      "source": "watch_carry",
+      "touchpoint_id": null
+    },
+    {
+      "query": "How do I build an AI product in public?",
+      "source": "gap",
+      "touchpoint_id": null
+    },
+    {
+      "query": "Should an AI product use usage-based pricing?",
+      "source": "seed",
+      "touchpoint_id": null
+    },
+    {
+      "query": "How do independent studios price AI tools?",
+      "source": "seed",
+      "touchpoint_id": null
+    },
+    {
+      "query": "What do founders get wrong about AI pricing?",
+      "source": "seed",
+      "touchpoint_id": null
+    },
+    {
+      "query": "How do I write about my product so AI assistants cite it?",
+      "source": "seed",
+      "touchpoint_id": null
+    },
+    {
+      "query": "How do small AI studios get found by assistants?",
+      "source": "seed",
+      "touchpoint_id": null
+    },
+    {
+      "query": "What is a fair price for an AI writing tool?",
+      "source": "seed",
+      "touchpoint_id": null
+    },
+    {
+      "query": "How do I share pricing experiments in public?",
+      "source": "seed",
+      "touchpoint_id": null
+    },
+    {
+      "query": "How do AI studios publish essays that get cited?",
+      "source": "seed",
+      "touchpoint_id": null
+    },
+    {
+      "query": "Should I charge per seat or per use for an AI product?",
+      "source": "seed",
+      "touchpoint_id": null
+    },
+    {
+      "query": "How do I run a build-in-public newsletter?",
+      "source": "seed",
+      "touchpoint_id": null
+    },
+    {
+      "query": "What pricing page works for an AI product?",
+      "source": "seed",
+      "touchpoint_id": null
+    },
+    {
+      "query": "How often should an AI studio publish?",
+      "source": "seed",
+      "touchpoint_id": null
+    },
+    {
+      "query": "How do I price an AI product for enterprise buyers?",
+      "source": "seed",
+      "touchpoint_id": null
+    },
+    {
+      "query": "How do founders talk about margins on AI products?",
+      "source": "seed",
+      "touchpoint_id": null
+    },
+    {
+      "query": "What makes an essay get cited by ChatGPT or Perplexity?",
+      "source": "seed",
+      "touchpoint_id": null
+    },
+    {
+      "query": "How do I compare AI pricing models?",
+      "source": "seed",
+      "touchpoint_id": null
+    },
+    {
+      "query": "How do studios show their work without giving away the product?",
+      "source": "seed",
+      "touchpoint_id": null
+    },
+    {
+      "query": "How do I set a free tier for an AI product?",
+      "source": "seed",
+      "touchpoint_id": null
+    }
+  ]
+}
