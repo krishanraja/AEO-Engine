@@ -77,7 +77,18 @@ export interface AeoContext {
   ok: true
   week_start: string
   generated_at: string
-  krish: { name: string; domains: string[] }
+  krish: {
+    name: string
+    domains: string[]
+    /** The krish-voice body Control Center holds once and every content call
+     *  is grounded in. Absent or empty on an older Control Center, and on a
+     *  read failure, in which case the digest writes plainly rather than in a
+     *  voice it guessed at. */
+    voice_block?: string
+    /** The writers Krish rates, each with the move he rates them for. The
+     *  same registry the Content engine's Tuesday scrape reads. */
+    voices_he_rates?: Array<{ name: string; why: string }>
+  }
   icp: { room_face: { who: string; who_not: string } }
   subjects: ContextSubject[]
 }

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { Ledger } from '../src/lib/cost.js'
 import { gapFor } from '../src/pipeline/20-gap.js'
-import { computeCompetitorGap, playbookGroups, writeDigest, type DigestInput } from '../src/pipeline/60-digest.js'
+import { computeCompetitorGap, digestSystem, playbookGroups, writeDigest, type DigestInput } from '../src/pipeline/60-digest.js'
 import type { ThemesResult } from '../src/pipeline/10-transcripts.js'
 import type { Engine, PacketQuery, Probe } from '../src/schema/packet.js'
 import { StubModel, fixtureContext, subject } from './helpers.js'
@@ -108,4 +108,38 @@ test('competitor_gap merges the four-week history with this week', () => {
   const g2 = computeCompetitorGap(input('ctrl', []))
   assert.equal(g2.domain, 'example-writer-tools.com')
   assert.equal(g2.times_cited, 2)
+})
+
+test('the digest writes in the voice Krish already gave the OS, and plainly when it has none', () => {
+  const plain = digestSystem()
+  assert.doesNotMatch(plain, /HOW KRISH WRITES/)
+  assert.doesNotMatch(plain, /THE MOVES HE RATES/)
+  assert.match(plain, /ABSOLUTE RULE/)
+
+  const dressed = digestSystem({
+    name: 'Krish Raja',
+    domains: ['mindmake.co'],
+    voice_block: 'Write short. No em dashes. Never say "unlock" or "leverage".',
+    voices_he_rates: [
+      { name: 'A Writer', why: 'named concept plus one-line economics plus proof plus CTA.' },
+      { name: 'Another', why: 'story-led essays that build the audience before the product.' },
+      { name: 'No reason', why: '' },
+    ],
+  })
+  assert.match(dressed, /HOW KRISH WRITES/)
+  assert.match(dressed, /Never say "unlock"/)
+  assert.match(dressed, /THE MOVES HE RATES/)
+  assert.match(dressed, /named concept plus one-line economics/)
+  assert.match(dressed, /story-led essays/)
+  // The people are never named to the model: it borrows the move, not the byline.
+  assert.doesNotMatch(dressed, /A Writer|Another/)
+  // A creator with no recorded move contributes nothing.
+  assert.equal(dressed.split('\n').filter(l => l.startsWith('- ')).length, 2)
+  // The voice governs register; it can never loosen the evidence rules.
+  assert.ok(dressed.indexOf('ABSOLUTE RULE') < dressed.indexOf('HOW KRISH WRITES'))
+  assert.match(dressed, /never overrides the two ABSOLUTE RULES/)
+
+  // A voice block far longer than the budget is cut, not sent whole.
+  const long = digestSystem({ name: 'K', domains: [], voice_block: 'x'.repeat(20_000) })
+  assert.ok(long.length < 12_000, `system prompt stayed bounded, was ${long.length}`)
 })

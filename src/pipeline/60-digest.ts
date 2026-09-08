@@ -50,6 +50,39 @@ const DIGEST_SYSTEM = [
   'No prose outside the JSON. No em dashes anywhere in any string, and no ASCII stand-ins for one either: never write "--" or a spaced hyphen as a dash. Use a comma, a full stop, or parentheses. Never write a person\'s name, email address or handle.',
 ].join('\n\n')
 
+/** How many characters of the krish-voice body to carry. The whole block is
+ *  tens of thousands of characters and most of it governs drafting a finished
+ *  piece; a digest writes titles and angles, so the opening, which carries
+ *  the register and the kill list, is the part that earns its tokens. */
+const VOICE_CHARS = 6000
+
+/**
+ * The system prompt for one run. Krish told the OS how he writes and whose
+ * moves he rates once, on the Content side; Control Center sends both here
+ * (`krish.voice_block`, `krish.voices_he_rates`), so a title and an angle
+ * land in his register instead of generic marketing prose. Both are optional:
+ * an older Control Center, or a failed read, gives a plain digest rather than
+ * one written in a voice the machine invented.
+ */
+export function digestSystem(krish?: AeoContext['krish']): string {
+  const parts = [DIGEST_SYSTEM]
+  const voice = (krish?.voice_block || '').trim()
+  if (voice) {
+    parts.push(
+      'HOW KRISH WRITES. The titles and angles you write are read in his voice, so hold them to this. It governs register and word choice only; it never overrides the two ABSOLUTE RULES above, and a rule here that asks for a longer form does not apply to a title or an angle.\n\n'
+      + voice.slice(0, VOICE_CHARS),
+    )
+  }
+  const rated = (krish?.voices_he_rates || []).filter(v => v && v.name && v.why)
+  if (rated.length) {
+    parts.push(
+      'THE MOVES HE RATES. These are writers Krish admires and the specific move he admires each for. Reach for a move on this list when a recommendation calls for one. Never name any of these people in what you write, and never imitate one closely enough that the piece reads as theirs rather than his.\n'
+      + rated.map(v => `- ${v.why}`).join('\n'),
+    )
+  }
+  return parts.join('\n\n')
+}
+
 function absentEngines(q: PacketQuery): Engine[] {
   return [...new Set(q.probes.filter(p => !p.we_cited).map(p => p.engine))]
 }
@@ -185,7 +218,7 @@ export async function writeDigest(model: ModelClient, ledger: Ledger, input: Dig
     const raw = await model.writeJson({
       stage: 'digest',
       key: subject.id,
-      system: DIGEST_SYSTEM,
+      system: digestSystem(input.ctx.krish),
       user: `Subject: ${subject.name} (${subject.kind}). Week starting ${input.weekStart} (Monday).\n\nEvidence (this is the entire factual basis you have; anything not here is unknown):\n${JSON.stringify(evidence, null, 1)}\n\nWrite the digest.`,
       maxTokens: 6000,
     })
