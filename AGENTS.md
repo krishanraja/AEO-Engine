@@ -11,7 +11,7 @@ older than the tree. Chronology lives in `docs/history/LOG.md`.
 This repository's own rules and deeper state: `docs/PACKET.md`, `docs/STATE.md`. They outrank the
 canon below on anything specific to this repository.
 
-<!-- krish-canon:start release=v2026.08.29.3 sha=e8af7280a8ea rendered=2026-09-08 -->
+<!-- krish-canon:start release=v2026.08.29.3 sha=7df94443361e rendered=2026-09-08 -->
 ## Krish canon
 
 Rendered from `krishanraja/ai-harness` at release v2026.08.29.3. Nothing inside these
@@ -40,10 +40,11 @@ the checks next to it, and report what was verified separately from what stays i
 sources disagree, stop destructive work, report the conflict, and open a reconciliation
 finding rather than picking the convenient one.
 
-**Secrets.** Never write a credential into source, documentation, logs, reports,
-screenshots or chat. Refer to secrets by symbolic name and retrieve them at execution
-time. A secret found in the tree is already exposed: report its location without the
-value, rotate it, scrub the copies, and add the gate that stops the next one.
+**Secrets.** Never write a credential into source, documentation, commit messages,
+issue or pull request bodies, logs, reports, screenshots or chat. Refer to secrets by
+symbolic name and retrieve them at execution time. A secret found in the tree is
+already exposed: report its location without the value, rotate it, scrub the copies,
+and add the gate that stops the next one.
 
 **Corrections are the training data.** When Krish overrules a decision, record it in the
 commit body as `Ruling (Krish, YYYY-MM-DD): the ruling, in one line`. That line is read
