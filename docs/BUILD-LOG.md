@@ -2,6 +2,31 @@
 
 Dated entries, newest first. Each one says why it was done, what failed or would have failed without it, and the mechanism. Control Center's build-signal ingest reads this file; keep names of people, prospects and secrets out of it.
 
+## 2026-09-08: the digest writes in a voice that was already on file
+
+Krish asked whether the machine could learn who he is inspired by and what he
+wants to sound like, and said he would rather drop it once than repeat it.
+
+He already had, twice, on the Content side of Control Center. The krish-voice
+body lives in `system_config.content_voice_block` and grounds every content
+call; `content_creators` holds the ten writers he rates, each with the move he
+rates them for, five of which the Tuesday scrape reads every week.
+
+So `GET /api/aeo/context` now carries both, and `digestSystem()` in
+`src/pipeline/60-digest.ts` builds the prompt from them: the opening of the
+voice block (6000 characters, the part that carries register and the kill
+list, because a digest writes titles and angles rather than finished pieces),
+then the moves without the names.
+
+Two rules that matter. The voice is appended after the two evidence rules and
+is told in the prompt that it governs register only, so a style instruction
+can never loosen "every number must appear in the evidence". And the people
+are never named to the model: it borrows the move, not the byline, because a
+recommendation that reads as somebody else's is worse than a plain one.
+
+Both fields are optional. An older Control Center, or a failed read, gives a
+plain digest rather than one written in a voice the machine invented.
+
 ## 2026-09-08
 
 ### The contract before the code
@@ -53,29 +78,3 @@ Mechanism: `src/lib/cost.ts`; the price table in `src/config/run.ts` is an estim
 ### Theme overlap needs three shared words
 
 Failure found: with two shared words, "ai" and one other word matched nearly every query to some theme in a corpus where every question mentions AI, so transcript evidence attached to questions no call had raised. Three shared non-stop words keeps the true matches in the fixture and drops the rest. It is still a proxy, and the labels say so.
-
-## 2026-09-08: the digest writes in a voice that was already on file
-
-Krish asked whether the machine could learn who he is inspired by and what he
-wants to sound like, and said he would rather drop it once than repeat it.
-
-He already had, twice, on the Content side of Control Center. The krish-voice
-body lives in `system_config.content_voice_block` and grounds every content
-call; `content_creators` holds the ten writers he rates, each with the move he
-rates them for, five of which the Tuesday scrape reads every week.
-
-So `GET /api/aeo/context` now carries both, and `digestSystem()` in
-`src/pipeline/60-digest.ts` builds the prompt from them: the opening of the
-voice block (6000 characters, the part that carries register and the kill
-list, because a digest writes titles and angles rather than finished pieces),
-then the moves without the names.
-
-Two rules that matter. The voice is appended after the two evidence rules and
-is told in the prompt that it governs register only, so a style instruction
-can never loosen "every number must appear in the evidence". And the people
-are never named to the model: it borrows the move, not the byline, because a
-recommendation that reads as somebody else's is worse than a plain one.
-
-Both fields are optional. An older Control Center, or a failed read, gives a
-plain digest rather than one written in a voice the machine invented.
-
