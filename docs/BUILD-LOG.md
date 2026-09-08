@@ -2,6 +2,28 @@
 
 Dated entries, newest first. Each one says why it was done, what failed or would have failed without it, and the mechanism. Control Center's build-signal ingest reads this file; keep names of people, prospects and secrets out of it.
 
+## 2026-09-08 (later): the first live run did not fit in the hour
+
+Found in production, not in a test. The first real dry run asked five
+products, twenty questions each, three assistants, one call after another,
+and was still going at fifty minutes against a job that is killed at
+fifty-five. Nothing shipped.
+
+The arithmetic was always there to be done: three hundred hosted web
+searches at several seconds each is forty minutes before a single model call.
+The offline suite never caught it because a fixture answers instantly.
+
+Fixed by asking one question's assistants together, since they have nothing
+to say to each other. Roughly a third of the wall time. The questions stay
+sequential on purpose: the spend cap is checked and charged before a question
+is asked, and keeping that decision on one thread is what makes the cap exact
+rather than approximate. Engine order in the packet is preserved, so a packet
+does not change shape with the weather, and a failed call still writes
+nothing and is still counted.
+
+Every client already carries a 120 second timeout, so a hung assistant cannot
+hold the group open.
+
 ## 2026-09-08: the digest writes in a voice that was already on file
 
 Krish asked whether the machine could learn who he is inspired by and what he
