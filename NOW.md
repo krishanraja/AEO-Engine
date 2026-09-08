@@ -2,7 +2,7 @@
 repo: krishanraja/AEO-Engine
 product: AEO-Engine
 as_of: 2026-09-08
-head: f2ddb45d
+head: a4e844f0
 lifecycle: building
 production_url: none
 state_doc: docs/STATE.md
