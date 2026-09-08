@@ -57,11 +57,89 @@ test('the model writes the prose; numbers, ids and engines come from the score t
   assert.ok(model.requests[0].user.includes('"call themes: no_calls"'))
 })
 
+test('a question the model says is owned is not also recommended, and every wall names a real query', async () => {
+  const q = [
+    row(1, 'How do I write in my own voice with AI?', 'recommend', 60, three()),
+    row(2, 'What is AI?', 'recommend', 55, three(), ['linkedin.com', 'youtube.com']),
+    row(3, 'Second question here?', 'watch', 35, three(['claude'])),
+  ]
+  const model = new StubModel(JSON.stringify({
+    strongest_signal: 's',
+    recommendations: [
+      { query_id: q[0].query_id, title: 'The voice piece', angle: 'Show the method', why_you_can_win: 'He has the graded before and after; the tool blogs have a feature page.', evidence: ['absent on all three'] },
+      { query_id: q[1].query_id, title: 'A category term he cannot win', angle: 'x', why_you_can_win: 'He knows a lot about this', evidence: [] },
+    ],
+    not_worth_chasing: [
+      { query_id: q[1].query_id, owned_by: ['linkedin.com', 'youtube.com'], why_not: 'A social network and a video platform own this on reach. One piece does not move it.' },
+      { query_id: q[2].query_id, owned_by: [], why_not: 'Asked by people who cannot buy.' },
+      { query_id: '00000000-0000-4000-8000-000000000099', owned_by: ['nowhere.example'], why_not: 'A query that is not in this packet.' },
+      { query_id: q[1].query_id, owned_by: ['linkedin.com'], why_not: 'The same one twice.' },
+    ],
+    watch_list: [],
+    approach_hook: null,
+    playbook: [],
+  }))
+  const d = await writeDigest(model, new Ledger(10), input('ctrl', q))
+  const ids = new Set(q.map(x => x.query_id))
+  // Only questions this packet actually carries, and each of them once.
+  assert.deepEqual(d.not_worth_chasing.map(w => w.query_id), [q[1].query_id, q[2].query_id])
+  for (const w of d.not_worth_chasing) assert.ok(ids.has(w.query_id), `${w.query_id} is not a query in this packet`)
+  // A walled question is dropped from the recommendations even though the model wrote one for it.
+  assert.deepEqual(d.recommendations.map(r => r.query_id), [q[0].query_id])
+  assert.equal(d.recommendations[0].why_you_can_win, 'He has the graded before and after; the tool blogs have a feature page.')
+  // owned_by falls back to the hosts actually cited when the model names none.
+  assert.deepEqual(d.not_worth_chasing[1].owned_by, ['rival.example'])
+  assert.equal(d.not_worth_chasing[0].query, 'What is AI?')
+})
+
+test('a recommendation the model wrote no reason for is carried with why_you_can_win null, not dropped', async () => {
+  const q = [row(1, 'How do I write in my own voice with AI?', 'recommend', 60, three()), row(2, 'Another one to answer?', 'recommend', 50, three())]
+  const model = new StubModel(JSON.stringify({
+    strongest_signal: 's',
+    recommendations: [
+      { query_id: q[0].query_id, title: 'No reason given', angle: 'a', evidence: ['e'] },
+      { query_id: q[1].query_id, title: 'An empty reason', angle: 'a', why_you_can_win: '   ', evidence: ['e'] },
+    ],
+    not_worth_chasing: [],
+    watch_list: [],
+    approach_hook: null,
+    playbook: [],
+  }))
+  const d = await writeDigest(model, new Ledger(10), input('ctrl', q))
+  // The choice: carry it with null so the reader sees the judgement was not
+  // made, rather than drop the row and hide the digest's own failure.
+  assert.equal(d.recommendations.length, 2)
+  assert.equal(d.recommendations[0].title, 'No reason given')
+  assert.equal(d.recommendations[0].why_you_can_win, null)
+  assert.equal(d.recommendations[1].why_you_can_win, null)
+})
+
+test('the fallback walls off what the platforms own and never invents a reason to win', async () => {
+  const q = [
+    row(1, 'How do I write in my own voice with AI?', 'recommend', 60, three()),
+    row(2, 'What is the future of work?', 'recommend', 55, three(), ['linkedin.com', 'forbes.com', 'www.youtube.com', 'niche.example']),
+    row(3, 'A specialist question here?', 'recommend', 50, three(), ['niche.example', 'linkedin.com']),
+  ]
+  const d = await writeDigest(new StubModel('THROW'), new Ledger(10), input('ctrl', q))
+  assert.equal(d.digest_writer, 'fallback')
+  // Three of four cited hosts are general platforms, so that answer is a wall.
+  assert.deepEqual(d.not_worth_chasing.map(w => w.query_id), [q[1].query_id])
+  assert.deepEqual(d.not_worth_chasing[0].owned_by, ['linkedin.com', 'forbes.com', 'www.youtube.com'])
+  assert.match(d.not_worth_chasing[0].why_not, /^The answer is owned by linkedin.com, forbes.com, www.youtube.com, won on reach/)
+  assert.match(d.not_worth_chasing[0].why_not, /the writing pass was unavailable/i)
+  // One general platform beside a specialist is still a specialist's answer.
+  assert.deepEqual(d.recommendations.map(r => r.query_id), [q[0].query_id, q[2].query_id])
+  // The fallback can see who is cited; it cannot see what Krish has that they do not.
+  for (const r of d.recommendations) assert.equal(r.why_you_can_win, null, `${r.title} invented a reason`)
+})
+
 test('a model failure falls back to the score table and says so', async () => {
   const q = [row(1, 'How do I write in my own voice with AI?', 'recommend', 60, three()), row(2, 'Second question here?', 'watch', 35, three(['claude']))]
   const d = await writeDigest(new StubModel('THROW'), new Ledger(10), input('ctrl', q))
   assert.equal(d.digest_writer, 'fallback')
   assert.equal(d.recommendations.length, 1)
+  assert.equal(d.recommendations[0].why_you_can_win, null)
+  assert.deepEqual(d.not_worth_chasing, [])
   assert.match(d.recommendations[0].angle, /not cited on perplexity, chatgpt, claude/)
   assert.match(d.recommendations[0].evidence[0], /^demand 60: llm 30/)
   assert.match(d.strongest_signal ?? '', /scored 60 and we are absent on perplexity, chatgpt, claude/)
@@ -142,4 +220,41 @@ test('the digest writes in the voice Krish already gave the OS, and plainly when
   // A voice block far longer than the budget is cut, not sent whole.
   const long = digestSystem({ name: 'K', domains: [], voice_block: 'x'.repeat(20_000) })
   assert.ok(long.length < 12_000, `system prompt stayed bounded, was ${long.length}`)
+})
+
+test('the winnability rules ride on the canon, and there are none without it', () => {
+  const plain = digestSystem({ name: 'K', domains: [], voice_block: 'Write short.' })
+  assert.doesNotMatch(plain, /WINNABILITY/)
+  assert.doesNotMatch(plain, /THE CANON/)
+  assert.doesNotMatch(plain, /why_you_can_win is\b/)
+  // The output contract is the same either way; only the judgement needs the canon.
+  assert.match(plain, /"why_you_can_win"/)
+  assert.match(plain, /"not_worth_chasing"/)
+
+  const judged = digestSystem({ name: 'K', domains: [], canon: 'Mindmake sells one thing to one buyer: a senior operator who can start a project without asking.' })
+  assert.match(judged, /WINNABILITY/)
+  assert.match(judged, /Absence is not opportunity/)
+  assert.match(judged, /a wall, not a gap/)
+  assert.match(judged, /THE CANON/)
+  assert.match(judged, /senior operator who can start a project without asking/)
+  // The five rules, each recognisable.
+  assert.match(judged, /1\. Decide who owns the answer now/)
+  assert.match(judged, /2\. A recommendation must name what Krish has/)
+  assert.match(judged, /"He knows a lot about this" is not a reason/)
+  assert.match(judged, /3\. The person asking must be the buyer the canon describes/)
+  assert.match(judged, /4\. A question that fails any of these goes in not_worth_chasing/)
+  assert.match(judged, /5\. Prefer the specific over the category/)
+  // The canon answers who and why; it never supplies a measurement.
+  assert.match(judged, /never take a number from it/)
+  assert.ok(judged.indexOf('ABSOLUTE RULE') < judged.indexOf('WINNABILITY'))
+
+  // A canon far longer than the budget is cut to its opening, where the
+  // positioning and the buyer are, not sent whole.
+  const long = digestSystem({ name: 'K', domains: [], canon: 'THE OPENING. ' + 'y'.repeat(30_000) })
+  assert.match(long, /THE OPENING\./)
+  assert.ok(long.length < 12_000, `system prompt stayed bounded, was ${long.length}`)
+
+  // Voice and canon together still fit.
+  const both = digestSystem({ name: 'K', domains: [], voice_block: 'x'.repeat(20_000), canon: 'y'.repeat(30_000) })
+  assert.ok(both.length < 19_000, `system prompt stayed bounded, was ${both.length}`)
 })

@@ -24,7 +24,8 @@ Three rules hold for every string in the packet, whatever the field: no em dash,
 | `calls` | `considered`: transcripts in the seven-day window. `attributed`: how many the classifier gave to this subject. |
 | `queries` | The week's questions, scored. Up to 60. |
 | `strongest_signal` | One sentence, the measured fact that matters most this week, or null when nothing was measured. |
-| `recommendations` | Three to five pieces or pages to make, one per recommended query, most demand first. Control Center turns these into content ideas. |
+| `recommendations` | Up to five pieces or pages to make, one per recommended query that survives the winnability gate, most demand first. Control Center turns these into content ideas. |
+| `not_worth_chasing` | Up to six probed questions he should not try to win, each naming the hosts that own the answer and one plain sentence on why he will not displace them. A question here is never also a recommendation. |
 | `watch_list` | Queries worth watching next week, up to 15, each with a one-line why. |
 | `competitor_gap` | The host cited most often where we were absent, across the last four weeks of probes plus this week, how many times, and up to ten of the questions. |
 | `playbook` | Aspirations only, else null: which of the subject's own pages the engines cite, grouped by host and path shape, with a why per group. |
@@ -55,11 +56,23 @@ An evidence item is `call_ref` (the first eight hex characters of a sha256 of th
 
 ## A recommendation
 
-`n` (1 to 5), `title` (the piece or page), `target_query` and `query_id` (one of the packet's recommended queries), `angle` (what it argues and why it would be cited), `evidence` (two to six lines, each citing something measured: a score, an engine we are absent on, a competitor host, a call theme), `engines` (where we are absent), `demand` (the query's score). The model writes the prose; the numbers, the ids and the engines come from the score table, and a recommendation the model invents for a query that was not recommended is dropped.
+`n` (1 to 5), `title` (the piece or page), `target_query` and `query_id` (one of the packet's recommended queries), `angle` (what it argues and why it would be cited), `why_you_can_win` (see below), `evidence` (two to six lines, each citing something measured: a score, an engine we are absent on, a competitor host, a call theme), `engines` (where we are absent), `demand` (the query's score). The model writes the prose; the numbers, the ids and the engines come from the score table, and a recommendation the model invents for a query that was not recommended is dropped.
+
+## The winnability gate
+
+Absence is not opportunity. A question we are missing from because LinkedIn, a video platform, a national business title or a big consultancy owns the answer is a wall, not a gap: that answer was won by format and reach rather than by an argument, and one piece does not displace it. So a query being high demand and unoccupied is no longer enough to be recommended.
+
+Before it writes, the digest is given the business canon (`krish.canon` on `GET /api/aeo/context`: positioning, what is sold, exactly who the buyer is, what the business believes, what it refuses to say) and asked three questions about every query. Who owns the answer now, read from the hosts cited in the evidence. What does he have that those hosts structurally cannot have, taken from the canon: the positioning, the buyer, the proof, the product. And is the person asking the buyer the canon describes, someone who can move a decision on their own. A question that fails any of the three is not a recommendation.
+
+`why_you_can_win` (under 300 characters, or null) is the answer to the second question, written for that one query. "He knows a lot about this" is not one. **Null means the digest could not justify the recommendation**, which is a bug in the digest rather than a licence to make the piece anyway; the null is carried rather than the row dropped, so the reader can see which recommendation was not judged. The deterministic fallback never writes one: it can see who is cited, it cannot see what he has that they do not, so every fallback recommendation carries null and `stats.digest_writer` says `fallback`.
+
+`not_worth_chasing` is what failed, at most six entries: `query_id` and `query` (one of the packet's queries, never also a recommendation), `owned_by` (the hosts that own the answer now, up to eight) and `why_not` (one plain sentence, no hedging). It is the more useful half of the packet on a bad week: being told to skip a question costs nothing, and chasing one that a platform owns costs a week. The fallback can answer the first of the three questions on its own, so when the writing pass fails it still moves out any query where more than half the cited hosts are large general platforms, and says in `why_not` that no judgement beyond who is cited was made.
+
+Both fields are additive in schema version 1: a packet written before the gate omits them and still validates.
 
 ## Rules Control Center adds beyond the schema
 
-A venture names its `product_slug` and only a venture does; `week_start` is a Monday; `themes` is empty unless `themes_status` is ok; query ids are unique within a packet; a recommendation's `query_id` is one of the packet's queries; `playbook` only for an aspiration and `approach_hook` only for a prospect; at most 600 probes in a packet. `src/schema/packet.ts` checks all of these.
+A venture names its `product_slug` and only a venture does; `week_start` is a Monday; `themes` is empty unless `themes_status` is ok; query ids are unique within a packet; a recommendation's `query_id` is one of the packet's queries; a `not_worth_chasing` entry's `query_id` is one of the packet's queries, appears once, and is not also a recommendation; `playbook` only for an aspiration and `approach_hook` only for a prospect; at most 600 probes in a packet. `src/schema/packet.ts` checks all of these.
 
 ## Where the packet goes
 

@@ -94,6 +94,29 @@ export interface Recommendation {
   evidence: string[]
   engines: Engine[]
   demand: number
+  /**
+   * The specific reason this owner can win THIS answer when the sites cited
+   * today structurally cannot, drawn from the business canon or from measured
+   * evidence. Never a generality. Null when the digest could not justify one,
+   * which is a bug in the digest and not a licence to recommend anyway: the
+   * null is carried so the reader sees the judgement was not made.
+   */
+  why_you_can_win: string | null
+}
+
+/**
+ * A question that was probed and scored and that he should NOT try to win.
+ * Worth more than a bad recommendation, because it stops him spending a week
+ * on an answer a social network, a video platform, a national business title
+ * or a big consultancy already owns.
+ */
+export interface NotWorthChasing {
+  query_id: string
+  query: string
+  /** The hosts that own the answer now, most cited first. */
+  owned_by: string[]
+  /** One plain sentence saying why he will not displace them. No hedging. */
+  why_not: string
 }
 
 export interface WatchItem {
@@ -149,6 +172,8 @@ export interface AeoPacket {
   queries: PacketQuery[]
   strongest_signal: string | null
   recommendations: Recommendation[]
+  /** At most six. Additive in v1: an older packet that omits it still validates. */
+  not_worth_chasing: NotWorthChasing[]
   watch_list: WatchItem[]
   competitor_gap: CompetitorGap
   /** Aspirations only. Null for the other kinds. */
@@ -287,7 +312,10 @@ export function validatePacket(value: unknown): ValidationResult {
     'schema_version', 'run_id', 'command_id', 'subject', 'week_start', 'generated_at', 'engines', 'themes_status', 'themes',
     'calls', 'queries', 'strongest_signal', 'recommendations', 'watch_list', 'competitor_gap', 'playbook', 'approach_hook', 'stats',
   ]
-  if (!c.obj('packet', value, top)) return { ok: false, errors: c.errors }
+  // Additive in v1: this engine always writes not_worth_chasing, and a packet
+  // written before the winnability gate existed still validates without it.
+  const topOptional = ['not_worth_chasing']
+  if (!c.obj('packet', value, top, topOptional)) return { ok: false, errors: c.errors }
   const p = value
 
   if (p.schema_version !== 1) c.fail('schema_version', 'must be 1')
@@ -351,7 +379,7 @@ export function validatePacket(value: unknown): ValidationResult {
   if (c.arr('recommendations', p.recommendations, { max: 5 })) {
     p.recommendations.forEach((r, i) => {
       const path = `recommendations[${i}]`
-      if (!c.obj(path, r, ['n', 'title', 'target_query', 'query_id', 'angle', 'evidence', 'engines', 'demand'])) return
+      if (!c.obj(path, r, ['n', 'title', 'target_query', 'query_id', 'angle', 'evidence', 'engines', 'demand'], ['why_you_can_win'])) return
       c.int(`${path}.n`, r.n, { min: 1, max: 5 })
       c.str(`${path}.title`, r.title, { min: 1, max: 200 })
       c.str(`${path}.target_query`, r.target_query, { min: 1, max: 400 })
@@ -360,7 +388,35 @@ export function validatePacket(value: unknown): ValidationResult {
       if (c.arr(`${path}.evidence`, r.evidence, { max: 6 })) r.evidence.forEach((x, j) => c.str(`${path}.evidence[${j}]`, x, { max: 300 }))
       if (c.arr(`${path}.engines`, r.engines)) r.engines.forEach((x, j) => c.oneOf(`${path}.engines[${j}]`, x, ENGINES_ALL))
       c.int(`${path}.demand`, r.demand, { min: 0, max: 100 })
+      // Null is allowed and means the digest could not justify the recommendation.
+      // Absent means the packet predates the winnability gate.
+      if ('why_you_can_win' in r && r.why_you_can_win !== null) c.str(`${path}.why_you_can_win`, r.why_you_can_win, { min: 1, max: 300 })
     })
+  }
+
+  // What NOT to chase. Every entry names a question the packet actually carries,
+  // so Control Center can put the verdict next to the row it belongs to.
+  if ('not_worth_chasing' in p && c.arr('not_worth_chasing', p.not_worth_chasing, { max: 6 })) {
+    const seen = new Set<string>()
+    p.not_worth_chasing.forEach((w, i) => {
+      const path = `not_worth_chasing[${i}]`
+      if (!c.obj(path, w, ['query_id', 'query', 'owned_by', 'why_not'])) return
+      if (c.str(`${path}.query_id`, w.query_id, { re: UUID_RE })) {
+        if (!queryIds.has(w.query_id)) c.fail(`${path}.query_id`, 'not one of the packet\'s queries')
+        if (seen.has(w.query_id)) c.fail(`${path}.query_id`, 'repeated')
+        seen.add(w.query_id)
+      }
+      c.str(`${path}.query`, w.query, { min: 1, max: 400 })
+      if (c.arr(`${path}.owned_by`, w.owned_by, { max: 8 })) w.owned_by.forEach((x, j) => c.str(`${path}.owned_by[${j}]`, x, { min: 1, max: 120 }))
+      c.str(`${path}.why_not`, w.why_not, { min: 1, max: 300 })
+    })
+    // A question cannot be both the thing to make and the thing to skip.
+    if (Array.isArray(p.recommendations)) {
+      for (const r of p.recommendations) {
+        const id = (r as Rec)?.query_id
+        if (typeof id === 'string' && seen.has(id)) c.fail('not_worth_chasing', `query_id ${id} is also a recommendation`)
+      }
+    }
   }
 
   if (c.arr('watch_list', p.watch_list, { max: 15 })) {

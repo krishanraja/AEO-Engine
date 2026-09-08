@@ -84,6 +84,54 @@ test('the rules Control Center adds beyond the schema', () => {
   assert.ok(errs.some(e => e.startsWith('approach_hook')))
 })
 
+test('the winnability fields are accepted, and a wall must name a query the packet carries', () => {
+  const p = load()
+  // The expected packet already carries both, so the happy path is proven by
+  // the first test in this file; here the shapes are pushed at their edges.
+  assert.ok(p.recommendations.every(r => typeof r.why_you_can_win === 'string'))
+  assert.ok(p.not_worth_chasing.length > 0)
+  for (const w of p.not_worth_chasing) assert.ok(p.queries.some(q => q.query_id === w.query_id))
+
+  // Null is allowed: the digest could not justify the recommendation and said so.
+  const withNull = load()
+  withNull.recommendations[0].why_you_can_win = null
+  assert.deepEqual(errorsOf(withNull), [])
+
+  // Absent is allowed too, so a packet written before the gate still validates.
+  const older = load()
+  for (const r of older.recommendations) delete (r as unknown as Record<string, unknown>).why_you_can_win
+  delete (older as unknown as Record<string, unknown>).not_worth_chasing
+  assert.deepEqual(errorsOf(older), [])
+
+  const bad = load()
+  bad.not_worth_chasing[0].query_id = '00000000-0000-4000-8000-000000000000'
+  assert.ok(errorsOf(bad).some(e => e.startsWith('not_worth_chasing[0].query_id') && e.includes("not one of the packet's queries")))
+
+  const overlong = load()
+  overlong.recommendations[0].why_you_can_win = 'x'.repeat(301)
+  overlong.not_worth_chasing[0].why_not = 'y'.repeat(301)
+  const errs = errorsOf(overlong)
+  assert.ok(errs.some(e => e.includes('recommendations[0].why_you_can_win') && e.includes('longer than 300')))
+  assert.ok(errs.some(e => e.includes('not_worth_chasing[0].why_not') && e.includes('longer than 300')))
+
+  const tooMany = load()
+  tooMany.not_worth_chasing = Array.from({ length: 7 }, () => structuredClone(p.not_worth_chasing[0]))
+  assert.ok(errorsOf(tooMany).some(e => e.startsWith('not_worth_chasing') && e.includes('more than 6')))
+
+  // A question cannot be both the thing to make and the thing to skip.
+  const both = load()
+  both.not_worth_chasing[0].query_id = both.recommendations[0].query_id
+  assert.ok(errorsOf(both).some(e => e.includes('is also a recommendation')))
+
+  // The no-name, no-handle, no-em-dash sweep reaches the new fields too.
+  const dirty = load()
+  dirty.recommendations[0].why_you_can_win = 'He owns the method — they do not'
+  dirty.not_worth_chasing[0].why_not = 'Ask @someone about it'
+  const dirtyErrs = errorsOf(dirty)
+  assert.ok(dirtyErrs.some(e => e.includes('recommendations[0].why_you_can_win') && e.includes('em dash')))
+  assert.ok(dirtyErrs.some(e => e.includes('not_worth_chasing[0].why_not') && e.includes('@handle')))
+})
+
 test('a non-object is refused with one error', () => {
   const v = validatePacket('nope')
   assert.equal(v.ok, false)

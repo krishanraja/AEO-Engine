@@ -2,7 +2,7 @@
 repo: krishanraja/AEO-Engine
 product: AEO-Engine
 as_of: 2026-09-08
-head: 25b6a201
+head: f2ddb45d
 lifecycle: building
 production_url: none
 state_doc: docs/STATE.md
@@ -31,6 +31,7 @@ Krish reads the digest on Monday and acts the same week. The packet answers, per
 
 ## What changed recently
 
+- 2026-09-08 **Absence is not opportunity, so a recommendation now has to say why he can win it.** Why: the first output was rejected for a vanilla understanding of what is on offer and for recommending topics huge businesses are going to own. The machine was recommending whatever it was absent from, and a question owned by a social network, a video platform, a national business title or a big consultancy is a wall rather than a gap. `GET /api/aeo/context` now carries the business canon, and the digest runs three questions over every query before recommending it: who owns this answer now, what does he have that those hosts structurally cannot have, and can the person asking move a decision on their own. The answer to the second is the new `why_you_can_win`; what fails goes to the new `not_worth_chasing` with the hosts that own it and one plain sentence. A null reason is carried rather than hidden, and the deterministic fallback never writes one.
 - 2026-09-08 **The first live run did not fit in the hour, so the assistants now answer together.** Why: the first real dry run asked five products, twenty questions each, three assistants, one call after another, and was still going at fifty minutes against a job killed at fifty-five. Three hundred hosted web searches at several seconds each is forty minutes before a single model call, and the offline suite never caught it because a fixture answers instantly. One question's assistants now run together; the questions stay sequential so the spend cap stays exact.
 - 2026-09-08 **The digest writes in a voice that was already on file.** Why: Krish asked whether the machine could learn who inspires him and what he wants to sound like, and would rather say it once than repeat it. He already had, on the Content side of Control Center: the krish-voice body in `system_config.content_voice_block`, and the ten writers he rates in `content_creators`, each with the move he rates them for. The context route now sends both and `digestSystem()` builds the prompt from them, with the voice held to register only so it can never loosen the evidence rules, and the people never named to the model.
 - 2026-09-08 **The engine exists.** Why: the AEO research agent Krish described has to run unattended every Sunday and end in an action, and Control Center already holds every input (subjects, the map's buyer questions, striking-distance keywords, four weeks of probes, last week's digest). The whole repo lands in one day: the contract first, then clients with offline twins so the pipeline can be tested without spending, then the stages as pure functions with the clients injected. Decisions worth knowing: prospects are probed on their own leaders' questions and read for Mindmake's presence; query ids carry across weeks by a normalised match so trends are honest; the digest model writes prose only and every number comes from the score table; a missing Fireflies key is reported as unavailable, never as a quiet week. Mechanism and failures: `docs/BUILD-LOG.md`.
