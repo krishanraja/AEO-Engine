@@ -2,6 +2,60 @@
 
 Dated entries, newest first. Each one says why it was done, what failed or would have failed without it, and the mechanism. Control Center's build-signal ingest reads this file; keep names of people, prospects and secrets out of it.
 
+## 2026-09-08 (later still): absence is not opportunity
+
+The first output was read and rejected. The verdict was that the
+recommendations showed a very vanilla understanding of what is on offer, and
+that there is no competing with the huge businesses that are going to own some
+of those topics.
+
+That was a design fault, not a tuning problem. The machine recommended
+whatever it was absent from, and absence is not opportunity. A question we are
+missing from because a social network, a video platform, a national business
+title or a big consultancy owns the answer is a wall, not a gap: that answer
+was won by format and reach rather than by an argument, and one piece will not
+displace it. Every week the old rule was in force it would have spent a week
+of writing on a category term a jobs board or a consultancy already holds.
+
+So a recommendation now has to pass a winnability judgement before it is made.
+`GET /api/aeo/context` carries `krish.canon`, the business canon that says the
+positioning, what is sold, exactly who the buyer is and what the business
+refuses to say. `digestSystem()` appends a WINNABILITY section carrying the
+opening 7000 characters of it (the part with the positioning and the buyer)
+and three questions to ask of every query: who owns this answer now, read from
+the cited hosts; what does he have that those hosts structurally cannot have,
+taken from the canon; and can the person asking move a decision on their own.
+The answer to the second is written into `why_you_can_win` on each
+recommendation. "He knows a lot about this" is not an answer, and a query with
+no answer is not a recommendation.
+
+What fails goes into `not_worth_chasing` at packet top level, up to six
+entries, each naming the hosts that own the answer and one plain sentence with
+no hedging. On a bad week this is the more useful half of the packet: being
+told to skip a question costs nothing, and chasing one that a platform owns
+costs a week.
+
+Two failures the design had to answer. A null `why_you_can_win` is now the
+signal that the digest could not justify itself, so it is carried rather than
+used to silently drop the row: a hidden failure would read as a quiet week
+instead of a bug, and the count is logged as `digest_unjustified`. And the
+deterministic fallback must not fake the judgement it cannot make. It can
+answer the first question from the cited hosts alone, so it moves out any
+query where more than half of them are large general platforms (a short,
+deliberately obvious list of social networks, video platforms, national
+business titles, encyclopaedias and the big consultancies) and says in
+`why_not` that nothing beyond who is cited was judged. It cannot answer the
+other two, so it writes `why_you_can_win: null` on everything that survives
+and lets the reader see it next to `digest_writer: fallback`. A majority of
+hosts rather than a single hit, because one social link beside two specialists
+is still an answer a specialist won and a specialist can take.
+
+Both fields are additive: `schema_version` stays 1 and a packet written before
+the gate still validates without them. The validator checks that every
+`not_worth_chasing` entry names a query the packet actually carries, that it
+names it once, and that it is not also a recommendation, because a question
+cannot be both the thing to make and the thing to skip.
+
 ## 2026-09-08 (later): the first live run did not fit in the hour
 
 Found in production, not in a test. The first real dry run asked five
