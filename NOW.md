@@ -1,8 +1,8 @@
 ---
 repo: krishanraja/AEO-Engine
 product: AEO-Engine
-as_of: 2026-09-08
-head: a4e844f0
+as_of: 2026-09-09
+head: 4f824108
 lifecycle: building
 production_url: none
 state_doc: docs/STATE.md
@@ -22,7 +22,7 @@ AEO-Engine is the weekly answer-engine research machine for Krish Raja's venture
 
 Krish reads the digest on Monday and acts the same week. The packet answers, per venture, "which buyer question are we invisible on, and who is cited instead"; per prospect, "what would this company's leaders see if they asked an assistant about their own problem, and is Mindmake in it"; per aspiration, "which of their pages get cited, and why". For the room_face buyer (a senior leader at a PE or VC backed media, adtech, publishing or data business, quietly behind on what is coming) the machine is proof that one person can run demand research on AI agents with the evidence left in: every number in a digest is measured that run, every unknown stays unknown, and a failed engine call writes nothing rather than a guess. Angles a writer can use: the OS reads its own calls and refuses to name anyone in them; the demand score says out loud that there is no prompt-volume corpus and scores from proxies; the run has a price cap it counts against, not a bill it discovers.
 
-## Where it is right now (as of 2026-09-08)
+## Where it is right now (as of 2026-09-09)
 
 - **Building.** The pipeline, the four engine clients, the Control Center and Fireflies clients, the validator, the cost ledger and the weekly workflow are written and typecheck. `npm test` runs the whole pipeline against fixtures with no network and compares the venture packet field by field to `tests/fixtures/expected/packet.ctrl.json`.
 - **Not proven live.** No run has hit a real engine, Fireflies or Control Center yet. The model ids, the web search tool types and the price table are the first things to check from the first live ledger (`docs/STATE.md`).
