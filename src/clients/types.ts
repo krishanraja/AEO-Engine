@@ -2,6 +2,7 @@
  * The interfaces the pipeline talks to. Live and offline implementations
  * satisfy the same shapes, so no stage ever knows which one it has.
  */
+import type { UsageRow } from '../lib/usage.js'
 import type { AeoContext } from '../schema/context.js'
 import type { AeoPacket, Engine } from '../schema/packet.js'
 
@@ -68,6 +69,9 @@ export interface ControlCenterClient {
   getContext(subject: string): Promise<AeoContext>
   postIngest(packet: AeoPacket): Promise<IngestResult>
   patchCommand(body: CommandPatch): Promise<void>
+  /** Measured token counts for the usage meter. Returns its failure rather
+   *  than throwing: reporting the spend must never cost us the run. */
+  postUsage(rows: UsageRow[], run: string): Promise<{ ok: boolean; error: string | null }>
 }
 
 /** Thrown by an offline client when the fixture a request maps to is absent. */
