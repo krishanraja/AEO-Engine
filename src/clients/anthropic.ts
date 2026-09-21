@@ -16,6 +16,30 @@ import type { EngineAnswer, EngineClient, ModelClient, ModelRequest } from './ty
 const URL = 'https://api.anthropic.com/v1/messages'
 const WEB_SEARCH_TOOL = { type: 'web_search_20260209', name: 'web_search', max_uses: 5 }
 
+/**
+ * Deadline for ONE probe turn, which is a search turn and not a model turn.
+ *
+ * http.ts defaults every request to 120s, and the probe path inherited it. On
+ * the 2026-09-20 run that cost six probes on `circle` and seven on `ctrl`, all
+ * of them "anthropic_0: timeout after 120000ms". Not auth, not the spend cap:
+ * the same key wrote every digest in the same run. A turn here may run up to
+ * five web searches (max_uses above) and then compose an answer over what they
+ * returned, and that does not reliably fit in two minutes.
+ *
+ * It applies to the PROBE path only. The JSON writer below keeps the 120s
+ * default deliberately: it is bounded extraction with thinking disabled over
+ * evidence already in hand, so a slow one there is a fault rather than a long
+ * search, and a digest that hangs for four minutes is worse than one that
+ * fails and falls back.
+ *
+ * Budget: ask() continues a paused turn at most three times, so the worst case
+ * per probe moves from 6 to 12 minutes. The research job allows 90 and the
+ * slowest subject on 2026-09-20 took 24, so there is room. If a subject ever
+ * approaches the job timeout, cut max_uses before raising this again: waiting
+ * longer for the same searches is not the lever that fixes a slow probe.
+ */
+const PROBE_TIMEOUT_MS = 240_000
+
 export class AnthropicClient implements EngineClient {
   readonly engine = 'claude' as const
   readonly model = MODELS.anthropic
@@ -40,6 +64,7 @@ export class AnthropicClient implements EngineClient {
         method: 'POST',
         headers: this.headers(),
         body: { model: this.model, max_tokens: 4000, tools: [WEB_SEARCH_TOOL], messages },
+        timeoutMs: PROBE_TIMEOUT_MS,
       }))
       const content = asArray(j.content)
       for (const block of content) {
