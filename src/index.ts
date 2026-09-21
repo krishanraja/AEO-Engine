@@ -95,7 +95,7 @@ export function buildDeps(args: CliArgs, env: NodeJS.ProcessEnv = process.env, n
   // usage in their own shapes and are left out rather than half-read: three
   // providers' worth of tokens summed into one Anthropic-shaped object would
   // price at Anthropic's rates and be wrong in a way nothing could see. They
-  // are a stated gap, not a silent one — the meter will show claude and no
+  // are a stated gap, not a silent one: the meter will show claude and no
   // sibling rows beside it.
   const usage = new UsageMeter()
   if (args.offline) {
@@ -156,7 +156,7 @@ export async function main(argv: readonly string[] = process.argv.slice(2)): Pro
   //
   // A run that died on its third subject still paid for the first two, and a
   // failed run that reports nothing is the same lie as a green node on a 404:
-  // the money left the account either way. A dry run is metered too — --dry
+  // the money left the account either way. A dry run is metered too, because --dry
   // only stops the packet shipping, every probe still ran and still billed.
   const rows = deps.usage.rows()
   if (rows.length) {

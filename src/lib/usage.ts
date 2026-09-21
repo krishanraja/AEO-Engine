@@ -16,7 +16,7 @@
  * happens once, at the other end.
  *
  * The accumulated shape is Anthropic's own, field for field, so the receiving
- * end parses it with the same readUsage() it uses for a live call — including
+ * end parses it with the same readUsage() it uses for a live call, including
  * the cache fields, which are all zero today and will not be forever.
  */
 

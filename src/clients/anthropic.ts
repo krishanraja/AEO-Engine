@@ -132,7 +132,7 @@ export class AnthropicClient implements EngineClient {
   /**
    * The pipeline-facing shape. The key is for the offline twin and is ignored
    * here; the STAGE is not, any more. It becomes the meter's unit key, so the
-   * four writing stages rank separately — the digest is the expensive one and
+   * four writing stages rank separately. The digest is the expensive one and
    * a single "aeo-engine" row could never have said so.
    */
   asModelClient(): ModelClient {

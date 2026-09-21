@@ -60,7 +60,7 @@ export class ControlCenterHttp implements ControlCenterClient {
    *
    * Never throws. A run that produced five digests and then failed to report
    * its own token counts has still done its job, and taking it down over the
-   * meter would be the measurement breaking the work it measures — the rule
+   * meter would be the measurement breaking the work it measures, the rule
    * every other metering path in the fleet already follows. The failure is
    * returned so the caller can log it, because the alternative is the meter
    * going quiet with nothing saying so, which is the thing this whole change
