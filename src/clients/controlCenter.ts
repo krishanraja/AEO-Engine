@@ -4,6 +4,7 @@
  */
 import type { AeoContext } from '../schema/context.js'
 import type { AeoPacket } from '../schema/packet.js'
+import type { UsageRow } from '../lib/usage.js'
 import { HttpError, asArray, asRecord, asString, requestJson } from './http.js'
 import type { CommandPatch, ControlCenterClient, IngestResult } from './types.js'
 
@@ -52,5 +53,29 @@ export class ControlCenterHttp implements ControlCenterClient {
   async patchCommand(body: CommandPatch): Promise<void> {
     const r = await requestJson('control_center_run', `${this.base}/api/aeo/run`, { method: 'PATCH', headers: this.headers(), body, timeoutMs: 30_000 })
     if (!r.ok) throw new HttpError('control_center_run', r.status, r.text)
+  }
+
+  /**
+   * What the run spent, in tokens, for the usage meter.
+   *
+   * Never throws. A run that produced five digests and then failed to report
+   * its own token counts has still done its job, and taking it down over the
+   * meter would be the measurement breaking the work it measures, the rule
+   * every other metering path in the fleet already follows. The failure is
+   * returned so the caller can log it, because the alternative is the meter
+   * going quiet with nothing saying so, which is the thing this whole change
+   * exists to stop.
+   */
+  async postUsage(rows: UsageRow[], run: string): Promise<{ ok: boolean; error: string | null }> {
+    if (!rows.length) return { ok: true, error: null }
+    try {
+      const r = await requestJson('control_center_meter', `${this.base}/api/aeo/meter`, {
+        method: 'POST', headers: this.headers(), body: { rows, run }, timeoutMs: 30_000,
+      })
+      if (r.ok) return { ok: true, error: null }
+      return { ok: false, error: `control_center_meter_${r.status}: ${r.text.slice(0, 200)}` }
+    } catch (e) {
+      return { ok: false, error: String((e as Error)?.message || e).slice(0, 200) }
+    }
   }
 }

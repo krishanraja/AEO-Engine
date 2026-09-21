@@ -7,6 +7,7 @@ import { CAPS } from '../config/run.js'
 import type { ControlCenterClient, EngineClient, FirefliesClient, ModelClient } from '../clients/types.js'
 import type { Ledger } from '../lib/cost.js'
 import { errText, log } from '../lib/log.js'
+import type { UsageMeter } from '../lib/usage.js'
 import type { AeoContext, ContextSubject } from '../schema/context.js'
 import type { AeoPacket } from '../schema/packet.js'
 import { krishHitsDomains, loadContext } from './00-context.js'
@@ -25,6 +26,16 @@ export interface RunDeps {
   engines: EngineClient[]
   model: ModelClient
   ledger: Ledger
+  /**
+   * What the run actually spent, in tokens read off the responses.
+   *
+   * Distinct from `ledger`, which is the CAP: a flat per-call estimate charged
+   * before each call so the run cannot quietly become a 200-call invoice. The
+   * cap decides whether to make the next call; this records what the last one
+   * really cost. Reporting the first as spend would have put an estimate in
+   * the usage meter wearing the clothes of a measurement.
+   */
+  usage: UsageMeter
   /** Mints a query id for a new query. Random live; derived from the key offline so fixtures compare. */
   mintId: (key: string) => string
   now: Date
