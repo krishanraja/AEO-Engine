@@ -10,17 +10,49 @@
  * variant, so if the model id changes, check this type with it.
  */
 import { MODELS } from '../config/run.js'
+import type { UsageMeter } from '../lib/usage.js'
 import { asArray, asRecord, asString, requireOk } from './http.js'
 import type { EngineAnswer, EngineClient, ModelClient, ModelRequest } from './types.js'
 
 const URL = 'https://api.anthropic.com/v1/messages'
 const WEB_SEARCH_TOOL = { type: 'web_search_20260209', name: 'web_search', max_uses: 5 }
 
+/**
+ * Deadline for ONE probe turn, which is a search turn and not a model turn.
+ *
+ * http.ts defaults every request to 120s, and the probe path inherited it. On
+ * the 2026-09-20 run that cost six probes on `circle` and seven on `ctrl`, all
+ * of them "anthropic_0: timeout after 120000ms". Not auth, not the spend cap:
+ * the same key wrote every digest in the same run. A turn here may run up to
+ * five web searches (max_uses above) and then compose an answer over what they
+ * returned, and that does not reliably fit in two minutes.
+ *
+ * It applies to the PROBE path only. The JSON writer below keeps the 120s
+ * default deliberately: it is bounded extraction with thinking disabled over
+ * evidence already in hand, so a slow one there is a fault rather than a long
+ * search, and a digest that hangs for four minutes is worse than one that
+ * fails and falls back.
+ *
+ * Budget: ask() continues a paused turn at most three times, so the worst case
+ * per probe moves from 6 to 12 minutes. The research job allows 90 and the
+ * slowest subject on 2026-09-20 took 24, so there is room. If a subject ever
+ * approaches the job timeout, cut max_uses before raising this again: waiting
+ * longer for the same searches is not the lever that fixes a slow probe.
+ */
+const PROBE_TIMEOUT_MS = 240_000
+
 export class AnthropicClient implements EngineClient {
   readonly engine = 'claude' as const
   readonly model = MODELS.anthropic
 
-  constructor(private readonly apiKey: string) {
+  /**
+   * `meter` is optional and off in the offline twin. Every response carries a
+   * `usage` object and this client dropped all of them, which is why the only
+   * cost figure the engine could report was the per-call estimate in
+   * lib/cost.ts. Reading it here means every call is measured exactly once, at
+   * the single place they all pass through.
+   */
+  constructor(private readonly apiKey: string, private readonly meter?: UsageMeter) {
     if (!apiKey) throw new Error('ANTHROPIC_API_KEY is not set')
   }
 
@@ -40,7 +72,12 @@ export class AnthropicClient implements EngineClient {
         method: 'POST',
         headers: this.headers(),
         body: { model: this.model, max_tokens: 4000, tools: [WEB_SEARCH_TOOL], messages },
+        timeoutMs: PROBE_TIMEOUT_MS,
       }))
+      // Each turn of a paused search is its own billed request, so each one is
+      // recorded. Metering only the last would under-report exactly the probes
+      // that searched the hardest.
+      this.meter?.record('aeo-probe', this.model, j.usage)
       const content = asArray(j.content)
       for (const block of content) {
         const b = asRecord(block)
@@ -60,7 +97,7 @@ export class AnthropicClient implements EngineClient {
     return { text: texts.join('\n').trim(), citations }
   }
 
-  private async text(system: string, user: string, maxTokens: number): Promise<string> {
+  private async text(system: string, user: string, maxTokens: number, agent = 'aeo-write'): Promise<string> {
     const j = asRecord(await requireOk('anthropic', URL, {
       method: 'POST',
       headers: this.headers(),
@@ -72,6 +109,8 @@ export class AnthropicClient implements EngineClient {
         messages: [{ role: 'user', content: user }],
       },
     }))
+    // Before the throw below: a refusal is billed for the tokens it read.
+    this.meter?.record(agent, this.model, j.usage, j.stop_reason === 'refusal')
     if (j.stop_reason === 'refusal') throw new Error('anthropic_refusal')
     for (const block of asArray(j.content)) {
       const b = asRecord(block)
@@ -81,20 +120,25 @@ export class AnthropicClient implements EngineClient {
   }
 
   /** A short JSON verdict: which subject a transcript belongs to. */
-  classify(system: string, user: string, maxTokens: number): Promise<string> {
-    return this.text(system, user, maxTokens)
+  classify(system: string, user: string, maxTokens: number, agent?: string): Promise<string> {
+    return this.text(system, user, maxTokens, agent)
   }
 
   /** A JSON document written from evidence: themes, a query proposal, the digest. */
-  writeJson(system: string, user: string, maxTokens: number): Promise<string> {
-    return this.text(system, user, maxTokens)
+  writeJson(system: string, user: string, maxTokens: number, agent?: string): Promise<string> {
+    return this.text(system, user, maxTokens, agent)
   }
 
-  /** The pipeline-facing shape; the stage and key are for the offline twin and are ignored here. */
+  /**
+   * The pipeline-facing shape. The key is for the offline twin and is ignored
+   * here; the STAGE is not, any more. It becomes the meter's unit key, so the
+   * four writing stages rank separately. The digest is the expensive one and
+   * a single "aeo-engine" row could never have said so.
+   */
   asModelClient(): ModelClient {
     return {
-      classify: (r: ModelRequest) => this.classify(r.system, r.user, r.maxTokens),
-      writeJson: (r: ModelRequest) => this.writeJson(r.system, r.user, r.maxTokens),
+      classify: (r: ModelRequest) => this.classify(r.system, r.user, r.maxTokens, `aeo-${r.stage}`),
+      writeJson: (r: ModelRequest) => this.writeJson(r.system, r.user, r.maxTokens, `aeo-${r.stage}`),
     }
   }
 }

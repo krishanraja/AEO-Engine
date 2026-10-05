@@ -8,6 +8,22 @@ import { ROOT, readJson } from './helpers.js'
 
 const TSX = join(ROOT, 'node_modules', '.bin', 'tsx')
 
+/**
+ * The week the expected packet was captured in.
+ *
+ * `week_start` is `mondayOf(now)`, so an offline run that names no week
+ * produces a DIFFERENT packet every Monday. The golden comparison below was
+ * written in the week of 2026-09-07 and passed inside it; from 2026-09-14
+ * onward it failed on this one field, forever, while every other byte of the
+ * packet still matched. CI last ran here on 2026-09-08, inside that week, so
+ * nothing said so for a fortnight.
+ *
+ * The run is deterministic in every other respect offline, which is what makes
+ * the golden file worth having. Pinning the week restores that: the comparison
+ * still covers the whole packet, and it no longer expires.
+ */
+const EXPECTED_WEEK = '2026-09-07'
+
 function run(args: string[]) {
   return spawnSync(TSX, ['src/index.ts', ...args], { cwd: ROOT, encoding: 'utf8', env: { ...process.env, XAI_API_KEY: '', AEO_MAX_USD_PER_RUN: '' } })
 }
@@ -20,7 +36,7 @@ function strip(p: AeoPacket): Omit<AeoPacket, 'run_id' | 'generated_at'> {
 test('offline dry run writes packets that validate and ctrl matches the expected packet', () => {
   const out = join(ROOT, 'out', 'test.json')
   rmSync(out, { force: true })
-  const r = run(['--offline', '--dry', '--subject', 'all', '--out', 'out/test.json'])
+  const r = run(['--offline', '--dry', '--subject', 'all', '--week', EXPECTED_WEEK, '--out', 'out/test.json'])
   assert.equal(r.status, 0, r.stderr)
   assert.ok(existsSync(out))
   const packets = JSON.parse(readFileSync(out, 'utf8')) as AeoPacket[]

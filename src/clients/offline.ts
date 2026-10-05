@@ -12,6 +12,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { sha8 } from '../lib/text.js'
+import type { UsageRow } from '../lib/usage.js'
 import type { AeoContext } from '../schema/context.js'
 import type { AeoPacket, Engine } from '../schema/packet.js'
 import { asArray, asRecord, asString } from './http.js'
@@ -83,6 +84,7 @@ export class OfflineFireflies implements FirefliesClient {
 export class OfflineControlCenter implements ControlCenterClient {
   readonly ingested: AeoPacket[] = []
   readonly patches: CommandPatch[] = []
+  readonly usage: UsageRow[] = []
 
   constructor(private readonly dir: string) {}
 
@@ -97,5 +99,12 @@ export class OfflineControlCenter implements ControlCenterClient {
 
   async patchCommand(body: CommandPatch): Promise<void> {
     this.patches.push(body)
+  }
+
+  /** Kept, not discarded: a fixture run should be able to assert what it would
+   *  have reported, the same way `ingested` lets it assert what it would ship. */
+  async postUsage(rows: UsageRow[]): Promise<{ ok: boolean; error: string | null }> {
+    this.usage.push(...rows)
+    return { ok: true, error: null }
   }
 }

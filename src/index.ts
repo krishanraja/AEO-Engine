@@ -20,6 +20,7 @@ import type { EngineClient, ModelClient } from './clients/types.js'
 import { XaiClient } from './clients/xai.js'
 import { Ledger } from './lib/cost.js'
 import { errText, log } from './lib/log.js'
+import { UsageMeter } from './lib/usage.js'
 import { mondayOf, YMD } from './lib/week.js'
 import { runAll, type RunDeps, type RunOpts } from './pipeline/run.js'
 
@@ -75,12 +76,14 @@ export function uuidFromKey(key: string): string {
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-8${h.slice(17, 20)}-${h.slice(20, 32)}`
 }
 
-function liveEngines(env: NodeJS.ProcessEnv): EngineClient[] {
+/** The one meter is shared with the probe client too: probes are the bulk of
+ *  the spend, and metering only the writing stages would report the small half. */
+function liveEngines(env: NodeJS.ProcessEnv, usage: UsageMeter): EngineClient[] {
   const out: EngineClient[] = []
   for (const e of ENGINES) {
     if (e === 'perplexity') out.push(new PerplexityClient(env.PERPLEXITY_API_KEY ?? ''))
     else if (e === 'chatgpt') out.push(new OpenAIClient(env.OPENAI_API_KEY ?? ''))
-    else if (e === 'claude') out.push(new AnthropicClient(env.ANTHROPIC_API_KEY ?? ''))
+    else if (e === 'claude') out.push(new AnthropicClient(env.ANTHROPIC_API_KEY ?? '', usage))
     else if (e === 'grok') out.push(new XaiClient(env.XAI_API_KEY ?? ''))
   }
   return out
@@ -88,6 +91,13 @@ function liveEngines(env: NodeJS.ProcessEnv): EngineClient[] {
 
 export function buildDeps(args: CliArgs, env: NodeJS.ProcessEnv = process.env, now = new Date()): RunDeps {
   const ledger = new Ledger(args.capUsd)
+  // Only the Anthropic clients feed it today. Perplexity, OpenAI and xAI report
+  // usage in their own shapes and are left out rather than half-read: three
+  // providers' worth of tokens summed into one Anthropic-shaped object would
+  // price at Anthropic's rates and be wrong in a way nothing could see. They
+  // are a stated gap, not a silent one: the meter will show claude and no
+  // sibling rows beside it.
+  const usage = new UsageMeter()
   if (args.offline) {
     const dir = args.fixtures
     return {
@@ -96,18 +106,20 @@ export function buildDeps(args: CliArgs, env: NodeJS.ProcessEnv = process.env, n
       engines: ENGINES.map(e => new OfflineEngine(e, MODELS[e === 'chatgpt' ? 'openai' : e === 'claude' ? 'anthropic' : e === 'grok' ? 'xai' : 'perplexity'], dir)),
       model: new OfflineModel(dir),
       ledger,
+      usage,
       mintId: uuidFromKey,
       now,
     }
   }
-  const anthropic = new AnthropicClient(env.ANTHROPIC_API_KEY ?? '')
+  const anthropic = new AnthropicClient(env.ANTHROPIC_API_KEY ?? '', usage)
   const model: ModelClient = anthropic.asModelClient()
   return {
     cc: new ControlCenterHttp(env.CONTROL_CENTER_URL ?? '', env.AEO_ENGINE_SECRET ?? ''),
     fireflies: env.FIREFLIES_API_KEY ? new FirefliesHttp(env.FIREFLIES_API_KEY) : null,
-    engines: liveEngines(env),
+    engines: liveEngines(env, usage),
     model,
     ledger,
+    usage,
     mintId: () => randomUUID(),
     now,
   }
@@ -140,6 +152,25 @@ export async function main(argv: readonly string[] = process.argv.slice(2)): Pro
     failed = errText(e)
     log('run_failed', { error: failed })
   }
+  // Report the spend LAST and unconditionally, including after a failure.
+  //
+  // A run that died on its third subject still paid for the first two, and a
+  // failed run that reports nothing is the same lie as a green node on a 404:
+  // the money left the account either way. A dry run is metered too, because --dry
+  // only stops the packet shipping, every probe still ran and still billed.
+  const rows = deps.usage.rows()
+  if (rows.length) {
+    const posted = await deps.cc.postUsage(rows, args.week)
+    log('usage_reported', {
+      rows: rows.length, calls: deps.usage.calls, tokens: deps.usage.tokens,
+      ok: posted.ok, error: posted.error,
+    })
+  } else {
+    // Said out loud, because "no rows" and "the meter is broken" look identical
+    // in silence, and that is the exact confusion this reporting exists to end.
+    log('usage_not_reported', { reason: 'no anthropic tokens measured this run' })
+  }
+
   if (failed && args.commandId !== null && !args.dry) {
     try { await deps.cc.patchCommand({ command_id: args.commandId, state: 'failed', error: failed.slice(0, 600) }) } catch (e) { log('patch_failed', { error: errText(e) }) }
   }

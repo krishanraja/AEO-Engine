@@ -35,6 +35,6 @@ test('a live ship posts, and a rejection is an error', async () => {
   const r = await ship(cc, packet(), { dry: false, outPath: null })
   assert.equal(r.mode, 'posted')
   assert.equal(cc.ingested.length, 1)
-  const rejecting: ControlCenterClient = { ...cc, getContext: cc.getContext.bind(cc), patchCommand: cc.patchCommand.bind(cc), postIngest: async () => ({ ok: false, status: 400, error: 'invalid_packet', errors: ['packet.x: bad'] }) }
+  const rejecting: ControlCenterClient = { ...cc, getContext: cc.getContext.bind(cc), patchCommand: cc.patchCommand.bind(cc), postUsage: cc.postUsage.bind(cc), postIngest: async () => ({ ok: false, status: 400, error: 'invalid_packet', errors: ['packet.x: bad'] }) }
   await assert.rejects(ship(rejecting, packet(), { dry: false, outPath: null }), /ingest rejected ctrl: invalid_packet packet.x: bad/)
 })
