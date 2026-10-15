@@ -16,7 +16,7 @@ never_publish: [any credential or secret name beyond the README table, any call 
 
 ## What it is
 
-AEO-Engine is the weekly answer-engine research machine for Krish Raja's ventures, the companies he wants to sell to, and the companies he wants to be like. A Node and TypeScript pipeline on GitHub Actions, it asks the AI assistants the questions those buyers ask, records who is cited and whether we are, reads the week's calls for what buyers said, scores the demand behind each question, and POSTs one packet per subject to Control Center (`docs/packet.schema.json`), which turns the recommendations into content ideas. It holds no subject list of its own; Control Center's registry is the input.
+AEO-Engine is the fortnightly answer-engine research machine for Krish Raja's ventures, the companies he wants to sell to, and the companies he wants to be like. A Node and TypeScript pipeline on GitHub Actions, it asks the AI assistants the questions those buyers ask, records who is cited and whether we are, reads the week's calls for what buyers said, scores the demand behind each question, and POSTs one packet per subject to Control Center (`docs/packet.schema.json`), which turns the recommendations into content ideas. It holds no subject list of its own; Control Center's registry is the input.
 
 ## Who it is for and why it matters for Mindmake
 
@@ -24,7 +24,7 @@ Krish reads the digest on Monday and acts the same week. The packet answers, per
 
 ## Where it is right now (as of 2026-10-06)
 
-- **Building.** The pipeline, the four engine clients, the Control Center and Fireflies clients, the validator, the cost ledger, the usage meter and the weekly workflow are written and typecheck. `npm test` runs the whole pipeline against fixtures with no network and compares the venture packet field by field to `tests/fixtures/expected/packet.ctrl.json`, now pinned to a fixed week so the comparison does not expire every Monday.
+- **Building.** The pipeline, the four engine clients, the Control Center and Fireflies clients, the validator, the cost ledger, the usage meter and the research workflow (fortnightly since 2026-10-15) are written and typecheck. `npm test` runs the whole pipeline against fixtures with no network and compares the venture packet field by field to `tests/fixtures/expected/packet.ctrl.json`, now pinned to a fixed week so the comparison does not expire every Monday.
 - **Not proven live.** No run has hit a real engine, Fireflies or Control Center yet. The model ids, the web search tool types, the price table and the new usage meter are the first things to check from the first live ledger (`docs/STATE.md`).
 - **Contract.** `docs/packet.schema.json` is identical to Control Center's copy; the validator here also carries the rules Control Center enforces beyond the schema (a venture names its product slug, a Monday `week_start`, empty themes unless the status is ok, unique query ids).
 - **Waiting.** Repository secrets and the `AEO_MAX_USD_PER_RUN` variable; the `CLAUDE_CODE_OAUTH_TOKEN` secret for the docs steward.

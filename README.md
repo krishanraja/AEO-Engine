@@ -1,6 +1,6 @@
 # AEO-Engine
 
-The weekly answer-engine research machine for Krish Raja's ventures, the companies he wants to sell to, and the companies he wants to be like. Every Sunday it asks the AI assistants (Perplexity, ChatGPT, Claude, and Grok when a key exists) the questions those buyers ask, records who gets cited and whether we do, reads the week's calls for what buyers actually said, scores the demand behind each question, and ships one packet per subject to Control Center, which turns the recommendations into content ideas and the probes into the Growth tab's evidence. It keeps no list of its own: every subject, domain and competitor comes from Control Center, so adding a company there is the whole onboarding.
+The fortnightly answer-engine research machine for Krish Raja's ventures, the companies he wants to sell to, and the companies he wants to be like. Every other Sunday it asks the AI assistants (Perplexity, ChatGPT, Claude, and Grok when a key exists) the questions those buyers ask, records who gets cited and whether we do, reads the week's calls for what buyers actually said, scores the demand behind each question, and ships one packet per subject to Control Center, which turns the recommendations into content ideas and the probes into the Growth tab's evidence. It keeps no list of its own: every subject, domain and competitor comes from Control Center, so adding a company there is the whole onboarding.
 
 ## Never publish
 
@@ -17,7 +17,7 @@ The full list with reasons is `docs/NEVER-PUBLISH.md`.
 
 ## How it runs
 
-`.github/workflows/aeo-weekly.yml` runs Sunday 04:00 UTC, on a manual dispatch (subject, dry), and on `repository_dispatch` type `aeo-run` from Control Center's Run-now button (`client_payload.command_id`, `client_payload.subject`). Three attempts fifteen minutes apart; the third failure is preserved so GitHub notifies. `week_start` is the Monday that owns the run in UTC, so the Sunday run reports the week that began the previous Monday.
+`.github/workflows/aeo-weekly.yml` runs Sunday 04:00 UTC on odd ISO weeks only (fortnightly since 2026-10-15; the file keeps its name so Control Center's links hold), on a manual dispatch (subject, dry), and on `repository_dispatch` type `aeo-run` from Control Center's Run-now button (`client_payload.command_id`, `client_payload.subject`). Three attempts fifteen minutes apart; the third failure is preserved so GitHub notifies. `week_start` is the Monday that owns the run in UTC, so the Sunday run reports the week that began the previous Monday.
 
 Locally:
 
