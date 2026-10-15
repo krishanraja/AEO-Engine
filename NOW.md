@@ -9,7 +9,7 @@ state_doc: docs/STATE.md
 history_log: docs/history/LOG.md
 truth_files: [docs/packet.schema.json]
 authority_order: [docs/packet.schema.json, docs/PACKET.md, docs/STATE.md, README.md, docs/BUILD-LOG.md]
-steward: https://github.com/krishanraja/control-center/blob/main/docs/steward/RUNBOOK.md
+steward: https://github.com/krishanraja/ai-harness/blob/main/docs/steward/RUNBOOK.md
 never_publish: [any credential or secret name beyond the README table, any call participant name or email, any transcript text or theme paraphrase, any prospect company name or room target, any engine answer snapshot, any cost ledger figure]
 ---
 # AEO-Engine: where it is right now
