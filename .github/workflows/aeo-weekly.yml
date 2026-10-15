@@ -1,5 +1,5 @@
-# The weekly research run. Sunday 04:00 UTC reports the week that began the
-# previous Monday (week_start is mondayOf(now) in UTC).
+# The research run, fortnightly: Sunday 04:00 UTC on odd ISO weeks reports the
+# week that began the previous Monday (week_start is mondayOf(now) in UTC).
 #
 # One job per subject, not one job for all of them. The first live run took
 # twenty-six minutes on a single product and was killed by the job timeout
@@ -53,6 +53,7 @@ jobs:
       cap: ${{ steps.subjects.outputs.cap }}
       dry: ${{ steps.subjects.outputs.dry }}
       command_id: ${{ steps.subjects.outputs.command_id }}
+      skip: ${{ steps.subjects.outputs.skip }}
     steps:
       - uses: actions/checkout@v4
       - name: Resolve the subjects and the per-subject cap
@@ -94,6 +95,19 @@ jobs:
           echo "dry=$dry" >> "$GITHUB_OUTPUT"
           echo "command_id=$command_id" >> "$GITHUB_OUTPUT"
 
+          # Fortnightly (Krish, 2026-10-15: "happy with the fortnightly AI
+          # visiblity check"): the Sunday schedule runs on odd ISO weeks only
+          # (week 41 ran on 11 October, so the next is week 43, 25 October).
+          # A dispatch from Control Center or the Actions button always runs.
+          week=$(date -u +%V)
+          if [ "$EVENT_NAME" = "schedule" ] && [ $((10#$week % 2)) -eq 0 ]; then
+            echo "ISO week $week is an off week; the research runs fortnightly."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo 'list=[]' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
           if [ "$asked" != "all" ]; then
             list="[\"$asked\"]"
             count=1
@@ -110,6 +124,7 @@ jobs:
 
   research:
     needs: plan
+    if: ${{ needs.plan.outputs.skip != 'true' }}
     runs-on: ubuntu-latest
     # One subject measured at 26 minutes on the first live run. An attempt, a
     # wait and a retry is about 57, so the hour the single-job version had
