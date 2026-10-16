@@ -5,6 +5,10 @@ Newest first. Entries are written by the docs steward (see the steward link in
 describes current behaviour; `NOW.md` and `docs/STATE.md` do. Files moved here
 keep their body verbatim under a Historical banner.
 
+## 2026-10-16
+
+- reconciled at `da6e04f`: two canon block syncs in `AGENTS.md` (v2026.10.06.3 and v2026.10.15.2), no documentation consequence; `head` and `as_of` advanced only. `docs/STATE.md` keeps its 2026-09-21 stamp because its test claim was not re-run in this pass.
+
 ## 2026-10-15
 
 - reconciled at `7ff2dc9`: four commits since the last pass, the fortnightly schedule (`.github/workflows/aeo-weekly.yml`), its wording in `README.md`, `NOW.md` and `docs/STATE.md`, and the docs steward workflow now calling `krishanraja/ai-harness`. The prose was already updated with the code and was checked against the workflow diff; `head` and `as_of` advanced. `docs/STATE.md` keeps its 2026-09-21 stamp because its test claim was not re-run in this pass.
