@@ -1,0 +1,34 @@
+name: Repository operating context
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  operating-context:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: "22"
+          package-manager-cache: false
+      - name: Verify the delivered context
+        shell: bash
+        run: |
+          node --input-type=module <<'JS'
+          import {readFileSync} from 'node:fs';
+          import {createHash} from 'node:crypto';
+          for (const [path, kind, limit] of [['AGENTS.md','krish-repo-admin',400],['docs/HARNESS_CONTEXT.md','krish-repo-context',1200]]) {
+            const text = readFileSync(path,'utf8');
+            const re = new RegExp('<!-- '+kind+':start brain=([a-f0-9]{12}) sha=([a-f0-9]{12}) -->\\n([\\s\\S]*?)\\n<!-- '+kind+':end -->','g');
+            const matches = [...text.matchAll(re)];
+            if (matches.length !== 1) throw new Error('Missing or duplicate managed context: '+path);
+            const body = matches[0][3];
+            if (createHash('sha256').update(body).digest('hex').slice(0,12) !== matches[0][2]) throw new Error('Managed context drift: '+path);
+            if (body.trim().split(/\s+/).length > limit) throw new Error('Context budget exceeded: '+path);
+          }
+          if (!readFileSync('CLAUDE.md','utf8').includes('@AGENTS.md')) throw new Error('Claude must load shared repository guidance');
+          console.log('Delivered context hashes, budgets and Claude entry route verified.');
+          JS
