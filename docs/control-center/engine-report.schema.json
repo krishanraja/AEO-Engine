@@ -1,0 +1,347 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://controlcenter.krishraja.com/schemas/engine-report-1.0.0.json",
+  "title": "Growth engine report, protocol 1.0.0 (ADR-038)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "engine_id",
+    "product_slug",
+    "run_id",
+    "mode",
+    "observed_at",
+    "source",
+    "status",
+    "payload_sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "engine_id": {
+      "type": "string",
+      "maxLength": 64
+    },
+    "product_slug": {
+      "type": "string",
+      "maxLength": 64
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9:._-]{0,119}$"
+    },
+    "mode": {
+      "enum": [
+        "live",
+        "synthetic"
+      ]
+    },
+    "observed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "revision",
+        "captured_at"
+      ],
+      "properties": {
+        "revision": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "captured_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "status": {
+      "enum": [
+        "ready",
+        "held",
+        "degraded"
+      ]
+    },
+    "objectives": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "value",
+          "unit",
+          "availability"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,63}$"
+          },
+          "value": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "unit": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "window_start": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "window_end": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "timezone": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "availability": {
+            "enum": [
+              "measured",
+              "missing",
+              "stale"
+            ]
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 500
+          }
+        }
+      }
+    },
+    "activity": {
+      "type": "array",
+      "maxItems": 40,
+      "items": {
+        "type": "object",
+        "required": [
+          "line"
+        ],
+        "properties": {
+          "line": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "evidence_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^https://\\S+$"
+          }
+        }
+      }
+    },
+    "proposals": {
+      "type": "array",
+      "maxItems": 10,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "proposal_id",
+          "title",
+          "why",
+          "kind",
+          "wall",
+          "payload_sha256",
+          "close_condition"
+        ],
+        "properties": {
+          "proposal_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9:._-]{0,119}$"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "why": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "kind": {
+            "enum": [
+              "advice",
+              "prepared",
+              "autonomous"
+            ]
+          },
+          "wall": {
+            "enum": [
+              "none",
+              "spend",
+              "send",
+              "post",
+              "strategy"
+            ]
+          },
+          "amount_usd": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "channel": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 60
+          },
+          "objective_key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[a-z][a-z0-9_]{0,63}$"
+          },
+          "exact_payload": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 8000
+          },
+          "payload_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "evidence": {
+            "type": "array",
+            "maxItems": 12,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "label",
+                "url"
+              ],
+              "properties": {
+                "label": {
+                  "type": "string",
+                  "maxLength": 500
+                },
+                "url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "pattern": "^https://\\S+$"
+                }
+              }
+            }
+          },
+          "close_condition": {
+            "type": "object",
+            "required": [
+              "event"
+            ],
+            "properties": {
+              "event": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]{0,63}$"
+              },
+              "reference": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 500
+              }
+            }
+          },
+          "expires_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        }
+      }
+    },
+    "events": {
+      "type": "array",
+      "maxItems": 40,
+      "items": {
+        "type": "object",
+        "required": [
+          "event",
+          "at"
+        ],
+        "properties": {
+          "event": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,63}$"
+          },
+          "proposal_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "evidence_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^https://\\S+$"
+          }
+        }
+      }
+    },
+    "holds": {
+      "type": "array",
+      "maxItems": 40,
+      "items": {
+        "type": "object",
+        "required": [
+          "reason"
+        ],
+        "properties": {
+          "reason": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "detail": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 1000
+          }
+        }
+      }
+    },
+    "payload_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

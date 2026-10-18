@@ -1,0 +1,263 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://controlcenter.krishraja.com/schemas/engine-directive-1.0.0.json",
+  "title": "Growth engine directive, protocol 1.0.0 (ADR-038)",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "directive_id",
+    "engine_id",
+    "for_date",
+    "aim",
+    "objectives",
+    "next_action",
+    "decisions_since",
+    "constraints"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "directive_id": {
+      "type": "string"
+    },
+    "engine_id": {
+      "type": "string"
+    },
+    "for_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "aim": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "objectives": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "key",
+          "label",
+          "target",
+          "unit",
+          "window",
+          "timezone",
+          "latest",
+          "availability"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,63}$"
+          },
+          "label": {
+            "type": "string"
+          },
+          "target": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "unit": {
+            "type": "string"
+          },
+          "window": {
+            "type": "string"
+          },
+          "timezone": {
+            "type": "string"
+          },
+          "latest": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "availability": {
+            "enum": [
+              "measured",
+              "missing",
+              "stale",
+              "unreported"
+            ]
+          }
+        }
+      }
+    },
+    "next_action": {
+      "type": "object",
+      "required": [
+        "proposal_id",
+        "instruction",
+        "why",
+        "close_condition"
+      ],
+      "properties": {
+        "proposal_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "instruction": {
+          "type": "string"
+        },
+        "why": {
+          "type": "string"
+        },
+        "close_condition": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "properties": {
+            "event": {
+              "type": "string"
+            },
+            "reference": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "decisions_since": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "proposal_id",
+          "decision",
+          "decided_at",
+          "payload_sha256"
+        ],
+        "properties": {
+          "proposal_id": {
+            "type": "string"
+          },
+          "decision": {
+            "enum": [
+              "approved",
+              "declined"
+            ]
+          },
+          "decided_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "payload_sha256": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "constraints": {
+      "type": "object",
+      "required": [
+        "walls",
+        "spend_cap_usd",
+        "max_actions"
+      ],
+      "properties": {
+        "walls": {
+          "type": "string"
+        },
+        "spend_cap_usd": {
+          "type": "number"
+        },
+        "max_actions": {
+          "type": "integer"
+        }
+      }
+    },
+    "in_house": {
+      "type": "object",
+      "description": "Mindmake only: what Advisory, Network and Visibility did this week inside Control Center. A part that could not be read is null.",
+      "required": [
+        "rule",
+        "counts"
+      ],
+      "properties": {
+        "rule": {
+          "type": "string"
+        },
+        "counts": {
+          "type": "object",
+          "required": [
+            "week_start",
+            "advisory",
+            "network",
+            "visibility"
+          ],
+          "properties": {
+            "week_start": {
+              "type": "string",
+              "format": "date"
+            },
+            "advisory": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "properties": {
+                "drafted_waiting": {
+                  "type": "integer"
+                },
+                "sent_this_week": {
+                  "type": "integer"
+                },
+                "replied_waiting": {
+                  "type": "integer"
+                },
+                "calls_booked_this_week": {
+                  "type": "integer"
+                },
+                "paid": {
+                  "type": "integer"
+                }
+              }
+            },
+            "network": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "properties": {
+                "warm_people": {
+                  "type": "integer"
+                }
+              }
+            },
+            "visibility": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "properties": {
+                "stages_open": {
+                  "type": "integer"
+                },
+                "applied_this_week": {
+                  "type": "integer"
+                },
+                "rooms_going": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
