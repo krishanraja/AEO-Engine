@@ -1,0 +1,87 @@
+{
+  "schema_version": "1.0.0",
+  "engine_id": "growth-heartside",
+  "product_slug": "heartside",
+  "run_id": "heartside:2026-10-18:daily",
+  "mode": "synthetic",
+  "observed_at": "2026-10-18T08:00:00Z",
+  "source": {
+    "revision": "5618a99829a0c9ef1291b73c20cda3d837c262de",
+    "captured_at": "2026-10-18T07:55:00Z"
+  },
+  "status": "held",
+  "objectives": [
+    {
+      "key": "net_sales_usd",
+      "value": 0,
+      "unit": "USD",
+      "window_start": "2026-10-01T00:00:00+01:00",
+      "window_end": "2026-10-18T08:00:00Z",
+      "timezone": "Europe/London",
+      "availability": "measured",
+      "reason": null
+    },
+    {
+      "key": "organic_orders",
+      "value": null,
+      "unit": "orders",
+      "window_start": null,
+      "window_end": null,
+      "timezone": "Europe/London",
+      "availability": "missing",
+      "reason": "Order attribution is not connected on the runner yet"
+    }
+  ],
+  "activity": [
+    {
+      "line": "Rendered the candle reel master and its TikTok edition for review",
+      "evidence_url": null
+    }
+  ],
+  "proposals": [
+    {
+      "proposal_id": "heartside:reel:candle-01:cut-3",
+      "title": "Cut a third version of the candle reel",
+      "why": "The first two cuts led the week on sends per view",
+      "kind": "prepared",
+      "wall": "none",
+      "amount_usd": null,
+      "channel": null,
+      "objective_key": "organic_orders",
+      "exact_payload": null,
+      "payload_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "evidence": [],
+      "close_condition": {
+        "event": "creative_rendered",
+        "reference": "candle-01"
+      },
+      "expires_at": null
+    },
+    {
+      "proposal_id": "heartside:post:candle-01:tiktok",
+      "title": "Post the candle reel on TikTok",
+      "why": "It is reviewed and the caption is ready",
+      "kind": "prepared",
+      "wall": "post",
+      "amount_usd": null,
+      "channel": "tiktok",
+      "objective_key": "organic_orders",
+      "exact_payload": "A candle that remembers the day you met. Made to order.",
+      "payload_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "evidence": [],
+      "close_condition": {
+        "event": "creative_published",
+        "reference": "candle-01"
+      },
+      "expires_at": "2026-10-20T00:00:00Z"
+    }
+  ],
+  "events": [],
+  "holds": [
+    {
+      "reason": "Purchase claims held until the catalog matches the canonical four gifts",
+      "detail": "heartside PR 13"
+    }
+  ],
+  "payload_sha256": "f4351324e84aa1baf6afd1bc4d2ffadb3039ab6399b2309c2717b89a26a0a517"
+}
