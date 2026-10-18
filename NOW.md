@@ -1,8 +1,8 @@
 ---
 repo: krishanraja/AEO-Engine
 product: AEO-Engine
-as_of: 2026-10-16
-head: da6e04f0
+as_of: 2026-10-18
+head: bd7dfef
 lifecycle: building
 production_url: none
 state_doc: docs/STATE.md
@@ -22,15 +22,18 @@ AEO-Engine is the fortnightly answer-engine research machine for Krish Raja's ve
 
 Krish reads the digest on Monday and acts the same week. The packet answers, per venture, "which buyer question are we invisible on, and who is cited instead"; per prospect, "what would this company's leaders see if they asked an assistant about their own problem, and is Mindmake in it"; per aspiration, "which of their pages get cited, and why". For the room_face buyer (a senior leader at a PE or VC backed media, adtech, publishing or data business, quietly behind on what is coming) the machine is proof that one person can run demand research on AI agents with the evidence left in: every number in a digest is measured that run, every unknown stays unknown, and a failed engine call writes nothing rather than a guess. Angles a writer can use: the OS reads its own calls and refuses to name anyone in them; the demand score says out loud that there is no prompt-volume corpus and scores from proxies; the run has a price cap it counts against, not a bill it discovers.
 
-## Where it is right now (as of 2026-10-16)
+## Where it is right now (as of 2026-10-18)
 
 - **Building.** The pipeline, the four engine clients, the Control Center and Fireflies clients, the validator, the cost ledger, the usage meter and the research workflow (fortnightly since 2026-10-15) are written and typecheck. `npm test` runs the whole pipeline against fixtures with no network and compares the venture packet field by field to `tests/fixtures/expected/packet.ctrl.json`, now pinned to a fixed week so the comparison does not expire every Monday.
 - **Not proven live.** No run has hit a real engine, Fireflies or Control Center yet. The model ids, the web search tool types, the price table and the new usage meter are the first things to check from the first live ledger (`docs/STATE.md`).
 - **Contract.** `docs/packet.schema.json` is identical to Control Center's copy; the validator here also carries the rules Control Center enforces beyond the schema (a venture names its product slug, a Monday `week_start`, empty themes unless the status is ok, unique query ids).
+- **Aim.** `docs/NORTH_STAR.md` (Krish, 2026-10-18): by January 2027, Mindmake and its products are cited first on the buyer questions the ventures answer, and the engine can show the week each one was won. Not reached; nothing is live yet.
+- **Growth engine protocol.** Control Center registered this engine as `aeo-engine` on 2026-10-18 (`docs/CONTROL-CENTER-BRIEF.md`). The report, attempt and directive client is not written; the packet ingest is unchanged.
 - **Waiting.** Repository secrets and the `AEO_MAX_USD_PER_RUN` variable; the `CLAUDE_CODE_OAUTH_TOKEN` secret for the docs steward.
 
 ## What changed recently
 
+- 2026-10-18 **Control Center asks every growth engine to run one protocol loop, and this engine now has an aim.** Why: Krish ruled that all engines report through one protocol (ADR-038 in Control Center) so Growth > Engines can show them side by side. The brief (PR #15) says the packet ingest "stays exactly as it is" and adds a started attempt, a directive pull, one report per run with `queries_cited_first` (no target yet) and a terminal attempt, with unknown as `value: null` and never zero. The same day Krish set the North Star (PR #14): cited first by January 2027, with the week each was won on show. Nothing of the client is built yet. `docs/CONTROL-CENTER-BRIEF.md`, `docs/NORTH_STAR.md`.
 - 2026-10-15 **The research runs fortnightly, not weekly.** Why: the run cost $9.08 on 4 October and $9.87 on 11 October (Control Center's `meter_daily`, `aeo-probe`), about a fifth of the fleet's model spend that week. Ruling (Krish, 2026-10-15): "happy with the fortnightly AI visiblity check". The Sunday schedule now runs on odd ISO weeks only (the next run is week 43, 25 October); a dispatch from Control Center or the Actions button still runs at once. A digest's "since last run" now compares with the run two weeks before.
 - 2026-09-21 **The engine can say what it actually spent.** Why: `lib/cost.ts` charges an estimate against the cap before every call so a map growing to 200 questions cannot quietly become a 200-call invoice, but its own comment says those numbers are estimates, so it was the only cost figure the engine could produce. The new `UsageMeter` reads the `usage` object off every Anthropic response and sums it by stage and model instead: a paused search turn is billed as its own request so each one is counted, not just the last; a refusal is billed for the tokens it read, so it is recorded before the throw; and the meter reports last, after a failure too, because a run that died on its third subject still paid for the first two. It posts to `POST /api/aeo/meter` and deliberately never turns tokens into dollars, that stays Control Center's `_prices.ts`, the one price table in the fleet. Only the Anthropic clients feed it for now; Perplexity, OpenAI and xAI usage stays unreported rather than priced in the wrong currency. `docs/STATE.md`.
 - 2026-09-21 **A Claude probe gets four minutes instead of two, because a search turn is not a model turn.** Why: the 2026-09-20 re-run lost six probes on circle and seven on ctrl, every one a `timeout after 120000ms`, not an auth failure or the spend cap. The web search tool allows up to five searches in one turn, and two minutes suits a model answering from context, not one running five searches first. The four-minute deadline is on the probe path only; the JSON writer keeps its 120s default on purpose, since a slow call there is a fault rather than a search. Ruling (Krish, 2026-09-20): raise the claude probe timeout.
@@ -49,6 +52,8 @@ Krish reads the digest on Monday and acts the same week. The packet answers, per
 4. `README.md`: how it runs, the stages, the secrets by name.
 5. `docs/BUILD-LOG.md`: the why, the failure and the mechanism behind each change.
 6. `docs/NEVER-PUBLISH.md`: what a writer may not take from this repo.
+7. `docs/NORTH_STAR.md`: the aim Krish set; only he changes it.
+8. `docs/CONTROL-CENTER-BRIEF.md` and `docs/control-center/ENGINE-PROTOCOL.md`: the growth engine protocol this engine is asked to report through.
 
 ## Do not trust
 

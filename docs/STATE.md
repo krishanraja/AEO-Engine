@@ -2,7 +2,7 @@
 
 Status: Current
 Owner: Krish Raja
-Last verified: 2026-09-21 against `npm test`, `npm run typecheck` and `npm run check:config` (74 of 74 tests pass)
+Last verified: 2026-10-18 against `npm test`, `npm run typecheck` and `npm run check:config` (74 of 74 tests pass)
 
 ## Live
 
@@ -20,6 +20,7 @@ Nothing. No scheduled run has happened and no packet has reached Control Center.
 ## Waiting
 
 - Repository secrets: `CONTROL_CENTER_URL`, `AEO_ENGINE_SECRET`, `FIREFLIES_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `PERPLEXITY_API_KEY`, and optionally `XAI_API_KEY`, `EXA_API_KEY`. Repository variable `AEO_MAX_USD_PER_RUN`.
+- The growth engine protocol client (`docs/control-center/ENGINE-PROTOCOL.md`, brief in `docs/CONTROL-CENTER-BRIEF.md`): not written. Control Center switched this engine on 2026-10-18 as `aeo-engine`; the bearer arrives as the repository secret `CONTROL_CENTER_ENGINE_TOKEN` and `CONTROL_CENTER_URL` as a variable. The packet ingest is unchanged. Until a client exists Control Center reads the last run from `aeo_commands`.
 - `CLAUDE_CODE_OAUTH_TOKEN` for `.github/workflows/docs-steward.yml`.
 - Control Center's `AEO_DISPATCH_TOKEN` so Run-now can reach this repo.
 
