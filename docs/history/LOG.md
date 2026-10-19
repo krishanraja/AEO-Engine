@@ -5,6 +5,10 @@ Newest first. Entries are written by the docs steward (see the steward link in
 describes current behaviour; `NOW.md` and `docs/STATE.md` do. Files moved here
 keep their body verbatim under a Historical banner.
 
+## 2026-10-19
+
+- reconciled at `6c7aafe`: four commits since the last pass, the growth engine protocol client and workflows, the dry-run artifact removal, the autonomy ruling with protocol 1.1.0, and `docs/GET-GOING.md`. `NOW.md` gains the autonomy and Get going lines and names a conflict between `docs/GET-GOING.md` and `docs/STATE.md` on whether anything is live; `docs/STATE.md` was edited the same day by its owner and is left as written.
+
 ## 2026-10-18
 
 - reconciled at `bd7dfef`: seven commits since the last pass, the North Star, the Control Center growth engine brief and protocol copy, canon syncs and the repository-administration files. `docs/STATE.md` re-stamped after `npm test` (74 of 74), `npm run typecheck` and `npm run check:config` passed, and now lists the unwritten protocol client under Waiting. `AGENTS.md`, `CLAUDE.md` and `docs/HARNESS_CONTEXT.md` left alone, they belong to other writers.
