@@ -1,6 +1,7 @@
+<!-- Copied from krishanraja/control-center docs/app/growth/ENGINE-PROTOCOL.md on 2026-10-19. Control Center's copy is authoritative. -->
 # The growth engine protocol, version 1.1.0
 
-Every growth engine reports into Control Center through this one protocol, and Control Center pushes each engine its next move through it ([ADR-038](../../DECISIONS/038-one-protocol-for-growth-engines.md)). It replaces the per-engine receivers the handoffs asked for. The engines are:
+Every growth engine reports into Control Center through this one protocol, and Control Center pushes each engine its next move through it (ADR-038 in Control Center). It replaces the per-engine receivers the handoffs asked for. The engines are:
 
 | Engine | Slug in the path | `engine_id` | `product_slug` |
 |---|---|---|---|
