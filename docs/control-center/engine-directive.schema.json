@@ -16,7 +16,7 @@
   ],
   "properties": {
     "schema_version": {
-      "const": "1.0.0"
+      "const": "1.1.0"
     },
     "directive_id": {
       "type": "string"
@@ -136,7 +136,9 @@
           "proposal_id",
           "decision",
           "decided_at",
-          "payload_sha256"
+          "payload_sha256",
+          "stage",
+          "amended"
         ],
         "properties": {
           "proposal_id": {
@@ -145,7 +147,8 @@
           "decision": {
             "enum": [
               "approved",
-              "declined"
+              "declined",
+              "done"
             ]
           },
           "decided_at": {
@@ -157,6 +160,37 @@
               "string",
               "null"
             ]
+          },
+          "stage": {
+            "enum": [
+              "plan",
+              "go_live",
+              "check_in",
+              null
+            ]
+          },
+          "amended": {
+            "type": "boolean",
+            "description": "He changed it before approving. Act on his version (exact_payload, amount_usd), never your own."
+          },
+          "exact_payload": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Present when amended: his words."
+          },
+          "amount_usd": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Present when amended: his amount."
+          },
+          "amended_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "Present when amended: SHA-256 of the canonical JSON of {amount_usd, exact_payload}."
           }
         }
       }
@@ -165,6 +199,8 @@
       "type": "object",
       "required": [
         "walls",
+        "autonomy",
+        "autonomy_rule",
         "spend_cap_usd",
         "max_actions"
       ],
@@ -177,6 +213,16 @@
         },
         "max_actions": {
           "type": "integer"
+        },
+        "autonomy": {
+          "enum": [
+            "handcrafted",
+            "autonomous"
+          ]
+        },
+        "autonomy_rule": {
+          "type": "string",
+          "description": "Who carries out an approved send, post or spend, word for word."
         }
       }
     },

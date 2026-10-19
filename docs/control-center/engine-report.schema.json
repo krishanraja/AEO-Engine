@@ -17,7 +17,11 @@
   ],
   "properties": {
     "schema_version": {
-      "const": "1.0.0"
+      "enum": [
+        "1.0.0",
+        "1.1.0"
+      ],
+      "description": "1.1.0 adds a proposal's stage and parent_proposal_id; a 1.0.0 report carrying either is refused."
     },
     "engine_id": {
       "type": "string",
@@ -278,6 +282,22 @@
               "null"
             ],
             "format": "date-time"
+          },
+          "stage": {
+            "enum": [
+              "plan",
+              "go_live",
+              "check_in",
+              null
+            ],
+            "description": "1.1.0. An autonomous engine's plan (behind a wall, waiting on his yes), its go-live (send, post or spend) for his review, or a check-in (a strategy call naming its plan, with its progress in exact_payload)."
+          },
+          "parent_proposal_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "1.1.0. The plan a go-live carries out. Required on a go-live."
           }
         }
       }

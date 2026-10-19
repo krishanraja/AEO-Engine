@@ -1,5 +1,5 @@
-<!-- Copied from krishanraja/control-center docs/app/growth/ENGINE-PROTOCOL.md on 2026-10-18. Control Center's copy is authoritative. -->
-# The growth engine protocol, version 1.0.0
+<!-- Copied from krishanraja/control-center docs/app/growth/ENGINE-PROTOCOL.md on 2026-10-19. Control Center's copy is authoritative. -->
+# The growth engine protocol, version 1.1.0
 
 Every growth engine reports into Control Center through this one protocol, and Control Center pushes each engine its next move through it (ADR-038 in Control Center). It replaces the per-engine receivers the handoffs asked for. The engines are:
 
@@ -48,13 +48,13 @@ Each run, every engine does these five things, in this order:
 
 | Method and path | Request | Response |
 |---|---|---|
-| `GET /api/growth/engines/<slug>/capabilities` | | `{ schema_version, engine_id, product_slug, idempotency: true, activation: { state, activated_on }, features }` |
+| `GET /api/growth/engines/<slug>/capabilities` | | `{ schema_version, schema_versions, autonomy, engine_id, product_slug, idempotency: true, activation: { state, activated_on }, features }` |
 | `GET /api/growth/engines/<slug>/directive[?date=YYYY-MM-DD]` | | `{ ok, chosen_by: 'rule'\|'krish', directive }` |
 | `POST /api/growth/engines/<slug>/reports` | header `Idempotency-Key: <run_id>`, body a report | `{ accepted: true, run_id, payload_sha256, replayed }` |
 | `GET /api/growth/engines/<slug>/reports/<run_id>` | | `{ accepted: true, run_id, payload_sha256, mode, accepted_at, report }`, or 404 |
 | `POST /api/growth/engines/<slug>/attempts` | an attempt | `{ ok: true, attempt[, replayed] }` |
 | `GET /api/growth/engines/<slug>/attempts/<attempt_id>` | | `{ ok: true, attempt }`, or 404 |
-| `GET /api/growth/engines/<slug>/decisions[?since=<time>]` | | `{ ok, decisions: [{ proposal_id, decision: 'approved'\|'declined'\|'done', decided_at, payload_sha256 }] }` |
+| `GET /api/growth/engines/<slug>/decisions[?since=<time>]` | | `{ ok, decisions: [{ proposal_id, decision: 'approved'\|'declined'\|'done', decided_at, payload_sha256, stage, amended[, exact_payload, amount_usd, amended_sha256] }] }` |
 
 **Errors.**
 - **400:** the report or attempt is malformed. The body names the field.
@@ -74,7 +74,7 @@ The schema is [engine-report.schema.json](engine-report.schema.json). Every fiel
 
 | Field | Meaning |
 |---|---|
-| `schema_version` | `"1.0.0"` |
+| `schema_version` | `"1.1.0"`, or `"1.0.0"` without the 1.1.0 fields |
 | `engine_id`, `product_slug` | Must equal the registry row for the token |
 | `run_id` | Stable id for this run. It is also the `Idempotency-Key` |
 | `mode` | `live` or `synthetic`. Synthetic reports are stored and read back, but never touch live progress, the directive, the list or `workflow_runs`. A live report is refused until Krish switches the engine on |
@@ -103,6 +103,8 @@ The schema is [engine-report.schema.json](engine-report.schema.json). Every fiel
 | `evidence[]` | `{ label, url }`, at most 12, https only |
 | `close_condition` | `{ event, reference }`: the event that proves it done |
 | `expires_at` | After this it never comes forward |
+| `stage` | 1.1.0. `plan`, `go_live` or `check_in` for an autonomous engine's steps, below. A plan is behind a wall; a go-live is a send, post or spend; a check-in is a `strategy` call with its progress in `exact_payload` |
+| `parent_proposal_id` | 1.1.0. The plan a go-live carries out, or a check-in reports on. Required on both |
 
 A proposal may not carry a key that asks Control Center to act (`send_*`, `post_*`, `publish_*`, `schedule_*`, `spend_*`, `pay_*` and so on). An engine proposes; nothing in Control Center sends for it.
 
@@ -118,7 +120,7 @@ A proposal may not carry a key that asks Control Center to act (`send_*`, `post_
 | `error_code` | lower_snake code, required on `failed`. A code, never a message, body, URL or credential |
 | `started_at`, `finished_at` | `finished_at` is required on a terminal state and absent on `started` |
 
-A terminal record never changes. An exact replay is accepted, and a different terminal record for the same id is a 409. A `started` attempt with no end after 6 hours reads as unknown. Write the started attempt before you read any source, so a failure before the report still shows.
+The response and the readback carry the attempt exactly as the engine sent it, times included, so an engine can compare by exact equality (the store keeps its record beside the time columns, migration `20261030100000_growth_engine_attempt_record.sql`). A terminal record never changes. An exact replay is accepted, and a different terminal record for the same id is a 409. A `started` attempt with no end after 6 hours reads as unknown. Write the started attempt before you read any source, so a failure before the report still shows.
 
 ## The directive
 
@@ -131,19 +133,44 @@ The schema is [engine-directive.schema.json](engine-directive.schema.json).
 | `aim` | The engine's North Star |
 | `objectives[]` | Each objective with its `target` (null when nobody set one), the `latest` value and its `availability` |
 | `next_action` | `{ proposal_id, instruction, why, close_condition }`: the one thing to do |
-| `decisions_since[]` | His decisions in the last seven days, each with the `payload_sha256` it was made on |
-| `constraints` | `{ walls, spend_cap_usd: 0, max_actions: 5 }`. `walls` is the rule above, word for word |
+| `decisions_since[]` | His decisions in the last seven days, each as `GET .../decisions` gives it: the `payload_sha256` it was made on, the `stage`, and his version when `amended` |
+| `constraints` | `{ walls, autonomy, autonomy_rule, spend_cap_usd: 0, max_actions: 5 }`. `walls` is the rule above, word for word; `autonomy` and `autonomy_rule` say who acts once he approves, below |
 | `in_house` | Mindmake only. `{ rule, counts }` says what Advisory (`pilot_deals`), Network (warm tiers) and Visibility (stages and rooms) did this week inside Control Center, as counts. A part that could not be read is `null`, never zero. These three drive Mindmake's growth already, so the engine proposes into them and never drafts a second note or pitch to someone they already hold |
 
 **How the next action is chosen, by rule** (Ruling, Krish, 2026-10-18), in order:
 
-1. Something Krish approved that the engine has not yet done, with the approved payload.
+1. Something Krish approved that the engine has not yet done, with the approved payload (his version when he amended it). For an autonomous engine, an approved plan says "build it up to go-live, then propose the go-live", and an approved go-live says "go live with exactly what he approved".
 2. If the engine is failing, unknown or stale: repair, naming what broke.
 3. The unwalled pending proposal that closes the widest gap to an objective. An objective that is not measured yet counts as a wide gap, and a proposal on no objective as a small one.
 4. If everything proposed is behind a wall: keep preparing, and do not act on what waits on Krish.
 5. If nothing is proposed: propose your best move on the widest gap.
 
 Krish can pick another unwalled proposal on Growth > Engines as tomorrow's push (`chosen_by: krish`). The rule never replaces his pick.
+
+## Amend: his version before his yes
+
+On his list, an engine's proposal that carries words (`exact_payload`) or, for a spend, an amount can be changed before he approves it ("Change it first", then "Approve my version": one press). Ruling (Krish, 2026-10-19): he approves or amends.
+
+- His yes is still to the proposal he was shown: `payload_sha256` in the decision is the engine's digest.
+- The decision also says `amended: true` and carries his version: `exact_payload`, `amount_usd`, and `amended_sha256`, the SHA-256 of the canonical JSON of exactly `{ "amount_usd": ..., "exact_payload": ... }` (both keys, `null` when absent).
+- Recompute `amended_sha256` before acting, then act on his version, never your own.
+- If you change the proposal's payload after his decision, his yes and his version both lapse, and it comes back to him.
+
+## Autonomy: plan, then go-live
+
+Each engine is `handcrafted` or `autonomous` (`growth_engines.autonomy`, in the directive's `constraints` and in `capabilities`). Ruling (Krish, 2026-10-19): Full Time, Heartside, Legibility, Make Your Mind Up and AEO are autonomous; Mindmake is handcrafted. And: "Autonomy is given where it's deserved." Krish can switch any engine back to handcrafted.
+
+**Autonomous**, in two steps, each on his list:
+1. **The plan.** Propose what you are going to do as `stage: "plan"` behind a wall (usually `strategy`), with the plan in `exact_payload` so he can amend it. Wait for his yes.
+2. **The go-live.** Once the plan is approved, build everything up to go-live: the assets, the exact words, the amount. Then propose `stage: "go_live"` with `parent_proposal_id` set to the plan, behind `send`, `post` or `spend`. Nothing goes out yet.
+3. **Live.** When he approves the go-live, go live yourself with exactly what he approved, or his amended version, and report the closing event with its evidence. Purge on a go-live means stop.
+4. **Check in, often.** While a plan is open (approved and not done), propose `stage: "check_in"` naming it, behind `strategy`, with how it is going against the plan and what comes next in `exact_payload`. His list asks "On track?": Clear keeps it going, his amendment redirects it, Purge stops the plan (the rule then never pushes it again). Each engine's repository sets how often; a go-live never waits on a check-in, and a check-in never replaces the go-live review.
+
+A go-live of creative work (a post, a video, a caption) meets the engine's own quality bar before it is proposed, and says so in its evidence. Krish has a low tolerance for poor creative output: hold work that is not good enough rather than propose it, and treat his amendments and declines as the standard to learn from.
+
+**Handcrafted:** prepare the exact artifact and stop. Krish sends, posts or spends himself.
+
+Either way, the walls rule holds: nothing goes out without a decision whose digest matches what goes out.
 
 ## Health, as Growth > Engines shows it
 
