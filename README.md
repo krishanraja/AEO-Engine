@@ -17,7 +17,7 @@ The full list with reasons is `docs/NEVER-PUBLISH.md`.
 
 ## How it runs
 
-`.github/workflows/aeo-weekly.yml` runs Sunday 04:00 UTC on odd ISO weeks only (fortnightly since 2026-10-15; the file keeps its name so Control Center's links hold), on a manual dispatch (subject, dry), and on `repository_dispatch` type `aeo-run` from Control Center's Run-now button (`client_payload.command_id`, `client_payload.subject`). Three attempts fifteen minutes apart; the third failure is preserved so GitHub notifies. `week_start` is the Monday that owns the run in UTC, so the Sunday run reports the week that began the previous Monday.
+`.github/workflows/aeo-weekly.yml` runs Sunday 04:00 UTC on odd ISO weeks only (fortnightly since 2026-10-15; the file keeps its name so Control Center's links hold), on a manual dispatch (subject, dry; a dry run on Actions prints counts only and keeps no file, because this repository's artifacts are public, so read a whole packet with `--dry --out` locally), and on `repository_dispatch` type `aeo-run` from Control Center's Run-now button (`client_payload.command_id`, `client_payload.subject`). Three attempts fifteen minutes apart; the third failure is preserved so GitHub notifies. `week_start` is the Monday that owns the run in UTC, so the Sunday run reports the week that began the previous Monday.
 
 Locally:
 
