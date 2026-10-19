@@ -7,9 +7,13 @@
  *   --dry      validate and write the packet instead of POSTing it
  *   --offline  fixtures under tests/fixtures instead of any network call
  *   --out      where a dry run writes; with several subjects one file holds an array
+ *   --summary-out  where to leave this run's counts, sealed, for the protocol
+ *                  report job (src/protocol/). Needs AEO_ENGINE_SECRET; the
+ *                  file holds counts only and opens only inside the same
+ *                  workflow run (GITHUB_RUN_ID).
  */
 import { createHash, randomUUID } from 'node:crypto'
-import { CAPS, ENGINES, MODELS } from './config/run.js'
+import { CAPS, ENGINES, MODELS, PRICE_USD_PER_CALL } from './config/run.js'
 import { AnthropicClient } from './clients/anthropic.js'
 import { ControlCenterHttp } from './clients/controlCenter.js'
 import { FirefliesHttp } from './clients/fireflies.js'
@@ -21,8 +25,11 @@ import { XaiClient } from './clients/xai.js'
 import { Ledger } from './lib/cost.js'
 import { errText, log } from './lib/log.js'
 import { UsageMeter } from './lib/usage.js'
+import { seal } from './lib/seal.js'
 import { mondayOf, YMD } from './lib/week.js'
-import { runAll, type RunDeps, type RunOpts } from './pipeline/run.js'
+import { runAll, type RunDeps, type RunOpts, type RunResult } from './pipeline/run.js'
+import { writePacket } from './pipeline/70-ship.js'
+import { buildRunSummary } from './protocol/measure.js'
 
 export interface CliArgs {
   subject: string
@@ -30,13 +37,14 @@ export interface CliArgs {
   dry: boolean
   offline: boolean
   out: string | null
+  summaryOut: string | null
   commandId: number | null
   capUsd: number
   fixtures: string
 }
 
 export function parseArgs(argv: readonly string[], now = new Date()): CliArgs {
-  const args: CliArgs = { subject: 'all', week: mondayOf(now), dry: false, offline: false, out: null, commandId: null, capUsd: CAPS.MAX_USD_PER_RUN, fixtures: 'tests/fixtures' }
+  const args: CliArgs = { subject: 'all', week: mondayOf(now), dry: false, offline: false, out: null, summaryOut: null, commandId: null, capUsd: CAPS.MAX_USD_PER_RUN, fixtures: 'tests/fixtures' }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     const next = () => { const v = argv[++i]; if (v === undefined) throw new Error(`${a} needs a value`); return v }
@@ -51,6 +59,7 @@ export function parseArgs(argv: readonly string[], now = new Date()): CliArgs {
       case '--dry': args.dry = true; break
       case '--offline': args.offline = true; break
       case '--out': args.out = next(); break
+      case '--summary-out': args.summaryOut = next(); break
       case '--command-id': {
         const n = Number(next())
         if (!Number.isInteger(n) || n < 1) throw new Error('--command-id must be a positive integer')
@@ -135,8 +144,9 @@ export async function main(argv: readonly string[] = process.argv.slice(2)): Pro
     await deps.cc.patchCommand({ command_id: args.commandId, state: 'running' })
   }
   let failed: string | null = null
+  let outcome: RunResult | null = null
   try {
-    const { results, failures } = await runAll(deps, opts)
+    const { results, failures } = outcome = await runAll(deps, opts)
     if (args.dry) {
       const report = {
         week_start: args.week,
@@ -171,10 +181,42 @@ export async function main(argv: readonly string[] = process.argv.slice(2)): Pro
     log('usage_not_reported', { reason: 'no anthropic tokens measured this run' })
   }
 
+  if (args.summaryOut) writeSummary(args, deps, outcome)
+
   if (failed && args.commandId !== null && !args.dry) {
     try { await deps.cc.patchCommand({ command_id: args.commandId, state: 'failed', error: failed.slice(0, 600) }) } catch (e) { log('patch_failed', { error: errText(e) }) }
   }
   return failed ? 1 : 0
+}
+
+/**
+ * Counts only, sealed (src/lib/seal.ts), because the file crosses jobs as an
+ * artifact of a public repository. Never fails the run: the packets have
+ * shipped by now, and the report job reads a missing summary as a failed
+ * subject rather than as a quiet one.
+ */
+function writeSummary(args: CliArgs, deps: RunDeps, outcome: RunResult | null, env: NodeJS.ProcessEnv = process.env): void {
+  if (!args.summaryOut) return
+  const secret = env.AEO_ENGINE_SECRET ?? ''
+  if (!secret) { log('summary_not_written', { reason: 'AEO_ENGINE_SECRET is not set' }); return }
+  const summary = buildRunSummary({
+    subjectArg: args.subject,
+    weekStart: args.week,
+    now: new Date(),
+    engines: deps.engines.map(e => e.engine),
+    capUsd: args.capUsd,
+    spentUsd: deps.ledger.total,
+    maxProbeUsd: Math.max(0, ...deps.engines.map(e => PRICE_USD_PER_CALL[e.engine] ?? 0)),
+    results: outcome?.results ?? [],
+    failures: outcome?.failures ?? [],
+    errorCode: outcome ? null : 'run_failed',
+  })
+  try {
+    writePacket(args.summaryOut, JSON.parse(seal(summary, secret, env.GITHUB_RUN_ID ?? 'local')))
+    log('summary_written', { path: args.summaryOut, subjects: summary.subjects.length })
+  } catch (e) {
+    log('summary_not_written', { reason: errText(e) })
+  }
 }
 
 const invokedDirectly = process.argv[1] && /src[\\/]index\.(ts|js)$/.test(process.argv[1])

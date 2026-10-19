@@ -2,7 +2,49 @@
 
 Dated entries, newest first. Each one says why it was done, what failed or would have failed without it, and the mechanism. Control Center's build-signal ingest reads this file; keep names of people, prospects and secrets out of it.
 
-## 2026-09-08 (last): one job per subject, because a subject is independent
+## 2026-10-19 (last): the growth engine protocol, with the cost wall in the workflow
+
+Krish asked every growth engine to adopt Control Center's protocol (ADR-038
+there) so Growth > Engines can show them side by side. The packet ingest stays
+exactly as it was; the protocol rides beside it.
+
+Two paths, one owner each:
+
+- **The daily wake-up** is its own workflow, `cc-growth-directive.yml`. A
+  full research run is paid work, and a daily trigger that could reach it
+  would be a daily invoice. So the wall is structural rather than a
+  branch in a script: the workflow holds no paid API key and never calls the
+  research CLI, and `check:config` fails the build if either ever appears.
+  What it can do for free it does: a started attempt, the directive, a report
+  saying when the last research run reported and when the next is, and the
+  objective read back from that research run's own protocol report.
+- **The research run** reports once, at the end. Its subjects run as a
+  matrix, so their counts have to cross jobs, and the only carrier is an
+  artifact, which on a public repository anyone signed in can download. Packet
+  stats are on the never-publish list, so each job seals its counts with
+  AES-256-GCM under a key derived from `AEO_ENGINE_SECRET` and bound to the
+  workflow run, and names the artifact by job index, not subject.
+
+Three decisions worth keeping:
+
+- **`queries_cited_first` is "at least one assistant's first citation is
+  ours".** Ventures count on their own domains, prospects on Mindmake's and
+  Krish's; aspirations are other companies and never count. A single-subject
+  run, or a full run where a counted subject failed, reports `null` with a
+  reason: a partial count would read as a fall.
+- **A 409 is read back, never retried.** One full run a day has one `run_id`
+  (`aeo:<date>:research`), which is how the daily report finds it, so a second
+  full run that day conflicts and its attempt fails with `report_conflict`.
+- **A spend ask only when the cap bit.** When probes were skipped for the cap,
+  the report proposes a whole-dollar cap that would have asked every pair at
+  the price table's dearest probe, behind the spend wall. The engine never
+  raises the cap; only the repository variable does.
+
+Proven against an in-process stand-in (`tests/standin.ts`): the worked
+example's digest, the schema file itself, replay, readback, a 409, a 401, no
+redirect, and the token absent from every log line. Nothing live yet.
+
+## 2026-09-08: one job per subject, because a subject is independent
 
 Asking one question's three assistants together bought back most of an hour,
 and it was still not enough. The next live run finished its first product in

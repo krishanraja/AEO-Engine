@@ -14,6 +14,15 @@
 #
 # Control Center dedupes a repeated run_id and replaces an earlier attempt's
 # week, so a retry after a partial POST is safe.
+#
+# The growth engine protocol (docs/control-center/ENGINE-PROTOCOL.md) rides
+# beside the packet ingest, which it does not change: the plan job journals a
+# started attempt and reads the directive before the subject list is read,
+# each research job leaves a sealed counts-only summary, and the report job
+# sends one protocol report, reads it back, reads his decisions and closes the
+# attempt. A dry run POSTs nothing, so it reports nothing either. The daily
+# directive wake-up is its own workflow (cc-growth-directive.yml) and never
+# runs paid research.
 
 name: AEO weekly
 
@@ -47,22 +56,25 @@ jobs:
   # Control Center, which is the only place the subject list lives.
   plan:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     outputs:
-      subjects: ${{ steps.subjects.outputs.list }}
+      subjects: ${{ steps.subjects.outputs.list || '[]' }}
       cap: ${{ steps.subjects.outputs.cap }}
-      dry: ${{ steps.subjects.outputs.dry }}
-      command_id: ${{ steps.subjects.outputs.command_id }}
-      skip: ${{ steps.subjects.outputs.skip }}
+      total: ${{ steps.subjects.outputs.total }}
+      dry: ${{ steps.guard.outputs.dry }}
+      command_id: ${{ steps.guard.outputs.command_id }}
+      skip: ${{ steps.guard.outputs.skip }}
+      protocol: ${{ steps.guard.outputs.protocol }}
+      scope: ${{ steps.guard.outputs.scope }}
+      run_id: ${{ steps.guard.outputs.run_id }}
+      attempt_id: ${{ steps.guard.outputs.attempt_id }}
+      started_at: ${{ steps.guard.outputs.started_at }}
     steps:
       - uses: actions/checkout@v4
-      - name: Resolve the subjects and the per-subject cap
-        id: subjects
+      - name: Read the trigger
+        id: guard
         shell: bash
         env:
-          CONTROL_CENTER_URL: ${{ secrets.CONTROL_CENTER_URL }}
-          AEO_ENGINE_SECRET: ${{ secrets.AEO_ENGINE_SECRET }}
-          AEO_MAX_USD_PER_RUN: ${{ vars.AEO_MAX_USD_PER_RUN }}
           # Through the environment, never interpolated into the script: a
           # dispatch payload is data, and data that becomes shell is a way in.
           EVENT_NAME: ${{ github.event_name }}
@@ -94,6 +106,7 @@ jobs:
           fi
           echo "dry=$dry" >> "$GITHUB_OUTPUT"
           echo "command_id=$command_id" >> "$GITHUB_OUTPUT"
+          echo "asked=$asked" >> "$GITHUB_OUTPUT"
 
           # Fortnightly (Krish, 2026-10-15: "happy with the fortnightly AI
           # visiblity check"): the Sunday schedule runs on odd ISO weeks only
@@ -103,11 +116,55 @@ jobs:
           if [ "$EVENT_NAME" = "schedule" ] && [ $((10#$week % 2)) -eq 0 ]; then
             echo "ISO week $week is an off week; the research runs fortnightly."
             echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo 'list=[]' >> "$GITHUB_OUTPUT"
+            echo "protocol=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           echo "skip=false" >> "$GITHUB_OUTPUT"
 
+          # The protocol ids. One full run a day has a run_id the daily
+          # directive can find; a single-subject run is told apart by the
+          # workflow run. The attempt is this try of this workflow run.
+          run_date=$(date -u +%F)
+          if [ "$asked" = "all" ]; then scope="all"; run_id="aeo:$run_date:research"; else scope="one"; run_id="aeo:$run_date:research:$GITHUB_RUN_ID"; fi
+          if [ "$dry" = "true" ]; then echo "protocol=false" >> "$GITHUB_OUTPUT"; else echo "protocol=true" >> "$GITHUB_OUTPUT"; fi
+          echo "scope=$scope" >> "$GITHUB_OUTPUT"
+          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+          echo "attempt_id=aeo:$run_date:research:$GITHUB_RUN_ID.$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
+          echo "started_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@v4
+        if: ${{ steps.guard.outputs.protocol == 'true' }}
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - if: ${{ steps.guard.outputs.protocol == 'true' }}
+        run: npm ci
+      # Before the subject list is read, as the protocol asks. A protocol
+      # failure here is logged and does not stop the research: the packets
+      # are the fortnight's work, and the report job says what went wrong.
+      - name: Journal the attempt and read the directive
+        if: ${{ steps.guard.outputs.protocol == 'true' }}
+        continue-on-error: true
+        env:
+          CONTROL_CENTER_URL: ${{ vars.CONTROL_CENTER_URL }}
+          CONTROL_CENTER_ENGINE_TOKEN: ${{ secrets.CONTROL_CENTER_ENGINE_TOKEN }}
+          ATTEMPT_ID: ${{ steps.guard.outputs.attempt_id }}
+          RUN_ID: ${{ steps.guard.outputs.run_id }}
+          STARTED_AT: ${{ steps.guard.outputs.started_at }}
+        run: npm run --silent protocol -- research-start --attempt-id "$ATTEMPT_ID" --run-id "$RUN_ID" --started-at "$STARTED_AT"
+
+      - name: Resolve the subjects and the per-subject cap
+        id: subjects
+        if: ${{ steps.guard.outputs.skip != 'true' }}
+        shell: bash
+        env:
+          CONTROL_CENTER_URL: ${{ secrets.CONTROL_CENTER_URL }}
+          AEO_ENGINE_SECRET: ${{ secrets.AEO_ENGINE_SECRET }}
+          AEO_MAX_USD_PER_RUN: ${{ vars.AEO_MAX_USD_PER_RUN }}
+          ASKED: ${{ steps.guard.outputs.asked }}
+        run: |
+          set -euo pipefail
+          asked="$ASKED"
           if [ "$asked" != "all" ]; then
             list="[\"$asked\"]"
             count=1
@@ -120,6 +177,7 @@ jobs:
           cap=$(node -e "process.stdout.write((Number(process.argv[1])/Number(process.argv[2])).toFixed(2))" "$total" "$count")
           echo "list=$list" >> "$GITHUB_OUTPUT"
           echo "cap=$cap" >> "$GITHUB_OUTPUT"
+          echo "total=$total" >> "$GITHUB_OUTPUT"
           echo "Subjects: $list ($count), $cap USD each of $total"
 
   research:
@@ -162,11 +220,16 @@ jobs:
           CAP: ${{ needs.plan.outputs.cap }}
           COMMAND_ID: ${{ needs.plan.outputs.command_id }}
           DRY: ${{ needs.plan.outputs.dry }}
+          PROTOCOL: ${{ needs.plan.outputs.protocol }}
+          JOB_INDEX: ${{ strategy.job-index }}
         run: |
           set -uo pipefail
           args=(--subject "$SUBJECT" --cap-usd "$CAP")
           if [ -n "$COMMAND_ID" ]; then args+=(--command-id "$COMMAND_ID"); fi
           if [ "$DRY" = "true" ]; then args+=(--dry --out "out/packet.$SUBJECT.json"); fi
+          # Counts only, sealed to this workflow run (src/lib/seal.ts), named
+          # by job index so no subject reaches an artifact name.
+          if [ "$PROTOCOL" = "true" ]; then args+=(--summary-out "summary/summary-$JOB_INDEX.json"); fi
           for attempt in 1 2; do
             echo "::group::$SUBJECT attempt $attempt"
             npm run --silent run -- "${args[@]}" && { echo "::endgroup::"; exit 0; }
@@ -185,3 +248,54 @@ jobs:
           name: aeo-packet-${{ matrix.subject }}
           path: out/
           if-no-files-found: ignore
+      # This repository is public, and so are its artifacts. The summary is
+      # sealed and holds counts only; it lives one day.
+      - name: Keep the sealed summary for the report job
+        if: ${{ always() && needs.plan.outputs.protocol == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: aeo-summary-${{ strategy.job-index }}
+          path: summary/
+          retention-days: 1
+          if-no-files-found: ignore
+
+  # One protocol report for the whole run, after every subject: the objective
+  # from the packets, one line per subject, and a spend ask only when the cap
+  # stopped probes. Then the readback, his decisions and the terminal attempt.
+  # It runs when the plan journaled a started attempt, whatever the research
+  # did, so a started attempt never hangs open.
+  report:
+    needs: [plan, research]
+    if: ${{ always() && needs.plan.outputs.protocol == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          pattern: aeo-summary-*
+          path: summaries
+          merge-multiple: true
+      - name: Report to Control Center
+        env:
+          CONTROL_CENTER_URL: ${{ vars.CONTROL_CENTER_URL }}
+          CONTROL_CENTER_ENGINE_TOKEN: ${{ secrets.CONTROL_CENTER_ENGINE_TOKEN }}
+          AEO_ENGINE_SECRET: ${{ secrets.AEO_ENGINE_SECRET }}
+          ATTEMPT_ID: ${{ needs.plan.outputs.attempt_id }}
+          RUN_ID: ${{ needs.plan.outputs.run_id }}
+          STARTED_AT: ${{ needs.plan.outputs.started_at }}
+          SUBJECTS: ${{ needs.plan.outputs.subjects }}
+          SCOPE: ${{ needs.plan.outputs.scope }}
+          TOTAL: ${{ needs.plan.outputs.total || vars.AEO_MAX_USD_PER_RUN || '25' }}
+          PLAN_RESULT: ${{ needs.plan.result }}
+        run: |
+          set -uo pipefail
+          args=(research-report --attempt-id "$ATTEMPT_ID" --run-id "$RUN_ID" --started-at "$STARTED_AT" --subjects "${SUBJECTS:-[]}" --scope "$SCOPE" --total-cap-usd "$TOTAL" --summaries summaries)
+          if [ "$PLAN_RESULT" != "success" ]; then args+=(--plan-error context_unavailable); fi
+          npm run --silent protocol -- "${args[@]}"
