@@ -43,9 +43,23 @@ try {
   failures.push(`${directiveWorkflow} is missing`)
 }
 
+// The research workflow never uploads a packet: packets carry call themes and
+// prospect approach hooks, and this repository's artifacts are public. The
+// only artifact it keeps is the sealed counts-only summary.
+const researchWorkflow = '.github/workflows/aeo-weekly.yml'
+try {
+  const wf = readFileSync(researchWorkflow, 'utf8')
+  const uploads = wf.split(/\n(?=\s*- (?:name|uses):)/).filter(step => step.includes('actions/upload-artifact'))
+  for (const step of uploads) {
+    if (!/path:\s*summary\/\s*$/m.test(step)) failures.push(`${researchWorkflow} uploads something other than the sealed summary; packets never leave the runner`)
+  }
+} catch {
+  failures.push(`${researchWorkflow} is missing`)
+}
+
 if (failures.length) {
   console.error('check:config failed:')
   for (const f of failures) console.error(`- ${f}`)
   process.exit(1)
 }
-console.log(`check:config passed: engines ${ENGINES.join(', ')}; caps positive; no em dash in src/ or docs/; the directive workflow holds no paid key.`)
+console.log(`check:config passed: engines ${ENGINES.join(', ')}; caps positive; no em dash in src/ or docs/; the directive workflow holds no paid key; the research workflow uploads no packet.`)

@@ -37,7 +37,7 @@ on:
         default: "all"
         type: string
       dry:
-        description: "Validate and write the packets as an artifact; POST nothing"
+        description: "Validate the packets and print their counts; POST nothing and keep no file (this repository is public)"
         required: false
         default: false
         type: boolean
@@ -241,13 +241,11 @@ jobs:
           done
           echo "$SUBJECT failed twice"
           exit 1
-      - name: Keep the dry-run packet
-        if: ${{ always() && needs.plan.outputs.dry == 'true' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: aeo-packet-${{ matrix.subject }}
-          path: out/
-          if-no-files-found: ignore
+      # A dry run keeps no packet. A packet holds call themes from his
+      # Fireflies transcripts and prospect approach hooks, and this
+      # repository's artifacts are public, so the packet stays on the runner
+      # and the log carries only the counts the CLI prints. To read a whole
+      # packet, run --dry --out on his own machine (README).
       # This repository is public, and so are its artifacts. The summary is
       # sealed and holds counts only; it lives one day.
       - name: Keep the sealed summary for the report job
