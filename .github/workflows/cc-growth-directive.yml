@@ -1,0 +1,52 @@
+# The daily wake-up from Control Center (growth engine protocol, ADR-038 in
+# Control Center): a started attempt, the directive, a report of when the
+# research last ran and when it next runs, its readback, his decisions, and
+# the terminal attempt.
+#
+# The cost wall is structural here. This workflow holds no paid API key and
+# never calls the research CLI, so a directive cannot start a paid run, and
+# neither can a mistake in this file. Paid research runs only from
+# aeo-weekly.yml: its fortnightly schedule, its Actions button, and Control
+# Center's Run now (repository_dispatch aeo-run).
+
+name: Control Center directive
+
+on:
+  repository_dispatch:
+    types: [cc-growth-directive]
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "live, or synthetic to prove the loop without touching his numbers"
+        required: false
+        default: "live"
+        type: choice
+        options: [live, synthetic]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cc-growth-directive
+  cancel-in-progress: false
+
+jobs:
+  directive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      # The dispatch payload ({ directive_id, engine_id }) is not read: the
+      # engine pulls its directive with its own bearer, and a payload is data
+      # that never reaches a shell. Exits 2 naming any missing secret.
+      - name: Run the protocol loop
+        env:
+          CONTROL_CENTER_URL: ${{ vars.CONTROL_CENTER_URL }}
+          CONTROL_CENTER_ENGINE_TOKEN: ${{ secrets.CONTROL_CENTER_ENGINE_TOKEN }}
+          MODE: ${{ inputs.mode || 'live' }}
+        run: npm run --silent protocol -- directive --mode "$MODE"

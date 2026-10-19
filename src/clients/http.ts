@@ -11,7 +11,7 @@ export interface HttpResult { status: number; ok: boolean; json: unknown; text: 
 export async function requestJson(
   service: string,
   url: string,
-  init: { method?: string; headers?: Record<string, string>; body?: unknown; timeoutMs?: number },
+  init: { method?: string; headers?: Record<string, string>; body?: unknown; timeoutMs?: number; redirect?: RequestRedirect },
 ): Promise<HttpResult> {
   const ctrl = new AbortController()
   const tid = setTimeout(() => ctrl.abort(), init.timeoutMs ?? 120_000)
@@ -21,6 +21,9 @@ export async function requestJson(
       headers: { 'content-type': 'application/json', accept: 'application/json', ...(init.headers ?? {}) },
       body: init.body === undefined ? undefined : JSON.stringify(init.body),
       signal: ctrl.signal,
+      // 'manual' hands a 3xx back to the caller instead of following it, so a
+      // bearer is never carried to a host the caller did not name.
+      redirect: init.redirect ?? 'follow',
     })
     const text = await r.text().catch(() => '')
     let json: unknown = null

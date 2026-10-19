@@ -49,8 +49,10 @@ export interface RunOpts {
   commandId: number | null
 }
 
-export interface SubjectResult { slug: string; packet: AeoPacket; shipped: ShipResult }
-export interface RunResult { results: SubjectResult[]; failures: Array<{ slug: string; error: string }> }
+/** `domains` is the list the probes were read against, kept so the protocol report can count first citations. */
+export interface SubjectResult { slug: string; packet: AeoPacket; shipped: ShipResult; domains: string[] }
+export interface RunFailure { slug: string; kind: ContextSubject['kind']; error: string }
+export interface RunResult { results: SubjectResult[]; failures: RunFailure[] }
 
 export interface Shared { ctx: AeoContext; gathered: Gathered; attribution: Map<string, Attribution> }
 
@@ -115,17 +117,17 @@ export async function runAll(deps: RunDeps, opts: RunOpts): Promise<RunResult> {
   const shared: Shared = { ctx, gathered, attribution }
 
   const results: SubjectResult[] = []
-  const failures: Array<{ slug: string; error: string }> = []
+  const failures: RunFailure[] = []
   const bundle = opts.dry && !!opts.outPath && selected.length > 1
   for (const subject of selected) {
     try {
       const packet = await runSubject(subject, shared, deps, opts)
       const outPath = bundle ? null : opts.outPath ?? defaultOutPath(subject.slug, opts.weekStart)
       const shipped = await ship(deps.cc, packet, { dry: opts.dry, outPath })
-      results.push({ slug: subject.slug, packet, shipped })
+      results.push({ slug: subject.slug, packet, shipped, domains: krishHitsDomains(ctx, subject) })
       log('subject_done', { subject: subject.slug, queries: packet.stats.queries, probes: packet.stats.probes, cost_usd: packet.stats.cost_usd, ledger_usd: deps.ledger.total })
     } catch (e) {
-      failures.push({ slug: subject.slug, error: errText(e) })
+      failures.push({ slug: subject.slug, kind: subject.kind, error: errText(e) })
       log('subject_failed', { subject: subject.slug, error: errText(e) })
     }
   }

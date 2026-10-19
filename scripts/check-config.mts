@@ -28,9 +28,24 @@ for (const root of ['src', 'docs']) {
   }
 }
 
+// The cost wall on the daily directive: its workflow holds no paid key and
+// never calls the research CLI, so a directive cannot start a paid run.
+const directiveWorkflow = '.github/workflows/cc-growth-directive.yml'
+try {
+  const wf = readFileSync(directiveWorkflow, 'utf8')
+  for (const paid of ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'PERPLEXITY_API_KEY', 'XAI_API_KEY', 'FIREFLIES_API_KEY', 'EXA_API_KEY', 'AEO_ENGINE_SECRET']) {
+    if (wf.includes(paid)) failures.push(`${directiveWorkflow} names ${paid}; the directive path must hold no paid key`)
+  }
+  if (/npm run (--silent )?run\b|src\/index\.ts/.test(wf)) failures.push(`${directiveWorkflow} calls the research CLI; a directive never starts paid research`)
+  if (!/types:\s*\[cc-growth-directive\]/.test(wf)) failures.push(`${directiveWorkflow} does not listen for cc-growth-directive`)
+  if (!/permissions:\s*\n\s*contents:\s*read/.test(wf)) failures.push(`${directiveWorkflow} must be contents: read`)
+} catch {
+  failures.push(`${directiveWorkflow} is missing`)
+}
+
 if (failures.length) {
   console.error('check:config failed:')
   for (const f of failures) console.error(`- ${f}`)
   process.exit(1)
 }
-console.log(`check:config passed: engines ${ENGINES.join(', ')}; caps positive; no em dash in src/ or docs/.`)
+console.log(`check:config passed: engines ${ENGINES.join(', ')}; caps positive; no em dash in src/ or docs/; the directive workflow holds no paid key.`)
