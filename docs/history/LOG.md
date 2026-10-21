@@ -5,6 +5,10 @@ Newest first. Entries are written by the docs steward (see the steward link in
 describes current behaviour; `NOW.md` and `docs/STATE.md` do. Files moved here
 keep their body verbatim under a Historical banner.
 
+## 2026-10-21
+
+- reconciled at `96b81af`: one non-steward commit, the copy of growth engine protocol 1.2.0 and its two schemas into `docs/control-center/`. `NOW.md` gains a "What changed recently" bullet and its autonomy line names 1.2.0; `head` and `as_of` advanced. `docs/STATE.md` and `docs/NORTH_STAR.md` keep their stamps because nothing they claim changed. The earlier `docs/GET-GOING.md` vs `docs/STATE.md` conflict about live state is still open and waits on Krish.
+
 ## 2026-10-19
 
 - reconciled at `6c7aafe`: four commits since the last pass, the growth engine protocol client and workflows, the dry-run artifact removal, the autonomy ruling with protocol 1.1.0, and `docs/GET-GOING.md`. `NOW.md` gains the autonomy and Get going lines and names a conflict between `docs/GET-GOING.md` and `docs/STATE.md` on whether anything is live; `docs/STATE.md` was edited the same day by its owner and is left as written.
