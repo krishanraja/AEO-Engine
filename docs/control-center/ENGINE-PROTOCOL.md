@@ -1,5 +1,5 @@
-<!-- Copied from krishanraja/control-center docs/app/growth/ENGINE-PROTOCOL.md on 2026-10-19. Control Center's copy is authoritative. -->
-# The growth engine protocol, version 1.1.0
+<!-- Copied from krishanraja/control-center docs/app/growth/ENGINE-PROTOCOL.md on 2026-10-21. Control Center's copy is authoritative. -->
+# The growth engine protocol, version 1.2.0
 
 Every growth engine reports into Control Center through this one protocol, and Control Center pushes each engine its next move through it (ADR-038 in Control Center). It replaces the per-engine receivers the handoffs asked for. The engines are:
 
@@ -13,6 +13,16 @@ Every growth engine reports into Control Center through this one protocol, and C
 | krishanraja/AEO-Engine | `aeo` | `aeo-engine` | `mindmake` |
 
 The registry is the table `growth_engines`. It holds each engine's aim (its North Star), its objectives with their targets, its cadence, whether it is switched on, and the SHA-256 of its bearer.
+
+## Versions
+
+Control Center only ever adds within 1.x: a new minor version adds fields, never removes or changes one, and every older 1.x report is still taken. So:
+
+- **Accept any 1.x** in what Control Center serves (the directive, capabilities, decisions), and ignore a field you do not know. Never require an exact version back.
+- **Send the version you speak.** `capabilities.schema_versions` lists every version Control Center takes; check that yours is in it.
+- **Raise yours only for a field you use.** 1.1.0 adds a proposal's `stage` and `parent_proposal_id`; 1.2.0 adds its `subject_ref`.
+
+On 2026-10-19 Control Center began serving 1.1.0. Legibility required exactly 1.0.0 back from capabilities, and Mindmake from the directive, so both stopped on every run (`receiver_contract_mismatch`, `directive_invalid`) and reported nothing for two days. That is why this rule exists.
 
 ## The daily loop
 
@@ -74,7 +84,7 @@ The schema is [engine-report.schema.json](engine-report.schema.json). Every fiel
 
 | Field | Meaning |
 |---|---|
-| `schema_version` | `"1.1.0"`, or `"1.0.0"` without the 1.1.0 fields |
+| `schema_version` | `"1.2.0"`, `"1.1.0"` without its subject, or `"1.0.0"` without the 1.1.0 fields either |
 | `engine_id`, `product_slug` | Must equal the registry row for the token |
 | `run_id` | Stable id for this run. It is also the `Idempotency-Key` |
 | `mode` | `live` or `synthetic`. Synthetic reports are stored and read back, but never touch live progress, the directive, the list or `workflow_runs`. A live report is refused until Krish switches the engine on |
@@ -105,6 +115,7 @@ The schema is [engine-report.schema.json](engine-report.schema.json). Every fiel
 | `expires_at` | After this it never comes forward |
 | `stage` | 1.1.0. `plan`, `go_live` or `check_in` for an autonomous engine's steps, below. A plan is behind a wall; a go-live is a send, post or spend; a check-in is a `strategy` call with its progress in `exact_payload` |
 | `parent_proposal_id` | 1.1.0. The plan a go-live carries out, or a check-in reports on. Required on both |
+| `subject_ref` | 1.2.0. The person, stage or room it is about, by the id Control Center gave you: `contact:<id>`, `target:<id>` or `event:<id>`. Optional. When Advisory, People, Visibility or Events already holds the same one, his list keeps their copy, not yours (below) |
 
 A proposal may not carry a key that asks Control Center to act (`send_*`, `post_*`, `publish_*`, `schedule_*`, `spend_*`, `pay_*` and so on). An engine proposes; nothing in Control Center sends for it.
 
@@ -134,7 +145,7 @@ The schema is [engine-directive.schema.json](engine-directive.schema.json).
 | `objectives[]` | Each objective with its `target` (null when nobody set one), the `latest` value and its `availability` |
 | `next_action` | `{ proposal_id, instruction, why, close_condition }`: the one thing to do |
 | `decisions_since[]` | His decisions in the last seven days, each as `GET .../decisions` gives it: the `payload_sha256` it was made on, the `stage`, and his version when `amended` |
-| `constraints` | `{ walls, autonomy, autonomy_rule, spend_cap_usd: 0, max_actions: 5 }`. `walls` is the rule above, word for word; `autonomy` and `autonomy_rule` say who acts once he approves, below |
+| `constraints` | `{ walls, autonomy, autonomy_rule, spend_cap_usd: 0, max_actions: 5 }`. `walls` is the rule above, word for word; `autonomy` and `autonomy_rule` say who acts once he approves, below, and end with the one-ask-at-a-time rule |
 | `in_house` | Mindmake only. `{ rule, counts }` says what Advisory (`pilot_deals`), Network (warm tiers) and Visibility (stages and rooms) did this week inside Control Center, as counts. A part that could not be read is `null`, never zero. These three drive Mindmake's growth already, so the engine proposes into them and never drafts a second note or pitch to someone they already hold |
 
 **How the next action is chosen, by rule** (Ruling, Krish, 2026-10-18), in order:
@@ -142,7 +153,7 @@ The schema is [engine-directive.schema.json](engine-directive.schema.json).
 1. Something Krish approved that the engine has not yet done, with the approved payload (his version when he amended it). For an autonomous engine, an approved plan says "build it up to go-live, then propose the go-live", and an approved go-live says "go live with exactly what he approved".
 2. If the engine is failing, unknown or stale: repair, naming what broke.
 3. The unwalled pending proposal that closes the widest gap to an objective. An objective that is not measured yet counts as a wide gap, and a proposal on no objective as a small one.
-4. If everything proposed is behind a wall: keep preparing, and do not act on what waits on Krish.
+4. If everything proposed is behind a wall: keep preparing, and do not act on what waits on Krish. He sees one of your asks at a time, so add no second ask of a kind that already waits on him.
 5. If nothing is proposed: propose your best move on the widest gap.
 
 Krish can pick another unwalled proposal on Growth > Engines as tomorrow's push (`chosen_by: krish`). The rule never replaces his pick.
@@ -172,6 +183,14 @@ A go-live of creative work (a post, a video, a caption) meets the engine's own q
 
 Either way, the walls rule holds: nothing goes out without a decision whose digest matches what goes out.
 
+## On his list: one ask at a time, one copy of a thing
+
+Ruling (Krish, 2026-10-21), so the engines and the parts of Control Center that already queue things for him never put the same thing in front of him twice:
+
+- **One ask per engine at a time.** Of an engine's walled proposals, his list shows one: a go-live first, then a check-in, then a plan, then a spend, a send, a post and a strategy call, the oldest first within each. The rest wait their turn, each named, and the next comes forward when he answers (or bumps) the one shown. So never add a second ask of a kind that already waits; keep the one waiting current instead.
+- **One copy of a person, stage or room.** Advisory (`pilot_deals`), People, Visibility and Events already draft notes and pitches. A proposal whose `subject_ref` names someone or something they hold is left off his list, and theirs stays. It is not declined: it waits, and it lapses when it expires. Propose into them, never a second note.
+- **Who owns what.** Control Center's People and Visibility own outreach to shows and guests for Make Your Mind Up, so that engine proposes posts and measures, never a pitch, a swap or a partner note. A product with an active engine has that engine as its one strategy voice: the Sunday growth council writes no weekly move for it.
+
 ## Health, as Growth > Engines shows it
 
 The states are `inactive`, `never_reported`, `healthy`, `held`, `degraded`, `failing`, `stale` and `unknown`.
@@ -183,7 +202,7 @@ The states are `inactive`, `never_reported`, `healthy`, `held`, `degraded`, `fai
 | What | Where |
 |---|---|
 | Each accepted live report | One `workflow_runs` row (`workflow_id` = `engine_id`, `agent_id` from the registry), so fleet health sees it |
-| A walled proposal | Home's one list, source `engine`. Clear approves exactly that payload, Purge declines, Bump keeps it off until his next day (`api/_verbs.ts`, `actOnEngine`) |
+| A walled proposal | Home's one list, source `engine`, one per engine at a time and never beside Control Center's own copy of the same subject. Clear approves exactly that payload, Purge declines, Bump keeps it off until his next day (`api/_verbs.ts`, `actOnEngine`) |
 | An unwalled proposal | Growth > Engines, where he can pick it as tomorrow's push |
 | Objectives, activity, holds | Growth > Engines |
 | Media and copy to review | Growth > Packs, until packs join this protocol |

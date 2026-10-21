@@ -19,9 +19,10 @@
     "schema_version": {
       "enum": [
         "1.0.0",
-        "1.1.0"
+        "1.1.0",
+        "1.2.0"
       ],
-      "description": "1.1.0 adds a proposal's stage and parent_proposal_id; a 1.0.0 report carrying either is refused."
+      "description": "1.1.0 adds a proposal's stage and parent_proposal_id, 1.2.0 its subject_ref; an older report carrying a newer field is refused."
     },
     "engine_id": {
       "type": "string",
@@ -298,6 +299,14 @@
               "null"
             ],
             "description": "1.1.0. The plan a go-live carries out. Required on a go-live."
+          },
+          "subject_ref": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^(contact|target|event):[A-Za-z0-9_-]{1,64}$",
+            "description": "1.2.0. The person, stage or room the proposal is about, by the id Control Center gave the engine. His list keeps Control Center's own copy of the same subject instead."
           }
         }
       }

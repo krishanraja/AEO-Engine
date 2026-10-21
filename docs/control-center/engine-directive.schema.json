@@ -16,7 +16,9 @@
   ],
   "properties": {
     "schema_version": {
-      "const": "1.1.0"
+      "type": "string",
+      "pattern": "^1\\.[0-9]+\\.[0-9]+$",
+      "description": "The newest 1.x Control Center speaks. Accept any 1.x and ignore fields you do not know: within 1.x Control Center only adds."
     },
     "directive_id": {
       "type": "string"
