@@ -30,5 +30,34 @@ jobs:
             if (body.trim().split(/\s+/).length > limit) throw new Error('Context budget exceeded: '+path);
           }
           if (!readFileSync('CLAUDE.md','utf8').includes('@AGENTS.md')) throw new Error('Claude must load shared repository guidance');
-          console.log('Delivered context hashes, budgets and Claude entry route verified.');
+          const hook = createHash('sha256').update(readFileSync('.claude/hooks/harness-closeout.mjs')).digest('hex');
+          if (hook !== 'cfef79641c10db1c154600a3154cd788a971114f946100f24d8225f685eeae68') throw new Error('Closeout hook drift: .claude/hooks/harness-closeout.mjs is not the harness copy');
+          if (!readFileSync('.claude/settings.json','utf8').includes('harness-closeout.mjs')) throw new Error('Closeout hook is not registered in .claude/settings.json');
+          console.log('Delivered context hashes, budgets, Claude entry route and closeout hook verified.');
           JS
+  closeout:
+    # Every session leaves NOW.md and its North Star check current (Ruling, Krish, 2026-10-22).
+    # The same file is Claude Code's Stop hook; this job holds every other client to it.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: "22"
+          package-manager-cache: false
+      - name: Status, next step and North Star check are current in NOW.md
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        # Run the hook only after proving it is the harness copy: a pull request
+        # must never be able to grade itself with bytes it edited.
+        run: |
+          set -euo pipefail
+          echo "cfef79641c10db1c154600a3154cd788a971114f946100f24d8225f685eeae68  .claude/hooks/harness-closeout.mjs" | sha256sum --check --status || { echo "::error::.claude/hooks/harness-closeout.mjs is not the harness copy"; exit 1; }
+          node .claude/hooks/harness-closeout.mjs --ci --base "$BASE_SHA" --head "$HEAD_SHA"
