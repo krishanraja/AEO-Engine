@@ -31,7 +31,7 @@ jobs:
           }
           if (!readFileSync('CLAUDE.md','utf8').includes('@AGENTS.md')) throw new Error('Claude must load shared repository guidance');
           const hook = createHash('sha256').update(readFileSync('.claude/hooks/harness-closeout.mjs')).digest('hex');
-          if (hook !== 'cfef79641c10db1c154600a3154cd788a971114f946100f24d8225f685eeae68') throw new Error('Closeout hook drift: .claude/hooks/harness-closeout.mjs is not the harness copy');
+          if (hook !== '2ab2bc3dbdc247ffe53cf4c7e6ba573ebae4a4aaaca22448ec2418439df878ca') throw new Error('Closeout hook drift: .claude/hooks/harness-closeout.mjs is not the harness copy');
           if (!readFileSync('.claude/settings.json','utf8').includes('harness-closeout.mjs')) throw new Error('Closeout hook is not registered in .claude/settings.json');
           console.log('Delivered context hashes, budgets, Claude entry route and closeout hook verified.');
           JS
@@ -59,5 +59,5 @@ jobs:
         # must never be able to grade itself with bytes it edited.
         run: |
           set -euo pipefail
-          echo "cfef79641c10db1c154600a3154cd788a971114f946100f24d8225f685eeae68  .claude/hooks/harness-closeout.mjs" | sha256sum --check --status || { echo "::error::.claude/hooks/harness-closeout.mjs is not the harness copy"; exit 1; }
+          echo "2ab2bc3dbdc247ffe53cf4c7e6ba573ebae4a4aaaca22448ec2418439df878ca  .claude/hooks/harness-closeout.mjs" | sha256sum --check --status || { echo "::error::.claude/hooks/harness-closeout.mjs is not the harness copy"; exit 1; }
           node .claude/hooks/harness-closeout.mjs --ci --base "$BASE_SHA" --head "$HEAD_SHA"

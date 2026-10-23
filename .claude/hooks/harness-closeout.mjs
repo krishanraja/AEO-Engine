@@ -155,13 +155,36 @@ export function rangeCommits(cwd, base, head) {
   })
 }
 
-function defaultBase(cwd) {
-  const remote = tryGit(cwd, 'symbolic-ref', '--short', 'refs/remotes/origin/HEAD')
-  for (const ref of [remote, 'origin/main', 'origin/master'].filter(Boolean)) {
-    const base = tryGit(cwd, 'merge-base', 'HEAD', ref)
-    if (base) return base
+/**
+ * Where this session's work begins: the newest published commit HEAD sits on.
+ *
+ * A remote-tracking ref can be days stale (a cloud container cloned earlier
+ * and checked out the latest commit without moving origin/main), and a stale
+ * base pulls already-published commits, NOW.md updates included, into the
+ * range, so a session that never closed out passes. So the default branch is
+ * fetched first, briefly and best effort, and the local default branch is a
+ * candidate too when HEAD has left it. The newest merge-base wins.
+ */
+export function defaultBase(cwd, { fetch = true } = {}) {
+  const head = tryGit(cwd, 'symbolic-ref', '--short', 'refs/remotes/origin/HEAD')
+  const branches = [...new Set([head?.replace(/^origin\//, ''), 'main', 'master'].filter(Boolean))]
+  if (fetch) {
+    for (const b of branches) {
+      try {
+        execFileSync('git', ['fetch', '--quiet', '--no-tags', 'origin', `+refs/heads/${b}:refs/remotes/origin/${b}`], { cwd, stdio: 'ignore', timeout: 10_000, env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } })
+        break
+      } catch { /* offline or no such branch: fall back to what is local */ }
+    }
   }
-  return null
+  const current = tryGit(cwd, 'symbolic-ref', '--short', 'HEAD')
+  const refs = [...branches.map((b) => `origin/${b}`), ...branches.filter((b) => b !== current)]
+  let best = null
+  for (const ref of refs) {
+    const base = tryGit(cwd, 'merge-base', 'HEAD', ref)
+    if (!base) continue
+    if (!best || tryGit(cwd, 'merge-base', '--is-ancestor', best, base) === '') best = base
+  }
+  return best
 }
 
 const dateOf = (cwd, sha) => tryGit(cwd, 'log', '-1', '--format=%cs', sha)
