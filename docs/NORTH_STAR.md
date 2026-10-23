@@ -8,6 +8,24 @@ Last verified: 2026-10-18
 
 Set by Krish on 18 October 2026. It is not reached yet. It is what every session in this repository works toward.
 
+## The number
+
+**Share of tracked buyer questions where Mindmake or one of its products is the first citation**: 50% by 25 January 2027, on a linear weekly ladder. The first honest reading becomes week one, and the ladder is drawn from it.
+
+```yaml north-star-metric
+metric: "Share of tracked buyer questions where Mindmake or one of its products is the first citation"
+unit: %
+direction: up
+target: 50
+deadline: 2027-01-25
+ladder_shape: linear
+source: "The latest fortnightly packets"
+status: active
+ladder: pending-baseline
+```
+
+Urgency (U1 to U5) is worked out every week from where the number stands against that week's target, by [the harness contract](https://github.com/krishanraja/ai-harness/blob/main/contract/north-star-metric.md). Set by Krish on 23 October 2026.
+
 ## How to use it
 
 - Read it before any work, every session.

@@ -1,7 +1,7 @@
 ---
 repo: krishanraja/AEO-Engine
 product: AEO-Engine
-as_of: 2026-10-22
+as_of: 2026-10-23
 head: edfe4bb
 lifecycle: building
 production_url: none
@@ -22,7 +22,9 @@ AEO-Engine is the fortnightly answer-engine research machine for Krish Raja's ve
 
 Krish reads the digest on Monday and acts the same week. The packet answers, per venture, "which buyer question are we invisible on, and who is cited instead"; per prospect, "what would this company's leaders see if they asked an assistant about their own problem, and is Mindmake in it"; per aspiration, "which of their pages get cited, and why". For the room_face buyer (a senior leader at a PE or VC backed media, adtech, publishing or data business, quietly behind on what is coming) the machine is proof that one person can run demand research on AI agents with the evidence left in: every number in a digest is measured that run, every unknown stays unknown, and a failed engine call writes nothing rather than a guess. Angles a writer can use: the OS reads its own calls and refuses to name anyone in them; the demand score says out loud that there is no prompt-volume corpus and scores from proxies; the run has a price cap it counts against, not a bill it discovers.
 
-## Where it is right now (as of 2026-10-22)
+## Where it is right now (as of 2026-10-23)
+
+<!-- north-star-state {"week_of": "2026-10-26", "week_target": null, "current": null, "current_as_of": null, "current_source": null, "urgency": 4, "urgency_reason": "not measured yet (baseline comes from the latest packets)"} --> **North Star number: U4, far behind.** Share of tracked buyer questions where Mindmake or one of its products is the first citation: not measured yet (baseline comes from the latest packets), against week one set by the first reading this week, on the way to 50% by 25 January 2027. A bold swing every day; work that does not move the number waits.
 
 - **Building.** The pipeline, the four engine clients, the Control Center and Fireflies clients, the validator, the cost ledger, the usage meter and the research workflow (fortnightly since 2026-10-15) are written and typecheck. `npm test` runs the whole pipeline against fixtures with no network and compares the venture packet field by field to `tests/fixtures/expected/packet.ctrl.json`, now pinned to a fixed week so the comparison does not expire every Monday.
 - **Not proven live.** No run has hit a real engine, Fireflies or Control Center yet. The model ids, the web search tool types, the price table and the new usage meter are the first things to check from the first live ledger (`docs/STATE.md`).
@@ -35,6 +37,7 @@ Krish reads the digest on Monday and acts the same week. The packet answers, per
 
 ## What changed recently
 
+- 2026-10-23 **The North Star now has a number, a weekly ladder and an urgency rating, so every session knows how far behind it is and how hard to push.** Ruling (Krish, 2026-10-23): every repository chases one aggressive number on a weekly ladder, and urgency U1 to U5 sets its intensity. The number and ladder are in `docs/NORTH_STAR.md`; where it stands is the first line under "Where it is right now". Contract: ai-harness `contract/north-star-metric.md`.
 - 2026-10-21 **Control Center's protocol moves to 1.2.0, and Krish's list takes one ask per engine at a time.** Why: Ruling (Krish, 2026-10-21): "his list shows one ask per growth engine at a time, a go-live first, then a check-in, then a plan." So this engine adds no second ask of a kind that already waits, and a proposal about a person, stage or room Control Center already holds (`subject_ref`) gives way to its copy. The copy is additive and adds a "Versions" rule: accept any 1.x back and send the version you speak, because on 2026-10-19 Legibility and Mindmake required exactly 1.0.0 and "stopped for two days" (the commit says this engine already accepted newer versions). Only the protocol copy and its two schemas changed (#21); no engine code. `docs/control-center/ENGINE-PROTOCOL.md`.
 - 2026-10-19 **The engine is told to run autonomously, and its build plan moves into the repository.** Why: Krish ruled "the engine shows me what it is going to do, I approve, it gets up to go-live and asks me to review", and that autonomy is "given where it is deserved", so the engine checks in at least weekly and he has a low tolerance for poor creative output. Protocol 1.1.0 adds a proposal's stage (plan, go_live, check_in) and his amended version. Ruling (Krish, 2026-10-19): he opens the repository and says "Get going"; no pasted prompts. `docs/GET-GOING.md` holds the build as a checklist, written from the first live report, which was `degraded` because `queries_cited_first` had no research run to measure it and the objective has no target. A dry run on GitHub also stopped keeping a packet, because artifacts on a public repository are downloadable (#18). `AGENTS.md`, `docs/GET-GOING.md`, `docs/control-center/ENGINE-PROTOCOL.md`.
 - 2026-10-19 **The engine reports through the growth engine protocol, and a directive cannot start a paid run.** Why: Krish asked every engine to adopt its brief now. The daily `cc-growth-directive` wake-up runs its own workflow, which holds no paid key: it says when the research last ran and next runs and reads `queries_cited_first` back from the last research report, or reports it unknown with a reason. Each research run ends in one report for the whole run, built from per-job counts sealed to the workflow run because this repository's artifacts are public. Tested against a local stand-in only. `README.md`, `docs/BUILD-LOG.md`.
@@ -45,6 +48,7 @@ Krish reads the digest on Monday and acts the same week. The packet answers, per
 
 - Next: the first live dry run (`--dry --out`) against Control Center's context to read a real packet, then tune the price table from the ledger it prints, then the first Sunday run.
 - Waiting on Krish: the eight secrets and the spend variable on the repository; confirming the OpenAI model name for the Responses API web search before the first live run (`src/config/run.ts`).
+- North Star check (2026-10-23): holds.
 
 ## Read next
 
