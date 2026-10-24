@@ -15,10 +15,10 @@ Read `NOW.md` first.
 
 Rules: `docs/PACKET.md`, `docs/STATE.md`.
 
-<!-- krish-canon:start release=v2026.10.22.1 sha=4c6584a8be42 rendered=2026-10-23 -->
+<!-- krish-canon:start release=v2026.10.24.1 sha=79acac2b3005 rendered=2026-10-24 -->
 ## Krish canon
 
-Rendered from `krishanraja/ai-harness` at release v2026.10.22.1. Nothing inside these
+Rendered from `krishanraja/ai-harness` at release v2026.10.24.1. Nothing inside these
 markers is hand-maintained: an edit here is detected and proposed back to the canon,
 never silently overwritten, and never lost. This sync preserves all other text.
 Separately approved repository administration owns only its declared regions and context file.
