@@ -13,7 +13,7 @@
  * body: a code is what an attempt records.
  */
 import { asArray, asRecord, asString, requestJson, type HttpResult } from './http.js'
-import { ENGINE, type Attempt, type Decision, type Directive, type EngineReport } from '../schema/report.js'
+import { ENGINE, parseTaste, type Attempt, type Decision, type Directive, type EngineReport } from '../schema/report.js'
 
 export class ProtocolError extends Error {
   constructor(public readonly code: string, public readonly status: number) {
@@ -90,7 +90,14 @@ export class GrowthEngineHttp {
     const j = asRecord(r.json)
     const d = asRecord(j.directive)
     if (j.ok !== true || typeof d.directive_id !== 'string') throw new ProtocolError('directive_invalid', r.status)
-    return { chosen_by: asString(j.chosen_by), directive: d as unknown as Directive }
+    // Any 1.x is accepted and unknown fields are ignored (protocol "Versions").
+    // `taste` (1.5.0) is normalised here; one that is absent or misshapen is
+    // left undefined, which means unknown, never an empty list.
+    const directive = { ...d } as unknown as Directive
+    const taste = parseTaste(d.taste)
+    if (taste) directive.taste = taste
+    else delete directive.taste
+    return { chosen_by: asString(j.chosen_by), directive }
   }
 
   /** One POST, never retried here. A 409 is report_conflict: the caller reads back before deciding anything. */

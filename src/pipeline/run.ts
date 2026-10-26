@@ -10,6 +10,7 @@ import { errText, log } from '../lib/log.js'
 import type { UsageMeter } from '../lib/usage.js'
 import type { AeoContext, ContextSubject } from '../schema/context.js'
 import type { AeoPacket } from '../schema/packet.js'
+import type { Taste } from '../schema/report.js'
 import { krishHitsDomains, loadContext } from './00-context.js'
 import { classifyTranscripts, gatherTranscripts, themesForSubject, type Attribution, type Gathered } from './10-transcripts.js'
 import { gapFor } from './20-gap.js'
@@ -39,6 +40,11 @@ export interface RunDeps {
   /** Mints a query id for a new query. Random live; derived from the key offline so fixtures compare. */
   mintId: (key: string) => string
   now: Date
+  /**
+   * Krish's approved voice rules from today's directive (protocol 1.5.0), or
+   * null/undefined when unknown. Only the digest's drafting prompt reads them.
+   */
+  taste?: Taste | null
 }
 
 export interface RunOpts {
@@ -67,7 +73,7 @@ export async function runSubject(subject: ContextSubject, shared: Shared, deps: 
   const proposed = await proposeQueries(deps.model, deps.ledger, subject, ctx, themes.themes, gap, deps.mintId)
   const outcome = await probeQueries(deps.engines, proposed, domains, deps.ledger, subject.never_say ?? [])
   const queries = scoreQueries(proposed, outcome, themes.themes, subject, domains)
-  const digest = await writeDigest(deps.model, deps.ledger, { subject, ctx, weekStart: opts.weekStart, engines, queries, themes, gap, krishHitsDomains: domains })
+  const digest = await writeDigest(deps.model, deps.ledger, { subject, ctx, weekStart: opts.weekStart, engines, queries, themes, gap, krishHitsDomains: domains, taste: deps.taste ?? null })
 
   const packet: AeoPacket = {
     schema_version: 1,

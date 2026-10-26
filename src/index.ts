@@ -30,6 +30,8 @@ import { mondayOf, YMD } from './lib/week.js'
 import { runAll, type RunDeps, type RunOpts, type RunResult } from './pipeline/run.js'
 import { writePacket } from './pipeline/70-ship.js'
 import { buildRunSummary } from './protocol/measure.js'
+import { GrowthEngineHttp, ProtocolError } from './clients/growthEngine.js'
+import type { Taste } from './schema/report.js'
 
 export interface CliArgs {
   subject: string
@@ -134,9 +136,32 @@ export function buildDeps(args: CliArgs, env: NodeJS.ProcessEnv = process.env, n
   }
 }
 
+/**
+ * Krish's approved voice rules, read from today's directive through the
+ * growth engine door (protocol 1.5.0 `taste`). Null means unknown: the
+ * protocol bearer is not set here, the directive could not be read, or it
+ * carried no taste. Never fatal, never retried, never invented. The log line
+ * carries counts only, never a rule's text.
+ */
+export async function readTaste(env: NodeJS.ProcessEnv, client?: Pick<GrowthEngineHttp, 'getDirective'>): Promise<Taste | null> {
+  try {
+    const c = client ?? (env.CONTROL_CENTER_ENGINE_TOKEN ? new GrowthEngineHttp(env.CONTROL_CENTER_PROTOCOL_URL || env.CONTROL_CENTER_URL, env.CONTROL_CENTER_ENGINE_TOKEN) : null)
+    if (!c) { log('directive_taste', { state: 'unknown', reason: 'not_configured' }); return null }
+    const { directive } = await c.getDirective()
+    const taste = directive.taste ?? null
+    log('directive_taste', taste ? { state: taste.approved_voice_rules.length ? 'approved' : 'none_approved', rules: taste.approved_voice_rules.length } : { state: 'unknown', reason: 'absent' })
+    return taste
+  } catch (e) {
+    log('directive_taste', { state: 'unknown', reason: e instanceof ProtocolError ? e.code : 'directive_unavailable' })
+    return null
+  }
+}
+
 export async function main(argv: readonly string[] = process.argv.slice(2)): Promise<number> {
   const args = parseArgs(argv)
   const deps = buildDeps(args)
+  // Offline runs stay offline: fixtures carry no directive, so taste is unknown.
+  if (!args.offline) deps.taste = await readTaste(process.env)
   const opts: RunOpts = { subject: args.subject, weekStart: args.week, dry: args.dry, outPath: args.out, commandId: args.commandId }
   log('run_start', { subject: args.subject, week_start: args.week, dry: args.dry, offline: args.offline, engines: ENGINES, cap_usd: args.capUsd, command_id: args.commandId })
 

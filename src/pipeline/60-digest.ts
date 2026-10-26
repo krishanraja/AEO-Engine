@@ -12,6 +12,7 @@ import { errText, log } from '../lib/log.js'
 import { CLEAN, robustJson, scrubPII } from '../lib/text.js'
 import { hostMatches } from '../lib/domains.js'
 import type { AeoContext, ContextSubject } from '../schema/context.js'
+import type { Taste } from '../schema/report.js'
 import type { CompetitorGap, DigestWriter, Engine, NotWorthChasing, PacketQuery, PlaybookEntry, Recommendation, WatchItem } from '../schema/packet.js'
 import type { ThemesResult } from './10-transcripts.js'
 import { competitorGapFrom, tallyHosts, theyCitedFrom, type GapResult, type ProbeLike, type TheyCited } from './20-gap.js'
@@ -25,6 +26,12 @@ export interface DigestInput {
   themes: ThemesResult
   gap: GapResult
   krishHitsDomains: readonly string[]
+  /**
+   * Krish's approved voice rules from today's directive (protocol 1.5.0).
+   * Undefined or null: unknown, so no block is sent. They reach this drafting
+   * prompt and nothing else: not the probes, not the score, not the walls.
+   */
+  taste?: Taste | null
 }
 
 export interface DigestResult {
@@ -86,7 +93,34 @@ const WINNABILITY = [
  * Center, or a failed read, gives a plain digest rather than one written in a
  * voice the machine invented or a judgement it had no grounds for.
  */
-export function digestSystem(krish?: AeoContext['krish']): string {
+/**
+ * Krish's approved voice rules as a labelled block for the drafting prompt.
+ * They govern how the title, angle, why lines and approach hook are worded,
+ * never which question is recommended, walled or watched, and never a number.
+ * An empty list says none are approved and forbids inventing one. Null (the
+ * directive could not be read, or carried no taste) sends nothing.
+ */
+export function tasteBlock(taste: Taste | null | undefined): string {
+  if (!taste) return ''
+  const head = [
+    'KRISH\'S APPROVED VOICE RULES (from Control Center\'s directive; approved or reworded by Krish only).',
+    'Follow these for HOW the words you draft are written: titles, angles, why lines and the approach hook. Never use them to choose what a recommendation is about, which question is recommended, walled or watched, or what the strongest signal is, and never take a number from them. They never override the ABSOLUTE RULES above.',
+  ]
+  if (taste.rule) head.push(`Control Center's rule for them: ${taste.rule}`)
+  if (!taste.approved_voice_rules.length) {
+    head.push('He has approved none yet. Do not invent a voice rule, and do not treat anything else in this prompt as one he approved.')
+    return head.join('\n')
+  }
+  const lines = taste.approved_voice_rules.map(r => {
+    const parts = [`- ${r.layer ? `[${r.layer}] ` : ''}${r.rule}`]
+    if (r.what_it_means) parts.push(`  What it means: ${r.what_it_means}`)
+    if (r.his_words) parts.push(`  His words: "${r.his_words}"`)
+    return parts.join('\n')
+  })
+  return [...head, 'These are the only approved rules; do not add to them.', ...lines].join('\n')
+}
+
+export function digestSystem(krish?: AeoContext['krish'], taste?: Taste | null): string {
   const parts = [DIGEST_SYSTEM]
   const canon = (krish?.canon || '').trim()
   if (canon) {
@@ -110,6 +144,8 @@ export function digestSystem(krish?: AeoContext['krish']): string {
       + rated.map(v => `- ${v.why}`).join('\n'),
     )
   }
+  const approved = tasteBlock(taste)
+  if (approved) parts.push(approved)
   return parts.join('\n\n')
 }
 
@@ -300,7 +336,7 @@ export async function writeDigest(model: ModelClient, ledger: Ledger, input: Dig
     const raw = await model.writeJson({
       stage: 'digest',
       key: subject.id,
-      system: digestSystem(input.ctx.krish),
+      system: digestSystem(input.ctx.krish, input.taste),
       user: `Subject: ${subject.name} (${subject.kind}). Week starting ${input.weekStart} (Monday).\n\nEvidence (this is the entire factual basis you have; anything not here is unknown):\n${JSON.stringify(evidence, null, 1)}\n\nWrite the digest.`,
       maxTokens: 6000,
     })

@@ -216,6 +216,11 @@ jobs:
           PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
           XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
           EXA_API_KEY: ${{ secrets.EXA_API_KEY }}
+          # Read-only: the digest reads Krish's approved voice rules (directive
+          # taste, protocol 1.5.0) through the growth engine door. Unset means
+          # unknown, and the digest is written without them.
+          CONTROL_CENTER_PROTOCOL_URL: ${{ vars.CONTROL_CENTER_URL }}
+          CONTROL_CENTER_ENGINE_TOKEN: ${{ secrets.CONTROL_CENTER_ENGINE_TOKEN }}
           SUBJECT: ${{ matrix.subject }}
           CAP: ${{ needs.plan.outputs.cap }}
           COMMAND_ID: ${{ needs.plan.outputs.command_id }}
