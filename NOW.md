@@ -49,7 +49,8 @@ Krish reads the digest on Monday and acts the same week. The packet answers, per
 
 - Next: the first live dry run (`--dry --out`) against Control Center's context to read a real packet, then tune the price table from the ledger it prints, then the first Sunday run.
 - Waiting on Krish: the eight secrets and the spend variable on the repository; confirming the OpenAI model name for the Responses API web search before the first live run (`src/config/run.ts`).
-- North Star check (2026-10-26): holds. Directive taste moves the second half (pieces worth citing, written in his approved voice); the number is still unmeasured, U4.
+- North Star: directive taste moves the second half (pieces worth citing, written in his approved voice); the number is still unmeasured, U4.
+- North Star check (2026-10-26): holds.
 
 ## Read next
 
