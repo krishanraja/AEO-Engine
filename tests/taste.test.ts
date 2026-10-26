@@ -12,8 +12,11 @@ import { test } from 'node:test'
 import { GrowthEngineHttp } from '../src/clients/growthEngine.js'
 import type { ModelClient, ModelRequest } from '../src/clients/types.js'
 import { buildDeps, parseArgs, readTaste } from '../src/index.js'
-import { digestSystem, tasteBlock } from '../src/pipeline/60-digest.js'
+import { digestSystem, type DigestResult } from '../src/pipeline/60-digest.js'
+import { applyVoice, tasteBlock, voiceSystem } from '../src/pipeline/65-voice.js'
 import { runAll } from '../src/pipeline/run.js'
+import { Ledger } from '../src/lib/cost.js'
+import { StubModel, subject } from './helpers.js'
 import { parseTaste, type Taste } from '../src/schema/report.js'
 import { captureStderr, StandIn } from './standin.js'
 
@@ -55,60 +58,117 @@ test('a 1.5.0 directive is accepted with taste, without it, and with fields this
   assert.equal(parseTaste({ rule: 'r' }), null)
 })
 
-test('the drafting prompt carries the approved rules as a labelled block, says none when none, and nothing when unknown', () => {
-  const dressed = digestSystem(undefined, TASTE)
+test('the judging prompt never carries taste; the wording-only prompt carries it labelled, says none when none, and nothing when unknown', () => {
+  assert.equal(digestSystem.length <= 1, true, 'digestSystem takes no taste')
+  assert.ok(!digestSystem().includes('APPROVED VOICE RULES'))
+
+  const dressed = voiceSystem(TASTE)
   assert.match(dressed, /KRISH'S APPROVED VOICE RULES/)
   assert.ok(dressed.includes(SENTINEL))
-  assert.match(dressed, /HOW the words you draft are written/)
-  assert.match(dressed, /Never use them to choose what a recommendation is about/)
-  assert.ok(dressed.indexOf('ABSOLUTE RULE') < dressed.indexOf("KRISH'S APPROVED VOICE RULES"))
+  assert.match(dressed, /HOW the words are written/)
+  assert.match(dressed, /keep every item, its id and its order exactly/)
 
-  const none = digestSystem(undefined, { rule: '', approved_voice_rules: [] })
+  const none = tasteBlock({ rule: '', approved_voice_rules: [] })
   assert.match(none, /He has approved none yet\. Do not invent a voice rule/)
   assert.doesNotMatch(none, /^- /m)
-
   assert.equal(tasteBlock(null), '')
-  assert.doesNotMatch(digestSystem(), /APPROVED VOICE RULES/)
-  assert.doesNotMatch(digestSystem(undefined, null), /APPROVED VOICE RULES/)
 })
 
-test('taste reaches the digest drafting call only; transcripts, proposals, probes and scores are unchanged by it', async () => {
+/** A model that answers the voice pass by echoing what it was given with each line reworded, plus an optional twist. */
+function voicing(inner: ModelClient, seen: ModelRequest[], twist: (j: Record<string, any>) => void = () => {}): ModelClient {
+  const answer = (req: ModelRequest): Promise<string> | string => {
+    seen.push(req)
+    if (req.stage !== 'voice') return req.stage === 'classify' ? inner.classify(req) : inner.writeJson(req)
+    const j = JSON.parse(req.user.slice(req.user.indexOf('{'))) as Record<string, any>
+    for (const r of j.recommendations) { r.title = `Voiced ${r.title}`; r.angle = `Voiced ${r.angle}` }
+    for (const w of j.watch_list) w.why = `Voiced ${w.why}`
+    if (j.approach_hook) j.approach_hook = `Voiced ${j.approach_hook}`
+    twist(j)
+    return JSON.stringify(j)
+  }
+  return { classify: async req => answer(req), writeJson: async req => answer(req) }
+}
+
+test('taste never reaches a judging call; recommendations, walls, signal and measurement are identical with and without it', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'aeo-taste-'))
   try {
-    const run = async (taste: Taste | null) => {
-      const args = parseArgs(['--offline', '--dry', '--subject', 'all', '--week', '2026-09-07', '--out', join(dir, `p-${taste ? 't' : 'n'}.json`)])
+    const run = async (taste: Taste | null, tag: string) => {
+      const out = join(dir, `p-${tag}.json`)
+      const args = parseArgs(['--offline', '--dry', '--subject', 'all', '--week', '2026-09-07', '--out', out])
       const deps = buildDeps(args, {}, new Date('2026-09-08T00:00:00Z'))
-      const inner = deps.model
       const seen: ModelRequest[] = []
-      const model: ModelClient = {
-        classify: req => { seen.push(req); return inner.classify(req) },
-        writeJson: req => { seen.push(req); return inner.writeJson(req) },
-      }
+      deps.model = voicing(deps.model, seen)
       const asked: string[] = []
       deps.engines = deps.engines.map(e => ({ engine: e.engine, model: e.model, ask: (q: string) => { asked.push(q); return e.ask(q) } }))
-      deps.model = model
       deps.taste = taste
-      const out = await captureStderr(() => runAll(deps, { subject: 'all', weekStart: '2026-09-07', dry: true, outPath: join(dir, `p-${taste ? 't' : 'n'}.json`), commandId: null }))
-      return { seen, asked, result: out.result }
+      const r = await captureStderr(() => runAll(deps, { subject: 'all', weekStart: '2026-09-07', dry: true, outPath: out, commandId: null }))
+      return { seen, asked, result: r.result }
     }
-    const withTaste = await run(TASTE)
-    const without = await run(null)
+    const withTaste = await run(TASTE, 't')
+    const without = await run(null, 'n')
+    const noneApproved = await run({ rule: 'r', approved_voice_rules: [] }, 'e')
 
-    const digestCalls = withTaste.seen.filter(r => r.stage === 'digest')
-    assert.ok(digestCalls.length > 0, 'the digest drafted')
-    for (const r of digestCalls) assert.ok(r.system.includes(SENTINEL), 'every digest drafting call carries the rules')
-    for (const r of withTaste.seen.filter(r => r.stage !== 'digest')) {
+    // The judging call (the digest) and every other stage never see a rule.
+    for (const r of withTaste.seen.filter(r => r.stage !== 'voice')) {
       assert.ok(!r.system.includes(SENTINEL) && !r.user.includes(SENTINEL), `stage ${r.stage} never sees the rules`)
     }
-    assert.ok(!withTaste.asked.some(q => q.includes(SENTINEL)), 'no probe question carries them')
+    const voiceCalls = withTaste.seen.filter(r => r.stage === 'voice')
+    assert.ok(voiceCalls.length > 0, 'the wording pass ran')
+    for (const r of voiceCalls) assert.ok(r.system.includes(SENTINEL))
+    assert.equal(without.seen.filter(r => r.stage === 'voice').length, 0, 'unknown taste: no call')
+    assert.equal(noneApproved.seen.filter(r => r.stage === 'voice').length, 0, 'none approved: no call, nothing invented')
+    assert.ok(!withTaste.asked.some(q => q.includes(SENTINEL)))
     assert.deepEqual(withTaste.asked, without.asked, 'the same questions are asked')
 
-    // Measurement is untouched: the queries, probes, scores and statuses match.
-    const strip = (r: typeof withTaste.result) => r.results.map(x => ({ slug: x.slug, queries: x.packet.queries, stats: x.packet.stats, gap: x.packet.competitor_gap }))
-    assert.deepEqual(strip(withTaste.result), strip(without.result))
+    const decided = (r: typeof withTaste.result) => r.results.map(x => ({
+      slug: x.slug,
+      queries: x.packet.queries,
+      stats: x.packet.stats,
+      gap: x.packet.competitor_gap,
+      not_worth_chasing: x.packet.not_worth_chasing,
+      strongest_signal: x.packet.strongest_signal,
+      recommendations: x.packet.recommendations.map(({ title: _t, angle: _a, ...rest }) => rest),
+      watch: x.packet.watch_list.map(w => w.query_id),
+      hook: x.packet.approach_hook === null,
+    }))
+    assert.deepEqual(decided(withTaste.result), decided(without.result), 'every decision and measurement is the same')
+    const titles = withTaste.result.results.flatMap(x => x.packet.recommendations.map(r => r.title))
+    // Model-written digests are reworded; a fallback digest is left plain (its lines are built from the score table).
+    for (const x of withTaste.result.results) {
+      const titles = x.packet.recommendations.map(r => r.title)
+      if (x.packet.stats.digest_writer === 'claude') assert.ok(titles.length > 0 && titles.every(t => t.startsWith('Voiced ')), `${x.slug}: only the wording changed`)
+      else assert.ok(titles.every(t => !t.startsWith('Voiced ')), `${x.slug}: fallback left plain`)
+    }
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
+})
+
+test('the wording pass keeps the digest whole when it adds, drops, reorders or adds a number', async () => {
+  const s = subject('ctrl')
+  const rec = (id: string, title: string) => ({ n: 1, title, target_query: 'q', query_id: id, angle: 'Angle with 3 engines', evidence: ['e'], engines: [], demand: 40, why_you_can_win: null })
+  const draft: DigestResult = {
+    strongest_signal: 's', recommendations: [rec('a', 'First'), { ...rec('b', 'Second'), n: 2 }], not_worth_chasing: [], watch_list: [{ query_id: 'w', query: 'q', why: 'why' }],
+    competitor_gap: { domain: null, times_cited: 0, questions: [] } as unknown as DigestResult['competitor_gap'], playbook: null, approach_hook: null, digest_writer: 'claude',
+  }
+  const tryWith = async (twist: (j: Record<string, any>) => void) => applyVoice(voicing(new StubModel('THROW'), [], twist), new Ledger(10), s, TASTE, draft)
+
+  const ok = await tryWith(() => {})
+  assert.deepEqual(ok.recommendations.map(r => [r.query_id, r.title]), [['a', 'Voiced First'], ['b', 'Voiced Second']])
+  assert.equal(ok.approach_hook, null)
+
+  for (const twist of [
+    (j: Record<string, any>) => j.recommendations.reverse(),
+    (j: Record<string, any>) => j.recommendations.pop(),
+    (j: Record<string, any>) => j.recommendations.push({ query_id: 'c', title: 't', angle: 'a' }),
+    (j: Record<string, any>) => { j.recommendations[0].angle = 'Angle with 9 engines' },
+    (j: Record<string, any>) => { j.approach_hook = 'A hook nobody asked for' },
+    (j: Record<string, any>) => { j.watch_list = [] },
+  ]) assert.deepEqual(await tryWith(twist), draft)
+
+  assert.deepEqual(await applyVoice(new StubModel('THROW'), new Ledger(10), s, TASTE, draft), draft, 'a failed call keeps the draft')
+  assert.deepEqual(await applyVoice(new StubModel('THROW'), new Ledger(10), s, { rule: '', approved_voice_rules: [] }, draft), draft)
+  assert.deepEqual(await applyVoice(new StubModel('THROW'), new Ledger(10), s, TASTE, { ...draft, digest_writer: 'fallback' }), { ...draft, digest_writer: 'fallback' })
 })
 
 test('the run reads taste through the directive door, and unknown when it cannot', async () => {

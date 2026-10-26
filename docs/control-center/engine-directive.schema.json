@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://controlcenter.krishraja.com/schemas/engine-directive-1.0.0.json",
-  "title": "Growth engine directive, protocol 1.0.0 (ADR-038)",
+  "title": "Growth engine directive, protocol 1.0.0 to 1.5.0 (ADR-038)",
   "type": "object",
   "required": [
     "schema_version",
@@ -301,6 +301,266 @@
                 "rooms_going": {
                   "type": "integer"
                 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "aim_by": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date",
+      "description": "1.4.0: the parent product's North Star deadline."
+    },
+    "week_of": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date",
+      "description": "1.4.0: this week's rung of the parent product's weekly ladder."
+    },
+    "week_target": {
+      "type": [
+        "number",
+        "string",
+        "null"
+      ],
+      "description": "1.4.0: the parent product's target for this week."
+    },
+    "current": {
+      "type": [
+        "number",
+        "string",
+        "null"
+      ],
+      "description": "1.4.0: the parent product's latest reading."
+    },
+    "urgency": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1,
+      "maximum": 5,
+      "description": "1.4.0: U1 to U5 by ai-harness contract/north-star-metric.md; null when paused."
+    },
+    "urgency_reason": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "1.4.0: why that urgency."
+    },
+    "north_star": {
+      "type": "object",
+      "description": "1.4.0: the parent product's number, the engine's own, and what urgency asks of it. The walls and caps never move with it.",
+      "properties": {
+        "parent": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "properties": {
+            "repo": {
+              "type": "string"
+            },
+            "metric": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "unit": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "aim_by": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date"
+            },
+            "week_of": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date"
+            },
+            "week_target": {
+              "type": [
+                "number",
+                "string",
+                "null"
+              ],
+              "description": "A figure, or \"private\" for a repository whose figures are private."
+            },
+            "current": {
+              "type": [
+                "number",
+                "string",
+                "null"
+              ],
+              "description": "A figure, or \"private\" for a repository whose figures are private."
+            },
+            "urgency": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1,
+              "maximum": 5
+            },
+            "urgency_reason": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "read_on": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        },
+        "own": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "properties": {
+            "repo": {
+              "type": "string"
+            },
+            "metric": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "unit": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "aim_by": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date"
+            },
+            "week_of": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date"
+            },
+            "week_target": {
+              "type": [
+                "number",
+                "string",
+                "null"
+              ],
+              "description": "A figure, or \"private\" for a repository whose figures are private."
+            },
+            "current": {
+              "type": [
+                "number",
+                "string",
+                "null"
+              ],
+              "description": "A figure, or \"private\" for a repository whose figures are private."
+            },
+            "urgency": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1,
+              "maximum": 5
+            },
+            "urgency_reason": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "read_on": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        },
+        "intensity": {
+          "type": "object",
+          "properties": {
+            "urgency": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1,
+              "maximum": 5
+            },
+            "drafts_multiplier": {
+              "type": "number"
+            },
+            "rule": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "taste": {
+      "type": "object",
+      "description": "1.5.0, optional. Krish's approved voice rules for what the engine drafts: follow them for how it is written, never to choose what it is about, never to judge. An empty list means none approved yet; absent means they could not be read.",
+      "required": [
+        "rule",
+        "approved_voice_rules"
+      ],
+      "properties": {
+        "rule": {
+          "type": "string"
+        },
+        "approved_voice_rules": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "layer",
+              "rule",
+              "his_words",
+              "what_it_means"
+            ],
+            "properties": {
+              "layer": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "rule": {
+                "type": "string"
+              },
+              "his_words": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "what_it_means": {
+                "type": "string"
               }
             }
           }

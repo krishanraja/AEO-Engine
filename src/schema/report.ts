@@ -102,7 +102,7 @@ export interface VoiceRule { layer: string | null; rule: string; his_words: stri
  * Krish's approved voice rules (directive `taste`, protocol 1.5.0). They say
  * how drafted words are written, never what they are about, and they never
  * reach a judge, a scorer, a ranker or a measurement: in this engine only the
- * digest's drafting prompt reads them (src/pipeline/60-digest.ts).
+ * wording-only voice pass reads them (src/pipeline/65-voice.ts).
  */
 export interface Taste { rule: string; approved_voice_rules: VoiceRule[] }
 

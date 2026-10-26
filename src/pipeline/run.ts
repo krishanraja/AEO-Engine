@@ -18,6 +18,7 @@ import { proposeQueries } from './30-propose.js'
 import { probeQueries } from './40-probe.js'
 import { scoreQueries } from './50-score.js'
 import { writeDigest } from './60-digest.js'
+import { applyVoice } from './65-voice.js'
 import { ship, writePacket, type ShipResult } from './70-ship.js'
 
 export interface RunDeps {
@@ -42,7 +43,7 @@ export interface RunDeps {
   now: Date
   /**
    * Krish's approved voice rules from today's directive (protocol 1.5.0), or
-   * null/undefined when unknown. Only the digest's drafting prompt reads them.
+   * null/undefined when unknown. Only the wording-only voice pass (stage 65) reads them.
    */
   taste?: Taste | null
 }
@@ -73,7 +74,10 @@ export async function runSubject(subject: ContextSubject, shared: Shared, deps: 
   const proposed = await proposeQueries(deps.model, deps.ledger, subject, ctx, themes.themes, gap, deps.mintId)
   const outcome = await probeQueries(deps.engines, proposed, domains, deps.ledger, subject.never_say ?? [])
   const queries = scoreQueries(proposed, outcome, themes.themes, subject, domains)
-  const digest = await writeDigest(deps.model, deps.ledger, { subject, ctx, weekStart: opts.weekStart, engines, queries, themes, gap, krishHitsDomains: domains, taste: deps.taste ?? null })
+  // The digest judges and drafts with no taste; the approved voice rules are
+  // applied afterwards to its drafted words only (stage 65), never to a choice.
+  const judged = await writeDigest(deps.model, deps.ledger, { subject, ctx, weekStart: opts.weekStart, engines, queries, themes, gap, krishHitsDomains: domains })
+  const digest = await applyVoice(deps.model, deps.ledger, subject, deps.taste ?? null, judged)
 
   const packet: AeoPacket = {
     schema_version: 1,
