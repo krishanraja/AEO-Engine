@@ -91,6 +91,45 @@ export interface Directive {
   decisions_since: Array<{ proposal_id: string; decision: 'approved' | 'declined'; decided_at: string; payload_sha256: string | null }>
   constraints: { walls: string; spend_cap_usd: number; max_actions: number }
   in_house?: unknown
+  /** 1.5.0, optional. Undefined: unknown today. An empty list: none approved yet. See parseTaste. */
+  taste?: Taste
+}
+
+/** One of Krish's approved voice rules, as the directive carries it (protocol 1.5.0). */
+export interface VoiceRule { layer: string | null; rule: string; his_words: string | null; what_it_means: string }
+
+/**
+ * Krish's approved voice rules (directive `taste`, protocol 1.5.0). They say
+ * how drafted words are written, never what they are about, and they never
+ * reach a judge, a scorer, a ranker or a measurement: in this engine only the
+ * wording-only voice pass reads them (src/pipeline/65-voice.ts).
+ */
+export interface Taste { rule: string; approved_voice_rules: VoiceRule[] }
+
+const TASTE_MAX_RULES = 40
+const TASTE_MAX_CHARS = 1000
+
+/**
+ * Reads the directive's `taste` loosely: unknown fields are ignored, a rule
+ * entry without its `rule` text is dropped, every string is cut to a bound.
+ * Null means unknown (absent, or not the shape 1.5.0 says), which is not the
+ * same as an empty list (none approved yet), and neither is ever filled in.
+ */
+export function parseTaste(raw: unknown): Taste | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
+  const t = raw as Record<string, unknown>
+  if (!Array.isArray(t.approved_voice_rules)) return null
+  const text = (v: unknown): string | null => typeof v === 'string' && v.trim() ? v.trim().slice(0, TASTE_MAX_CHARS) : null
+  const rules: VoiceRule[] = []
+  for (const item of t.approved_voice_rules) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) continue
+    const r = item as Record<string, unknown>
+    const rule = text(r.rule)
+    if (!rule) continue
+    rules.push({ layer: text(r.layer), rule, his_words: text(r.his_words), what_it_means: text(r.what_it_means) ?? '' })
+    if (rules.length >= TASTE_MAX_RULES) break
+  }
+  return { rule: text(t.rule) ?? '', approved_voice_rules: rules }
 }
 
 export const ID_RE = /^[A-Za-z0-9][A-Za-z0-9:._-]{0,119}$/

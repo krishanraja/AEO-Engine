@@ -1,7 +1,7 @@
-<!-- Copied from krishanraja/control-center docs/app/growth/ENGINE-PROTOCOL.md on 2026-10-21. Control Center's copy is authoritative. -->
-# The growth engine protocol, version 1.2.0
+<!-- Copied from krishanraja/control-center docs/app/growth/ENGINE-PROTOCOL.md (branch claude/directive-taste, PR #561) on 2026-10-26. Control Center's copy is authoritative. -->
+# The growth engine protocol, version 1.4.0
 
-Every growth engine reports into Control Center through this one protocol, and Control Center pushes each engine its next move through it (ADR-038 in Control Center). It replaces the per-engine receivers the handoffs asked for. The engines are:
+Every growth engine reports into Control Center through this one protocol, and Control Center pushes each engine its next move through it ([ADR-038](../../DECISIONS/038-one-protocol-for-growth-engines.md)). It replaces the per-engine receivers the handoffs asked for. The engines are:
 
 | Engine | Slug in the path | `engine_id` | `product_slug` |
 |---|---|---|---|
@@ -20,7 +20,7 @@ Control Center only ever adds within 1.x: a new minor version adds fields, never
 
 - **Accept any 1.x** in what Control Center serves (the directive, capabilities, decisions), and ignore a field you do not know. Never require an exact version back.
 - **Send the version you speak.** `capabilities.schema_versions` lists every version Control Center takes; check that yours is in it.
-- **Raise yours only for a field you use.** 1.1.0 adds a proposal's `stage` and `parent_proposal_id`; 1.2.0 adds its `subject_ref`.
+- **Raise yours only for a field you use.** 1.1.0 adds a proposal's `stage` and `parent_proposal_id`; 1.2.0 adds its `subject_ref`; 1.4.0 adds the North Star number and urgency to the directive (below), and nothing to the report. 1.5.0 adds `taste`, Krish's approved voice rules, to the directive (below), and nothing to the report.
 
 On 2026-10-19 Control Center began serving 1.1.0. Legibility required exactly 1.0.0 back from capabilities, and Mindmake from the directive, so both stopped on every run (`receiver_contract_mismatch`, `directive_invalid`) and reported nothing for two days. That is why this rule exists.
 
@@ -55,6 +55,78 @@ Each run, every engine does these five things, in this order:
 **Base URL.** `https://controlcenter.krishraja.com`, in the engine's `CONTROL_CENTER_URL`. HTTPS only. Do not follow redirects. Use bounded timeouts. Never retry a write blindly: read it back first.
 
 ## Routes
+
+### Scoped context and complete outcomes (1.3.0)
+
+Capabilities add `features.context`, `features.outcomes` and `features.exact_actions`.
+Each is false when the engine or deployment lacks the corresponding adapter.
+Older reports and clients remain valid. A catalog entry does not prove usable access.
+
+`GET /api/growth/engines/<slug>/context` returns `{ ok, context }` with
+engine/product identities, observation time, native records, selected Network
+identities, canonical warm paths, proof permissions and per-source coverage.
+Each coverage entry carries availability, completeness, row count, source date
+and reason. The Network selection is bounded and explicitly partial. Relationship
+warmth and consent classification have separate counts and definitions. These
+reads contain no raw correspondence, mailbox addresses, profiles or credentials.
+Correspondence, transcripts and connectors unverified through the engine bearer
+remain visibly unavailable. This is a scoped preparation read, not a new CRM.
+`work_context` reuses the existing version-1 selected-job contract and snapshot
+builder. Jobs come from native Advisory `growth_context.engine_jobs`, with
+their existing source identities; no parallel job table is created. That
+context runs the complete producer cycle before fresh campaign preparation,
+under the shared capacity. An unavailable context or missing source holds
+those jobs explicitly. Native replies without enough request context block
+fresh acquisition; engine plan declines are retained until a new review.
+
+`GET /api/growth/engines/<slug>/outcomes` returns `{ ok, outcomes }` with
+complete paginated native lifecycle records, source coverage, London-week and
+original first-30-day windows, and explicit definitions/unavailable measures.
+The read is independent of contact selection. Bookings never count as held calls;
+qualification remains human-owned. A paid timestamp without independent payment
+evidence cannot establish a verified paid proof. Missing coverage is unknown.
+Recognition, distribution, efficiency and free-pilot measures remain unknown until
+their native sources record complete evidence; never infer them from drafts.
+
+The initial adapter is Mindmake only. Other engines receive feature flags false
+and 404 for these reads, with their existing reports and directives unchanged.
+
+### Exact approved actions (1.3.0)
+
+`GET /api/growth/engines/<slug>/prepare-action/<plan_id>` prepares an action
+from an approved campaign plan and its current native record. It returns an
+existing unexpired child unchanged, or `completed`, before preparing anything
+new. Current proof permission and recipient eligibility are checked again.
+
+The action is the proposal's full JSON `exact_payload`: version, channel,
+recipient contact id and address, subject, body, assets, cost, not-before,
+expiry, source reference and source updated time. Its digest is SHA-256 of
+canonical JSON of the action. A go-live names the approved parent plan.
+An amendment is approved as the entire finished action and uses the existing
+amendment digest. Any native edit, changed address, suppression, closed window
+or invalid digest blocks execution. The two-London-day window accommodates
+the next daily dispatch, including the clock change.
+
+`POST /api/growth/engines/<slug>/execute/<proposal_id>` is the shared executor,
+separate from the proposal-only handler and all drafting surfaces. It accepts
+no action supplied in the request: the approved record is authoritative.
+Initially only plain zero-cost email with no assets and an Advisory source
+reference is supported. Unsupported channels, attachments, spend and direct
+Visibility execution are blocked. An institutional first message may use its
+linked native Advisory relationship; Visibility still owns the session and gates.
+
+A private service-only `growth_engine_actions` journal claims each proposal once,
+inside a transaction that checks both approvals and the current registry. A send
+acknowledgement is `submitted`. Only an independent Gmail GET with the matching
+recipient, subject, body and SENT label permits `verified`. Lost or ambiguous
+sends stay `claimed`/`unknown` and are never resent. Known provider ids can be
+reconciled with `POST .../execute/<id>` and `{ reconcile: true }` without
+another send. `GET .../execute/<id>` only reads the receipt.
+The existing `mail_sent` done check moves the native lifecycle from the verified
+receipt, preserving one completion system and its audit and Undo behavior.
+
+Never claim autonomy from configuration or a green run. Acceptance still requires
+an exact human-approved external action and a real independently verified receipt.
 
 | Method and path | Request | Response |
 |---|---|---|
@@ -146,15 +218,18 @@ The schema is [engine-directive.schema.json](engine-directive.schema.json).
 | `next_action` | `{ proposal_id, instruction, why, close_condition }`: the one thing to do |
 | `decisions_since[]` | His decisions in the last seven days, each as `GET .../decisions` gives it: the `payload_sha256` it was made on, the `stage`, and his version when `amended` |
 | `constraints` | `{ walls, autonomy, autonomy_rule, spend_cap_usd: 0, max_actions: 5 }`. `walls` is the rule above, word for word; `autonomy` and `autonomy_rule` say who acts once he approves, below, and end with the one-ask-at-a-time rule |
+| `aim_by`, `week_of`, `week_target`, `current`, `urgency`, `urgency_reason` | 1.4.0, optional. The parent product's North Star number from Control Center's daily refresh ([ADR-040](../../DECISIONS/040-every-repository-chases-one-number.md)): its deadline, this week's rung of its weekly ladder, the latest reading, the urgency U1 to U5 by ai-harness `contract/north-star-metric.md`, and why. Mindmake's figures read `"private"`. Absent when no refresh has read the number |
+| `north_star` | 1.4.0, optional. `{ parent, own, intensity }`: the parent product's number and the engine's own (each `{ repo, metric, unit, aim_by, week_of, week_target, current, urgency, urgency_reason, read_on }`, or null), and `intensity { urgency, drafts_multiplier, rule }`, set by the more urgent of the two. U3 doubles draft output, U4 asks for a bold swing every day, U5 for three unconventional recovery plays. The walls, `spend_cap_usd` and `max_actions` never move with it |
+| `taste` | 1.5.0, optional. `{ rule, approved_voice_rules[] }`: Krish's approved voice rules (`taste_profile_form`, lane voice: approved or reworded by him only, form only, his words only while the answer they quote stands), each `{ layer, rule, his_words, what_it_means }`. Follow them for how anything you draft is written, never to choose what it is about, and never to judge, score or rank. An empty list means none approved yet: never invent one. Absent means they could not be read today (krishanraja/inspirationhouse `docs/TWO_WAY.md`, step 6) |
 | `in_house` | Mindmake only. `{ rule, counts }` says what Advisory (`pilot_deals`), Network (warm tiers) and Visibility (stages and rooms) did this week inside Control Center, as counts. A part that could not be read is `null`, never zero. These three drive Mindmake's growth already, so the engine proposes into them and never drafts a second note or pitch to someone they already hold |
 
 **How the next action is chosen, by rule** (Ruling, Krish, 2026-10-18), in order:
 
 1. Something Krish approved that the engine has not yet done, with the approved payload (his version when he amended it). For an autonomous engine, an approved plan says "build it up to go-live, then propose the go-live", and an approved go-live says "go live with exactly what he approved".
 2. If the engine is failing, unknown or stale: repair, naming what broke.
-3. The unwalled pending proposal that closes the widest gap to an objective. An objective that is not measured yet counts as a wide gap, and a proposal on no objective as a small one.
+3. The unwalled pending proposal that closes the widest gap to an objective. An objective that is not measured yet counts as a wide gap, and a proposal on no objective as a small one. Urgency raises the floor of every gap on an objective (U2 0.1, U3 0.4, U4 0.6, U5 0.8), so behind the number, a proposal that moves it comes first.
 4. If everything proposed is behind a wall: keep preparing, and do not act on what waits on Krish. He sees one of your asks at a time, so add no second ask of a kind that already waits on him.
-5. If nothing is proposed: propose your best move on the widest gap.
+5. If nothing is proposed: propose your best move on the widest gap; at U3 two experiments, at U4 one bold swing, at U5 three unconventional recovery plays, each different in kind.
 
 Krish can pick another unwalled proposal on Growth > Engines as tomorrow's push (`chosen_by: krish`). The rule never replaces his pick.
 
@@ -169,7 +244,7 @@ On his list, an engine's proposal that carries words (`exact_payload`) or, for a
 
 ## Autonomy: plan, then go-live
 
-Each engine is `handcrafted` or `autonomous` (`growth_engines.autonomy`, in the directive's `constraints` and in `capabilities`). Ruling (Krish, 2026-10-19): Full Time, Heartside, Legibility, Make Your Mind Up and AEO are autonomous; Mindmake is handcrafted. And: "Autonomy is given where it's deserved." Krish can switch any engine back to handcrafted.
+Each engine is `handcrafted` or `autonomous` (`growth_engines.autonomy`, in the directive's `constraints` and in `capabilities`). Ruling (Krish, 2026-10-22): Mindmake now prepares autonomously and executes only a supported, exact approved finished action with independent verification. This supersedes its 19 October handcrafted setting. Krish can switch any engine back to handcrafted.
 
 **Autonomous**, in two steps, each on his list:
 1. **The plan.** Propose what you are going to do as `stage: "plan"` behind a wall (usually `strategy`), with the plan in `exact_payload` so he can amend it. Wait for his yes.
@@ -188,6 +263,7 @@ Either way, the walls rule holds: nothing goes out without a decision whose dige
 Ruling (Krish, 2026-10-21), so the engines and the parts of Control Center that already queue things for him never put the same thing in front of him twice:
 
 - **One ask per engine at a time.** Of an engine's walled proposals, his list shows one: a go-live first, then a check-in, then a plan, then a spend, a send, a post and a strategy call, the oldest first within each. The rest wait their turn, each named, and the next comes forward when he answers (or bumps) the one shown. So never add a second ask of a kind that already waits; keep the one waiting current instead.
+- **Spends take turns by the ladder** (Ruling, Krish, 2026-10-22). Spends draw on the same prepaid credits, so while one venture's spend (not its plan or check-in) is on his list, a spend from a venture lower on the portfolio ladder is held, named (`waits_on_ladder`), and comes forward when the higher one is answered or bumped. That engine's next ask still comes forward in the meantime.
 - **One copy of a person, stage or room.** Advisory (`pilot_deals`), People, Visibility and Events already draft notes and pitches. A proposal whose `subject_ref` names someone or something they hold is left off his list, and theirs stays. It is not declined: it waits, and it lapses when it expires. Propose into them, never a second note.
 - **Who owns what.** Control Center's People and Visibility own outreach to shows and guests for Make Your Mind Up, so that engine proposes posts and measures, never a pitch, a swap or a partner note. A product with an active engine has that engine as its one strategy voice: the Sunday growth council writes no weekly move for it.
 

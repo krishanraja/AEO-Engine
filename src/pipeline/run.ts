@@ -10,6 +10,7 @@ import { errText, log } from '../lib/log.js'
 import type { UsageMeter } from '../lib/usage.js'
 import type { AeoContext, ContextSubject } from '../schema/context.js'
 import type { AeoPacket } from '../schema/packet.js'
+import type { Taste } from '../schema/report.js'
 import { krishHitsDomains, loadContext } from './00-context.js'
 import { classifyTranscripts, gatherTranscripts, themesForSubject, type Attribution, type Gathered } from './10-transcripts.js'
 import { gapFor } from './20-gap.js'
@@ -17,6 +18,7 @@ import { proposeQueries } from './30-propose.js'
 import { probeQueries } from './40-probe.js'
 import { scoreQueries } from './50-score.js'
 import { writeDigest } from './60-digest.js'
+import { applyVoice } from './65-voice.js'
 import { ship, writePacket, type ShipResult } from './70-ship.js'
 
 export interface RunDeps {
@@ -39,6 +41,11 @@ export interface RunDeps {
   /** Mints a query id for a new query. Random live; derived from the key offline so fixtures compare. */
   mintId: (key: string) => string
   now: Date
+  /**
+   * Krish's approved voice rules from today's directive (protocol 1.5.0), or
+   * null/undefined when unknown. Only the wording-only voice pass (stage 65) reads them.
+   */
+  taste?: Taste | null
 }
 
 export interface RunOpts {
@@ -67,7 +74,10 @@ export async function runSubject(subject: ContextSubject, shared: Shared, deps: 
   const proposed = await proposeQueries(deps.model, deps.ledger, subject, ctx, themes.themes, gap, deps.mintId)
   const outcome = await probeQueries(deps.engines, proposed, domains, deps.ledger, subject.never_say ?? [])
   const queries = scoreQueries(proposed, outcome, themes.themes, subject, domains)
-  const digest = await writeDigest(deps.model, deps.ledger, { subject, ctx, weekStart: opts.weekStart, engines, queries, themes, gap, krishHitsDomains: domains })
+  // The digest judges and drafts with no taste; the approved voice rules are
+  // applied afterwards to its drafted words only (stage 65), never to a choice.
+  const judged = await writeDigest(deps.model, deps.ledger, { subject, ctx, weekStart: opts.weekStart, engines, queries, themes, gap, krishHitsDomains: domains })
+  const digest = await applyVoice(deps.model, deps.ledger, subject, deps.taste ?? null, judged)
 
   const packet: AeoPacket = {
     schema_version: 1,

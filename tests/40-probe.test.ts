@@ -46,7 +46,7 @@ test('the usd cap stops calls and counts every unprobed pair; the per-subject ca
     new StubEngine('perplexity', () => ({ text: 'x', citations: [] })),
     new StubEngine('chatgpt', () => ({ text: 'x', citations: [] })),
   ]
-  const ledger = new Ledger(0.05, { perplexity: 0.02, chatgpt: 0.02, claude: 0.02, grok: 0.02, classify: 0, themes: 0, propose: 0, digest: 0 })
+  const ledger = new Ledger(0.05, { perplexity: 0.02, chatgpt: 0.02, claude: 0.02, grok: 0.02, classify: 0, themes: 0, propose: 0, digest: 0, voice: 0 })
   const list = [pq('one?', 'seed'), pq('two?', 'seed'), pq('three?', 'seed')]
   const out = await probeQueries(engines, list, ['mindmake.co'], ledger, [], 2)
   assert.equal(out.probes, 2)

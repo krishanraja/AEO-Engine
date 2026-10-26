@@ -46,7 +46,7 @@ export const MODELS = {
   xai: 'grok-4',
 } as const
 
-export type CostKind = Engine | 'classify' | 'themes' | 'propose' | 'digest'
+export type CostKind = Engine | 'classify' | 'themes' | 'propose' | 'digest' | 'voice'
 
 /**
  * Estimated USD per call. These are estimates: a probe answer with a hosted
@@ -63,4 +63,8 @@ export const PRICE_USD_PER_CALL: Record<CostKind, number> = {
   themes: 0.03,
   propose: 0.04,
   digest: 0.06,
+  // The wording-only pass that applies Krish's approved voice rules to the
+  // digest's drafted words (src/pipeline/65-voice.ts). Made only when he has
+  // approved at least one rule, so none approved costs nothing.
+  voice: 0.03,
 }

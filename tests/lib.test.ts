@@ -58,7 +58,7 @@ test('mondayOf: a Sunday reports the week that began the previous Monday', () =>
 })
 
 test('the ledger charges estimates and stops at the cap', () => {
-  const l = new Ledger(0.05, { perplexity: 0.02, chatgpt: 0.02, claude: 0.02, grok: 0.02, classify: 0.01, themes: 0.01, propose: 0.01, digest: 0.01 })
+  const l = new Ledger(0.05, { perplexity: 0.02, chatgpt: 0.02, claude: 0.02, grok: 0.02, classify: 0.01, themes: 0.01, propose: 0.01, digest: 0.01, voice: 0.01 })
   l.charge('perplexity')
   l.charge('chatgpt')
   assert.equal(l.canAfford('claude'), false)

@@ -14,7 +14,7 @@ export interface EngineClient {
   ask(question: string): Promise<EngineAnswer>
 }
 
-export type ModelStage = 'classify' | 'themes' | 'propose' | 'digest'
+export type ModelStage = 'classify' | 'themes' | 'propose' | 'digest' | 'voice'
 
 export interface ModelRequest {
   stage: ModelStage
