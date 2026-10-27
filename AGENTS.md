@@ -15,10 +15,10 @@ Read `NOW.md` first.
 
 Rules: `docs/PACKET.md`, `docs/STATE.md`.
 
-<!-- krish-canon:start release=v2026.10.24.1 sha=79acac2b3005 rendered=2026-10-24 -->
+<!-- krish-canon:start release=v2026.10.26.1 sha=225eff7a8d0c rendered=2026-10-26 -->
 ## Krish canon
 
-Rendered from `krishanraja/ai-harness` at release v2026.10.24.1. Nothing inside these
+Rendered from `krishanraja/ai-harness` at release v2026.10.26.1. Nothing inside these
 markers is hand-maintained: an edit here is detected and proposed back to the canon,
 never silently overwritten, and never lost. This sync preserves all other text.
 Separately approved repository administration owns only its declared regions and context file.
@@ -58,7 +58,7 @@ lives only in a chat window teaches nothing.
 **Route.** principles, then context, then `strategy-brief`, then the producer, then
 `verification-loop`, then the approval gate, then delivery. The narrowest applicable
 skill wins; a broad "always" or "mandatory" claim inside a skill never overrides the
-router. One primary writer; validators may stack after it, competing writers may not. **North Star:** before any work, read the North Star linked from the `north-star` block in `AGENTS.md` or `CLAUDE.md`, say which part of it the task moves, and say so first when it moves nothing; only Krish changes it, and a repository with none asks him for one. Then read the number's urgency (U1 to U5) in `NOW.md` and push at the intensity `contract/north-star-metric.md` sets for it; urgency never widens authority. **Close out:** before a session that changed the repository ends, update `NOW.md` (status, the single next step, and one dated North Star check line: holds, or recalibration proposed for Krish). **One home per fact:** read a venture's state from its repository, doctrine from ai-harness; never keep a copy.
+router. One primary writer; validators may stack after it, competing writers may not. **North Star:** before any work, read the North Star linked from the `north-star` block in `AGENTS.md` or `CLAUDE.md`, say which part of it the task moves, and say so first when it moves nothing; only Krish changes it, and a repository with none asks him for one. Then read the number's urgency (U1 to U5) in `NOW.md` and push at the intensity `contract/north-star-metric.md` sets for it; urgency never widens authority. **Close out:** before a session that changed the repository ends, update `NOW.md` (status, the single next step, and one dated North Star check line: holds, or recalibration proposed for Krish). **One home per fact:** read a venture's state from its repository, doctrine from ai-harness; never keep a copy. **Taste:** where the Control Center connector offers them, before writing or designing for Krish read his approved rules with `get_approved_taste` (form only; empty means none yet, never invent one; without the connector, the `krish-voice` and `krish-design` copies), and when he corrects voice, design, a piece or an idea, send his exact typed words to `report_to_taste_engine` with where and when he typed them; anything else you noticed goes only as an observation. A report writes only to his own taste ledger and is exempt from the approval wall above (Ruling, Krish, 2026-10-26: "reports to my taste ledger are exempt from the approval wall"); it is never a send, post or publish to anyone. Never answer a card or approve a rule for him.
 
 **Who Krish is.** Purpose: "I see what is coming before it is obvious and make it
 legible to people while it still counts." Mindmake is his mission and his one company;
