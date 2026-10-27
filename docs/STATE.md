@@ -2,7 +2,7 @@
 
 Status: Current
 Owner: Krish Raja
-Last verified: 2026-10-19 against `npm test`, `npm run typecheck` and `npm run check:config` (96 of 96 tests pass)
+Last verified: 2026-10-27 against `npm test` (101 of 101 tests pass) and the code at a8a1fd1
 
 ## Live
 
@@ -16,6 +16,7 @@ Nothing. No scheduled run has happened and no packet has reached Control Center.
 - The workflow `.github/workflows/aeo-weekly.yml`: schedule (Sundays on odd ISO weeks, fortnightly since 2026-10-15), manual dispatch, repository dispatch from Control Center's Run-now, three attempts.
 - The price table in `src/config/run.ts` is a spend cap estimate, not a bill, the usage meter above is a first step toward a real one, and the first live ledger (a dry run prints it) is still where the cap itself gets tuned.
 - The growth engine protocol (`src/clients/growthEngine.ts`, `src/protocol/`, `.github/workflows/cc-growth-directive.yml`, and the plan and report jobs of `aeo-weekly.yml`), proven only against the in-process stand-in in `tests/protocol.test.ts`: the digest of the worked example, the schema, attempt started then terminal, replay, readback, a 409 read back and not retried, a 401 as a failed attempt, no redirect followed, and the token absent from every log line. The daily directive path holds no paid key. No live report has been sent.
+- The voice pass (`src/pipeline/65-voice.ts`, protocol 1.5.0): when the directive's `taste` holds at least one approved rule, one wording-only call per subject rewords the digest's titles, angles, watch whys and hook, and the digest's own wording is kept whole if the answer adds, drops or reorders an item or adds a number. Proven only against `tests/taste.test.ts`, never against a live run.
 - Model ids and tool types to confirm on the first live run: the OpenAI Responses API model for web search, and the Anthropic web search tool type paired with the Anthropic model id.
 
 ## Waiting
