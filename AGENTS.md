@@ -19,7 +19,7 @@ When Krish says "Get going", or opens a session with no more specific task, foll
 
 ## Autonomy (Ruling, Krish, 2026-10-19)
 
-Krish: "the engine shows me what it is going to do, I approve, it gets up to go-live and asks me to review." This engine runs autonomously under Control Center protocol 1.1.0 (`docs/control-center/ENGINE-PROTOCOL.md`, "Autonomy" and "Amend"), in steps Krish answers on his one list in Control Center:
+Krish: "the engine shows me what it is going to do, I approve, it gets up to go-live and asks me to review." This engine is set to run autonomously under Control Center's growth engine protocol (its "Autonomy" and "Amend" sections, which arrived in protocol 1.1.0), in steps Krish answers on his one list in Control Center. The protocol is read in [Control Center's ENGINE-PROTOCOL.md](https://github.com/krishanraja/control-center/blob/main/docs/app/growth/ENGINE-PROTOCOL.md), which is authoritative; `docs/control-center/ENGINE-PROTOCOL.md` here is a copy that lags it. The loop below is not built yet (`docs/GET-GOING.md`, Step 1): today the engine sends protocol 1.0.0 reports and accepts any 1.x directive. The steps:
 
 1. **Plan.** Propose what the engine is going to do as `stage: "plan"`, behind a wall (usually `strategy`), with the plan itself in `exact_payload` so he can change it. Wait for his yes.
 2. **Go-live.** Once the plan is approved, build everything up to go-live: the assets, the exact words, the amount. Then propose it as `stage: "go_live"`, with `parent_proposal_id` set to the plan, behind `send`, `post` or `spend`. Nothing goes out yet.

@@ -1,6 +1,6 @@
 # Control Center brief: AEO-Engine
 
-**Status (2026-10-19): adopted in this repository.** The protocol client, the daily `cc-growth-directive` workflow and the research run's report are built and tested against a local stand-in; no live report has been sent from here yet. How it runs: `README.md`, "Reporting to Control Center".
+**Status (2026-10-27): adopted in this repository and running live.** The protocol client, the daily `cc-growth-directive` workflow and the research run's report are built, tested against a local stand-in, and have run live: the first live daily run was 2026-10-19 and the first full research run to deliver a report was 2026-10-25 (GitHub Actions run history, read 2026-10-27; what Control Center holds could not be read from here). How it runs: `README.md`, "Reporting to Control Center". The brief below is Control Center's handoff of 2026-10-18 and is not updated as the protocol moves.
 
 Written 2026-10-18 by Control Center. **Your packet ingest stays exactly as it is**: `/api/aeo/context`, `/api/aeo/ingest`, `/api/aeo/run` and `/api/aeo/meter`, the AeoPacket schema, and `AEO_ENGINE_SECRET`. Krish ruled that every growth engine also runs one protocol loop (ADR-038 in Control Center), so Growth > Engines can show you beside the other five. Until you do, Control Center reads your last run from `aeo_commands`.
 

@@ -13,9 +13,9 @@ Never ask Krish to paste a prompt or repeat a brief: everything needed is in thi
 
 ## The brief
 
-Read AGENTS.md first and follow it (it records Krish's rulings of 2026-10-19), then docs/NORTH_STAR.md, docs/CONTROL-CENTER-BRIEF.md and docs/control-center/ENGINE-PROTOCOL.md (protocol 1.1.0). Before you start, say which part of the North Star this work moves.
+Read AGENTS.md first and follow it (it records Krish's rulings of 2026-10-19), then docs/NORTH_STAR.md, docs/CONTROL-CENTER-BRIEF.md and docs/control-center/ENGINE-PROTOCOL.md (a copy of [Control Center's ENGINE-PROTOCOL.md](https://github.com/krishanraja/control-center/blob/main/docs/app/growth/ENGINE-PROTOCOL.md), which is authoritative and newer; the stages used below arrived in 1.1.0). Before you start, say which part of the North Star this work moves.
 
-Where things stand (2026-10-19): this engine runs the Control Center loop live. Every day at 05:10 UTC Control Center writes this engine a directive and wakes `.github/workflows/cc-growth-directive.yml` (`npm run protocol -- directive`) with a `cc-growth-directive` repository_dispatch. The first live run on 2026-10-19 succeeded: it journaled its attempt, read the directive, sent a report, read it back by digest and read Krish's decisions. Control Center now speaks protocol 1.1.0: send `schema_version: "1.1.0"`, and read `stage`, `amended`, `exact_payload`, `amount_usd` and `amended_sha256` from decisions.
+Where things stand (2026-10-19): this engine runs the Control Center loop live. Every day at 05:10 UTC Control Center writes this engine a directive and wakes `.github/workflows/cc-growth-directive.yml` (`npm run protocol -- directive`) with a `cc-growth-directive` repository_dispatch. The first live run on 2026-10-19 succeeded: it journaled its attempt, read the directive, sent a report, read it back by digest and read Krish's decisions. Control Center now speaks protocol 1.1.0: send `schema_version: "1.1.0"`, and read `stage`, `amended`, `exact_payload`, `amount_usd` and `amended_sha256` from decisions. (Control Center has only added fields since. Send the lowest version that carries the fields a report uses, and accept any 1.x back; its protocol document's "Versions" section is the rule. Today this engine's reports still say 1.0.0.)
 
 The job now is to make the daily report worth Krish's morning. Every run should leave Control Center with:
 
@@ -48,13 +48,13 @@ Today's daily report (2026-10-19) was `degraded`, with no proposals:
 
 ## The build
 
-- [ ] **Step 0.** Correct the status line at the top of docs/CONTROL-CENTER-BRIEF.md: the first live run on 2026-10-19 succeeded, so it is no longer only tested against a local stand-in.
+- [x] **Step 0.** Correct the status line at the top of docs/CONTROL-CENTER-BRIEF.md: the first live run on 2026-10-19 succeeded, so it is no longer only tested against a local stand-in. Done 2026-10-27 by the docs sweep (documentation only, so nothing changes in the live report).
 - [ ] **Step 1.** The autonomy loop above (plan, go-live, the go-live step, check-ins) on protocol 1.1.0, proved against the stand-in: an approved plan never goes live, an approved go-live goes live once with exactly its payload, an amended one goes live in his words, a declined check-in stops its plan.
 - [ ] **Step 2.** Make the daily report useful between research runs. From the last packet (its recommendations, watch list and not-worth-chasing list), propose the one page or content change most likely to win a question, prepared, tied to `queries_cited_first`, with `wall: post` where it would publish.
 - [ ] **Step 3.** Ask Krish for a target: one `wall: strategy` proposal stating what number to aim for and why.
 - [ ] **Step 4.** Decide with evidence whether `degraded` is the right daily status. If no source is missing and the objective is just between runs, report it as `stale` with its last window rather than missing, and set the status to match.
 - [ ] **Step 5.** A spend proposal raised when the cap stopped probes must carry `amount_usd` and the cap evidence. His yes raises the cap for the next run only.
-- [ ] **Step 6.** After 2026-10-25, confirm the research run's report reached Control Center and that `queries_cited_first` became measured.
+- [ ] **Step 6.** After 2026-10-25, confirm the research run's report reached Control Center and that `queries_cited_first` became measured. Half confirmed on 2026-10-27 from the run's own logs: the report job delivered the 2026-10-25 report (status `ready`) and read it back by digest. Still to read: the value Control Center holds for `queries_cited_first` (on a full run the code reports `ready` only when no subject failed, which makes the objective measured, but the number itself was not read here). Tick it when that is read.
 
 ## Checks
 

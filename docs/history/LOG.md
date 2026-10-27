@@ -5,6 +5,10 @@ Newest first. Entries are written by the docs steward (see the steward link in
 describes current behaviour; `NOW.md` and `docs/STATE.md` do. Files moved here
 keep their body verbatim under a Historical banner.
 
+## 2026-10-27
+
+- reconciled at `a8a1fd1` in a whole-repository documentation pass. `docs/STATE.md` and `NOW.md` said no scheduled run had ever happened; GitHub Actions history (read only, 2026-10-27) shows scheduled research runs since 2026-09-27 and the daily directive loop since 2026-10-19, so both were corrected, which closes the `docs/GET-GOING.md` vs `docs/STATE.md` live-state conflict recorded here on 2026-10-19 to 2026-10-22. `README.md` and `docs/PACKET.md` said three attempts fifteen minutes apart; the workflow makes two, five minutes apart. `README.md` gained the `65-voice` stage. `AGENTS.md`, `README.md` and `docs/GET-GOING.md` stopped pinning one protocol version and point at Control Center's spec, because the copy in `docs/control-center/` is titled 1.4.0, carries 1.5.0 text, and trails Control Center's own. `docs/CONTROL-CENTER-BRIEF.md` status line corrected and Step 0 of `docs/GET-GOING.md` ticked. The two dollar figures were taken out of a `NOW.md` bullet (never-publish: cost ledger figures). `docs/NORTH_STAR.md`, the canon block and `docs/HARNESS_CONTEXT.md` left alone: they belong to Krish and the harness. This log is append-only, so the cost-ledger path written without its `src/` prefix in the 2026-10-22 entry below was left as written; the file is `src/lib/cost.ts`.
+
 ## 2026-10-22
 
 - reconciled at `edfe4bb`: one non-steward commit, the repository-administration publisher adding the closeout hook, its settings entry and a workflow edit; no documentation consequence, so `head` and `as_of` advanced only. `docs/STATE.md` keeps its stamp. `NOW.md` has no `North Star check` line and the steward does not write one; a session that re-reads the North Star owns it. The `docs/GET-GOING.md` vs `docs/STATE.md` live-state conflict is still open and waits on Krish.
