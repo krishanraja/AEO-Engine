@@ -5,6 +5,10 @@ Newest first. Entries are written by the docs steward (see the steward link in
 describes current behaviour; `NOW.md` and `docs/STATE.md` do. Files moved here
 keep their body verbatim under a Historical banner.
 
+## 2026-10-30
+
+- reconciled at `4a7583e`: one commit since `59c0d57`, a canon block sync in `AGENTS.md` (#27, v2026.10.29.3), with no documentation consequence; `head` and `as_of` advanced only.
+
 ## 2026-10-29
 
 - reconciled at `59c0d57`: three commits since `92e5b1b`, the closeout hook and context workflow from repository administration (#25) and two canon block syncs (#16, #26), none with an engine consequence. `NOW.md` no longer calls #16 open and names the canon release v2026.10.27.2; `head` and `as_of` advanced. `docs/STATE.md` keeps its 2026-10-27 stamp because nothing it describes changed.
