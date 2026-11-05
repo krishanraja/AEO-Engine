@@ -1,7 +1,7 @@
 ---
 repo: krishanraja/AEO-Engine
 product: AEO-Engine
-as_of: 2026-11-04
+as_of: 2026-11-05
 head: 9a8c710
 lifecycle: building
 production_url: none
@@ -22,7 +22,7 @@ AEO-Engine is the fortnightly answer-engine research machine for Krish Raja's ve
 
 Krish reads the digest on Monday and acts the same week. The packet answers, per venture, "which buyer question are we invisible on, and who is cited instead"; per prospect, "what would this company's leaders see if they asked an assistant about their own problem, and is Mindmake in it"; per aspiration, "which of their pages get cited, and why". For the room_face buyer (a senior leader at a PE or VC backed media, adtech, publishing or data business, quietly behind on what is coming) the machine is proof that one person can run demand research on AI agents with the evidence left in: every number in a digest is measured that run, every unknown stays unknown, and a failed engine call writes nothing rather than a guess. Angles a writer can use: the OS reads its own calls and refuses to name anyone in them; the demand score says out loud that there is no prompt-volume corpus and scores from proxies; the run has a price cap it counts against, not a bill it discovers.
 
-## Where it is right now (as of 2026-11-04)
+## Where it is right now (as of 2026-11-05)
 
 <!-- north-star-state {"week_of": "2026-10-26", "week_target": null, "current": null, "current_as_of": null, "current_source": null, "urgency": 4, "urgency_reason": "not measured yet (baseline comes from the latest packets)"} --> **North Star number: U4, far behind.** Share of tracked buyer questions where Mindmake or one of its products is the first citation: not measured yet (baseline comes from the latest packets), against week one set by the first reading this week, on the way to 50% by 25 January 2027. A bold swing every day; work that does not move the number waits.
 
@@ -70,5 +70,5 @@ Krish reads the digest on Monday and acts the same week. The packet answers, per
 - `docs/control-center/ENGINE-PROTOCOL.md` and its two schemas: copies that lag Control Center, whose [ENGINE-PROTOCOL.md](https://github.com/krishanraja/control-center/blob/main/docs/app/growth/ENGINE-PROTOCOL.md) is the spec. The copy's title line says 1.4.0 and its text already carries the 1.5.0 `taste` paragraph (copied on 2026-10-26 from a Control Center branch); Control Center's own read 1.10.0 on 2026-10-27, and its report schema lists more versions. The copy's relative links to Control Center's decision records, and its bare paths to scripts, an API file and two docs, resolve only inside krishanraja/control-center, krishanraja/inspirationhouse and krishanraja/ai-harness. The copies stay because the tests read the report schema and the worked example.
 - `docs/GET-GOING.md`, "The brief" and "This engine": the state of 2026-10-19 (a `degraded` report, the first research run still ahead). Only the ticks in "The build" and "Checks" are current.
 - `docs/NORTH_STAR.md`: its verification stamp (18 October) is older than its 2026-10-23 paragraph on the number and urgency. The text is Krish's and stands; only he changes the file, stamp included.
-- `AGENTS.md`, the Krish canon block: rendered at release v2026.10.27.2 (synced in #16 and #26, both merged). The block belongs to the harness.
+- `AGENTS.md`, the Krish canon block: rendered at release v2026.10.30.1 (last synced in #28, merged). The block belongs to the harness.
 - `docs/BUILD-LOG.md`: no entries after 2026-10-19, so the usage meter, the Claude probe timeout, the fortnightly schedule and the voice pass are recorded in `docs/STATE.md`, `docs/history/LOG.md` and "What changed recently" instead. Its 2026-09-08 line that every client carries a 120 second timeout no longer holds for the Claude probe path (four minutes, `docs/STATE.md`).
