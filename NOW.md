@@ -1,7 +1,7 @@
 ---
 repo: krishanraja/AEO-Engine
 product: AEO-Engine
-as_of: 2026-11-07
+as_of: 2026-11-09
 head: 9a8c710
 lifecycle: building
 production_url: none
@@ -22,7 +22,7 @@ AEO-Engine is the fortnightly answer-engine research machine for Krish Raja's ve
 
 Krish reads the digest on Monday and acts the same week. The packet answers, per venture, "which buyer question are we invisible on, and who is cited instead"; per prospect, "what would this company's leaders see if they asked an assistant about their own problem, and is Mindmake in it"; per aspiration, "which of their pages get cited, and why". For the room_face buyer (a senior leader at a PE or VC backed media, adtech, publishing or data business, quietly behind on what is coming) the machine is proof that one person can run demand research on AI agents with the evidence left in: every number in a digest is measured that run, every unknown stays unknown, and a failed engine call writes nothing rather than a guess. Angles a writer can use: the OS reads its own calls and refuses to name anyone in them; the demand score says out loud that there is no prompt-volume corpus and scores from proxies; the run has a price cap it counts against, not a bill it discovers.
 
-## Where it is right now (as of 2026-11-07)
+## Where it is right now (as of 2026-11-09)
 
 <!-- north-star-state {"week_of": "2026-10-26", "week_target": null, "current": null, "current_as_of": null, "current_source": null, "urgency": 4, "urgency_reason": "not measured yet (baseline comes from the latest packets)"} --> **North Star number: U4, far behind.** Share of tracked buyer questions where Mindmake or one of its products is the first citation: not measured yet (baseline comes from the latest packets), against week one set by the first reading this week, on the way to 50% by 25 January 2027. A bold swing every day; work that does not move the number waits.
 
@@ -48,7 +48,7 @@ Krish reads the digest on Monday and acts the same week. The packet answers, per
 
 ## What is next and what is waiting on Krish
 
-- Next: the first unticked step of `docs/GET-GOING.md` (Step 1, the autonomy loop, proved against the stand-in). Still open from `docs/STATE.md`: read the 2026-10-25 `queries_cited_first` back from Control Center, check the model ids and tool types in the live logs, and tune the price table from a ledger (`--dry --out` locally prints one). The next research run is Sunday 2026-11-08.
+- Next: the first unticked step of `docs/GET-GOING.md` (Step 1, the autonomy loop, proved against the stand-in). Still open from `docs/STATE.md`: read the 2026-10-25 `queries_cited_first` back from Control Center, check the model ids and tool types in the live logs, and tune the price table from a ledger (`--dry --out` locally prints one). The research run scheduled for Sunday 2026-11-08 has not been read from here.
 - Waiting on Krish: a target for `queries_cited_first` (`docs/GET-GOING.md`, Step 3); confirming the OpenAI model name for the Responses API web search (`src/config/run.ts`; the live runs have happened and no check is recorded); and which of the remaining repository secrets and the spend variable are set.
 - North Star: directive taste moves the second half (pieces worth citing, written in his approved voice); the number is still unmeasured, U4.
 - North Star check (2026-10-27): holds.
