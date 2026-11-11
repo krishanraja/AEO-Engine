@@ -13,7 +13,7 @@
  * body: a code is what an attempt records.
  */
 import { asArray, asRecord, asString, requestJson, type HttpResult } from './http.js'
-import { ENGINE, parseTaste, type Attempt, type Decision, type Directive, type EngineReport } from '../schema/report.js'
+import { ENGINE, parseFeatures, parseInstruction, parseTaste, type Attempt, type Decision, type Directive, type EngineReport } from '../schema/report.js'
 
 export class ProtocolError extends Error {
   constructor(public readonly code: string, public readonly status: number) {
@@ -23,6 +23,9 @@ export class ProtocolError extends Error {
 }
 
 export interface StoredReport { run_id: string; payload_sha256: string; mode: string; accepted_at: string; report: Record<string, unknown> }
+
+/** One of the engine's own latest live reports, as `GET reports?recent=<n>` gives it (1.10.0): never the proposals or the payload. */
+export interface RecentReport { run_id: string; accepted_at: string; status: string; activity: string[] }
 
 const LOOPBACK = new Set(['127.0.0.1', 'localhost', '[::1]', '::1'])
 
@@ -97,6 +100,13 @@ export class GrowthEngineHttp {
     const taste = parseTaste(d.taste)
     if (taste) directive.taste = taste
     else delete directive.taste
+    // 1.20.0. Krish's instruction keeps its id and loses its words here, so
+    // nothing past this line can print, log or commit them (this repository
+    // and its Actions logs are public). Features absent means before 1.20.0.
+    directive.krish_instruction = parseInstruction(d.krish_instruction)
+    const features = parseFeatures(d.features)
+    if (features) directive.features = features
+    else delete directive.features
     return { chosen_by: asString(j.chosen_by), directive }
   }
 
@@ -117,6 +127,20 @@ export class GrowthEngineHttp {
     const j = asRecord(r.json)
     if (j.accepted !== true || typeof j.payload_sha256 !== 'string') throw new ProtocolError('readback_invalid', r.status)
     return { run_id: asString(j.run_id), payload_sha256: j.payload_sha256, mode: asString(j.mode), accepted_at: asString(j.accepted_at), report: asRecord(j.report) }
+  }
+
+  /** The engine's own latest live reports, newest first (1.10.0, `features.recent_reports`), activity lines only. */
+  async getRecentReports(n: number): Promise<RecentReport[]> {
+    const r = await this.call('recent', `/reports?recent=${Math.max(1, Math.min(10, Math.floor(n)))}`)
+    if (!r.ok) throw new ProtocolError(codeFor('recent', r), r.status)
+    const j = asRecord(r.json)
+    if (j.ok !== true || !Array.isArray(j.reports)) throw new ProtocolError('recent_invalid', r.status)
+    return asArray(j.reports).map(asRecord).filter(x => typeof x.run_id === 'string').map(x => ({
+      run_id: x.run_id as string,
+      accepted_at: asString(x.accepted_at),
+      status: asString(x.status),
+      activity: asArray(x.activity).map(a => (typeof a === 'string' ? a : asString(asRecord(a).line))).filter(Boolean),
+    }))
   }
 
   async getDecisions(since: string): Promise<Decision[]> {

@@ -12,20 +12,30 @@
  * aspiration name or slug (they are numbered), no answer, citation, theme or
  * call, and no spend figure in a line. The one dollar amount is the spend
  * proposal's `amount_usd`, which the protocol requires for a spend ask.
+ *
+ * Protocol 1.20.0. When the directive says `features.engine_state`, both
+ * reports speak 1.20.0 and carry the engine's state (src/protocol/state.ts)
+ * and what it did with Krish's instruction, by id only: never his words.
+ * Without it they stay 1.0.0, exactly as before.
  */
 import { canonicalJson, sha256Hex } from '../lib/canonical.js'
 import {
   ENGINE,
   OBJECTIVE_KEY,
   sealReport,
+  STATE_VERSION,
   type ActivityLine,
   type EngineReport,
+  type EngineState,
   type Hold,
+  type InstructionAck,
+  type InstructionRef,
   type ObjectiveReading,
   type Proposal,
   type ReportStatus,
 } from '../schema/report.js'
 import { fortnightStart, nextScheduledRun, type RunSummary, type SubjectSummary } from './measure.js'
+import { buildEngineState, inWords, type RepoState } from './state.js'
 
 export const SPEND_PROPOSAL_ID = 'aeo:spend:max-usd-per-run'
 export const SPEND_TARGET = 'AEO_MAX_USD_PER_RUN'
@@ -33,11 +43,39 @@ export const SPEND_TARGET = 'AEO_MAX_USD_PER_RUN'
 export const STALE_DAYS = 15
 const DAY_MS = 86_400_000
 
-export interface Envelope { runId: string; mode: 'live' | 'synthetic'; observedAt: Date; revision: string; capturedAt: Date }
+export interface Envelope {
+  runId: string
+  mode: 'live' | 'synthetic'
+  observedAt: Date
+  revision: string
+  capturedAt: Date
+  /** 1.20.0: set only when the directive served `features.engine_state`. Absent or null: a 1.0.0 report, as before. */
+  state?: StateContext | null
+}
 
-function envelope(e: Envelope, status: ReportStatus, objectives: ObjectiveReading[], activity: ActivityLine[], proposals: Proposal[], holds: Hold[]): EngineReport {
+/** What a 1.20.0 report is built from, besides the run itself. */
+export interface StateContext {
+  /** This repository's own docs, read at the run's commit. */
+  repo: RepoState
+  /** Krish's open instruction from the directive, its words already dropped. */
+  instruction: InstructionRef | null
+  /** True when one of this engine's own recent live reports already named it, so it was acked before. */
+  seen: boolean
+  /** This workflow run's public page, for an ack's evidence, or null. */
+  evidenceUrl: string | null
+}
+
+/** The line Control Center's brief sets for an instruction the daily run cannot act on: only paid research can. */
+export const NEEDS_RESEARCH = 'needs a paid research run: press Run now'
+
+function envelope(e: Envelope, status: ReportStatus, objectives: ObjectiveReading[], activity: ActivityLine[], proposals: Proposal[], holds: Hold[], state: EngineState | null = null): EngineReport {
+  const extra: EngineState = {}
+  if (state?.priorities?.length) extra.priorities = state.priorities
+  if (state?.obsessions?.length) extra.obsessions = state.obsessions
+  if (state?.next_steps?.length) extra.next_steps = state.next_steps
+  if (state?.instruction_acks?.length) extra.instruction_acks = state.instruction_acks
   return sealReport({
-    schema_version: '1.0.0',
+    schema_version: state ? STATE_VERSION : '1.0.0',
     engine_id: ENGINE.engine_id,
     product_slug: ENGINE.product_slug,
     run_id: e.runId,
@@ -50,7 +88,19 @@ function envelope(e: Envelope, status: ReportStatus, objectives: ObjectiveReadin
     proposals: proposals.slice(0, 10),
     events: [],
     holds: holds.slice(0, 40),
+    ...extra,
   })
+}
+
+/** An ack, at the report's time, with this run's page as its evidence. */
+function ack(ctx: StateContext, at: Date, state: InstructionAck['state'], text: string): InstructionAck {
+  return { instruction_id: (ctx.instruction as InstructionRef).id, state, line: text, at: at.toISOString(), evidence_url: ctx.evidenceUrl }
+}
+
+/** The 1.20.0 state for a report: its lines from the repository, plus the acks, or null for a 1.0.0 report. */
+function stateFor(e: Envelope, objective: ObjectiveReading, acks: InstructionAck[]): EngineState | null {
+  if (!e.state) return null
+  return { ...buildEngineState({ repo: e.state.repo, objective, nextRun: nextScheduledRun(e.observedAt) }), ...(acks.length ? { instruction_acks: acks } : {}) }
 }
 
 const line = (s: string): ActivityLine => ({ line: s.slice(0, 500), evidence_url: null })
@@ -169,7 +219,25 @@ export function buildResearchReport(input: ResearchInput): EngineReport {
   }
 
   const degraded = !!input.planError || placed.some(p => !p.s.ok)
-  return envelope(input, degraded ? 'degraded' : 'ready', [objective], activity, proposals, holds)
+
+  // Krish's instruction (1.20.0). This run is the paid research the daily
+  // run's ack asked for, so it moves the instruction on: started when the
+  // research ran, blocked when it did not. It never claims done: the research
+  // probes Control Center's subject list and never reads his words, so done
+  // is his to say with Clear.
+  const acks: InstructionAck[] = []
+  const ctx = input.state
+  if (ctx?.instruction) {
+    const id = ctx.instruction.id
+    const day = inWords(input.observedAt).replace(/ at .*$/, '')
+    activity.unshift(line(ctx.seen ? `Krish's instruction ${id} was open during this research run.` : `Received Krish's instruction ${id} in this research run.`))
+    if (!ctx.seen) acks.push(ack(ctx, input.observedAt, 'received', `Read in the research run on ${day}.`))
+    const researched = placed.filter(p => p.s.ok).length
+    if (input.planError) acks.push(ack(ctx, input.observedAt, 'blocked', `The research run on ${day} could not read the subject list, so nothing was researched. The next scheduled run is ${inWords(next)}, or press Run now.`))
+    else if (degraded) acks.push(ack(ctx, input.observedAt, 'blocked', `The research run on ${day} failed for ${placed.length - researched} of ${placed.length} subjects. The next scheduled run is ${inWords(next)}, or press Run now.`))
+    else acks.push(ack(ctx, input.observedAt, 'started', `A paid research run finished on ${day} with this instruction open: ${researched} of ${placed.length} subjects researched. It probes Control Center's subject list, never the instruction's words.`))
+  }
+  return envelope(input, degraded ? 'degraded' : 'ready', [objective], activity, proposals, holds, stateFor(input, objective, acks))
 }
 
 /** The research run_id the dispatch looks for: one full run a day. */
@@ -178,7 +246,8 @@ export const researchRunId = (date: string) => `aeo:${date}:research`
 export interface StoredResearch { run_id: string; accepted_at: string; report: Record<string, unknown> }
 
 export interface DirectiveInput extends Envelope {
-  directive: { directive_id: string; chosen_by: string; decisions_since: Array<{ proposal_id: string; decision: string; decided_at: string; payload_sha256: string | null }> } | null
+  /** `instruction` (1.20.0) is Krish's open instruction by id; the report acts on it only through `state`, when the directive serves the engine's state. */
+  directive: { directive_id: string; chosen_by: string; decisions_since: Array<{ proposal_id: string; decision: string; decided_at: string; payload_sha256: string | null }>; instruction?: InstructionRef | null } | null
   directiveError: string | null
   /** The newest full research report found, or null. */
   last: StoredResearch | null
@@ -232,5 +301,23 @@ export function buildDirectiveReport(i: DirectiveInput): EngineReport {
 
   const objective = carriedObjective(i)
   const status: ReportStatus = objective.availability === 'measured' && i.directive ? 'ready' : 'degraded'
-  return envelope(i, status, [objective], activity, carried, [])
+
+  // Krish's instruction (1.20.0), first in the report. This run reads and
+  // reports only, and the cost wall keeps paid research off a directive, so
+  // the first time it is read it is acked received and then blocked on the
+  // one thing that unblocks it: a paid research run he starts with Run now.
+  // After that, a line says it is still open and no ack repeats.
+  const acks: InstructionAck[] = []
+  const ctx = i.state
+  if (ctx?.instruction) {
+    const id = ctx.instruction.id
+    if (ctx.seen) {
+      activity.unshift(line(`Krish's instruction ${id} is still open; this engine acked it in an earlier report.`))
+    } else {
+      activity.unshift(line(`Received Krish's instruction ${id}. This daily run reads and reports only, so it ${NEEDS_RESEARCH}.`))
+      acks.push(ack(ctx, i.observedAt, 'received', `Read in the daily run on ${inWords(i.observedAt).replace(/ at .*$/, '')}, which reads and reports only.`))
+      acks.push(ack(ctx, i.observedAt, 'blocked', NEEDS_RESEARCH))
+    }
+  }
+  return envelope(i, status, [objective], activity, carried, [], stateFor(i, objective, acks))
 }

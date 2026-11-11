@@ -1,7 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://controlcenter.krishraja.com/schemas/engine-report-1.0.0.json",
-  "title": "Growth engine report, protocol 1.0.0 (ADR-038)",
+  "title": "Growth engine report, protocol 1.0.0 to 1.2.0 and 1.20.0 (ADR-038), as this engine speaks it",
+  "$comment": "A partial copy of Control Center docs/app/growth/engine-report.schema.json (krishanraja/control-center main 14379de, 2026-11-11): the 1.0.0 to 1.2.0 fields, and the 1.20.0 engine state copied verbatim. Versions 1.3.0 to 1.19.0 add fields this engine never sends and are left out. Control Center's copy is authoritative.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -20,9 +21,10 @@
       "enum": [
         "1.0.0",
         "1.1.0",
-        "1.2.0"
+        "1.2.0",
+        "1.20.0"
       ],
-      "description": "1.1.0 adds a proposal's stage and parent_proposal_id, 1.2.0 its subject_ref; an older report carrying a newer field is refused."
+      "description": "1.1.0 adds a proposal's stage and parent_proposal_id, 1.2.0 its subject_ref; an older report carrying a newer field is refused. 1.20.0 adds priorities, obsessions, next_steps and instruction_acks, the engine state on every place in Control Center and what it did with Krish's instruction, each refused before 1.20.0; send them only when the directive says features.engine_state."
     },
     "engine_id": {
       "type": "string",
@@ -371,6 +373,148 @@
     "payload_sha256": {
       "type": "string",
       "pattern": "^[0-9a-f]{64}$"
+    },
+    "priorities": {
+      "type": "array",
+      "maxItems": 5,
+      "description": "1.20.0, optional (directive features.engine_state): what the engine is chasing, most important first. One plain line each, with no address or phone number. Shown on every place in Control Center as reported, never inferred.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "rank",
+          "line"
+        ],
+        "properties": {
+          "rank": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "line": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+          },
+          "objective_key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[a-z][a-z0-9_]{0,63}$",
+            "description": "The objective it serves, or null."
+          }
+        }
+      }
+    },
+    "obsessions": {
+      "type": "array",
+      "maxItems": 3,
+      "description": "1.20.0, optional: Krish's own aims the engine will not let go of, quoted from its own docs as lines, never invented.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "line"
+        ],
+        "properties": {
+          "line": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+          },
+          "since": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          }
+        }
+      }
+    },
+    "next_steps": {
+      "type": "array",
+      "maxItems": 5,
+      "description": "1.20.0, optional: what the engine does next, and who each step waits on.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "line",
+          "waits_on"
+        ],
+        "properties": {
+          "line": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+          },
+          "waits_on": {
+            "enum": [
+              "engine",
+              "krish",
+              "other"
+            ]
+          },
+          "when": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          }
+        }
+      }
+    },
+    "instruction_acks": {
+      "type": "array",
+      "maxItems": 5,
+      "description": "1.20.0, optional, applied from live reports only: what the engine did with each instruction of Krish's it read (the directive's krish_instruction), by id only. A line says what it did, or why it is blocked and what would unblock it, and never quotes his words: engine repositories and their Actions logs are public. Forward only: received, then started or blocked, then done; nothing after done.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "instruction_id",
+          "state",
+          "line",
+          "at"
+        ],
+        "properties": {
+          "instruction_id": {
+            "type": "string",
+            "pattern": "^ki_[0-9a-f]{24}$"
+          },
+          "state": {
+            "enum": [
+              "received",
+              "started",
+              "done",
+              "blocked"
+            ]
+          },
+          "line": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 280,
+            "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "evidence_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^https://\\S+$"
+          }
+        }
+      }
     }
   }
 }

@@ -1,7 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://controlcenter.krishraja.com/schemas/engine-directive-1.0.0.json",
-  "title": "Growth engine directive, protocol 1.0.0 to 1.5.0 (ADR-038)",
+  "title": "Growth engine directive, protocol 1.0.0 to 1.5.0 and 1.20.0 (ADR-038), as this engine reads it",
+  "$comment": "A partial copy of Control Center docs/app/growth/engine-directive.schema.json: 1.0.0 to 1.5.0 as copied on 2026-10-26, and the 1.20.0 krish_instruction and features copied verbatim from krishanraja/control-center main 14379de on 2026-11-11. Control Center's copy is authoritative.",
   "type": "object",
   "required": [
     "schema_version",
@@ -564,6 +565,68 @@
               }
             }
           }
+        }
+      }
+    },
+    "krish_instruction": {
+      "description": "1.20.0, optional: Krish's own next best action for this engine, given through Control Center's one door, or null when none is open (a held engine is told only its hold, so null). Carried every day until the engine reports it done, he withdraws or replaces it, or it is a week old. Never next_action.instruction, which is Control Center's own words. Act on it first, inside the walls: it is never an approval, so walled work still comes back as a proposal. Ack it by id in instruction_acks, and never print, log or commit its words.",
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "words",
+            "given_at",
+            "given_by",
+            "supersedes"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^ki_[0-9a-f]{24}$"
+            },
+            "words": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            },
+            "given_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "given_by": {
+              "const": "krish"
+            },
+            "supersedes": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^ki_[0-9a-f]{24}$",
+              "description": "The instruction this one replaced, or null."
+            }
+          }
+        }
+      ]
+    },
+    "features": {
+      "type": "object",
+      "description": "1.20.0: what this directive's protocol serves. Report priorities, obsessions, next_steps and instruction_acks only when engine_state is true.",
+      "additionalProperties": false,
+      "required": [
+        "engine_state",
+        "krish_instruction"
+      ],
+      "properties": {
+        "engine_state": {
+          "type": "boolean"
+        },
+        "krish_instruction": {
+          "type": "boolean"
         }
       }
     }

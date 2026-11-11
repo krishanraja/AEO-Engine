@@ -20,6 +20,10 @@
  * research-report, AEO_ENGINE_SECRET and GITHUB_RUN_ID to open the
  * summaries). A missing one is named and the exit code is 2; no value is
  * ever printed.
+ *
+ * Each directive wake gets its own run_id from GITHUB_RUN_ID and
+ * GITHUB_RUN_ATTEMPT (Krish's instruction can wake it twice in a day), and
+ * an ack's evidence is this workflow run's public page when GitHub names it.
  */
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
@@ -77,6 +81,23 @@ export function readSummaries(dir: string, secret: string, context: string): { s
   return { summaries, unreadable }
 }
 
+/** This wake's discriminator: the workflow run and its attempt, or a local stamp. Only id characters. */
+export function wakeRef(env: NodeJS.ProcessEnv, now: () => Date = () => new Date()): string {
+  const id = String(env.GITHUB_RUN_ID ?? '').trim()
+  const attempt = String(env.GITHUB_RUN_ATTEMPT ?? '').trim() || '1'
+  if (/^\d{1,20}$/.test(id) && /^\d{1,6}$/.test(attempt)) return `${id}.${attempt}`
+  return `local.${now().getTime()}`
+}
+
+/** This workflow run's public page, when GitHub names it over https; else null. */
+export function runPage(env: NodeJS.ProcessEnv): string | null {
+  const server = String(env.GITHUB_SERVER_URL ?? '').trim()
+  const repo = String(env.GITHUB_REPOSITORY ?? '').trim()
+  const id = String(env.GITHUB_RUN_ID ?? '').trim()
+  if (!/^https:\/\/[A-Za-z0-9.-]+$/.test(server) || !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo) || !/^\d{1,20}$/.test(id)) return null
+  return `${server}/${repo}/actions/runs/${id}`
+}
+
 function missingEnv(env: NodeJS.ProcessEnv, names: readonly string[]): string[] {
   return names.filter(n => !String(env[n] ?? '').trim())
 }
@@ -106,12 +127,13 @@ export async function main(argv: readonly string[] = process.argv.slice(2), env:
     return 2
   }
   const revision = env.GITHUB_SHA || 'unknown'
-  const runRef = `${env.GITHUB_RUN_ID || 'local'}.${env.GITHUB_RUN_ATTEMPT || '1'}`
+  const runRef = wakeRef(env)
+  const evidenceUrl = runPage(env)
 
   try {
     if (command === 'directive') {
       const date = new Date().toISOString().slice(0, 10)
-      const out = await runDirective(client, { mode: mode(flags), revision, attemptId: `aeo:${date}:directive:${runRef}` })
+      const out = await runDirective(client, { mode: mode(flags), revision, attemptId: `aeo:${date}:directive:${runRef}`, wake: runRef, evidenceUrl })
       return out.status === 'succeeded' ? 0 : 1
     }
 
@@ -133,7 +155,7 @@ export async function main(argv: readonly string[] = process.argv.slice(2), env:
     const out = await finishResearch(client, ids, {
       mode: mode(flags), observedAt: now, revision, capturedAt: new Date(ids.startedAt),
       scope, expected: subjects as string[], summaries, totalCapUsd, planError,
-    })
+    }, () => new Date(), { evidenceUrl })
     return out.status === 'succeeded' ? 0 : 1
   } catch (e) {
     log('protocol_usage', { error: errText(e) })

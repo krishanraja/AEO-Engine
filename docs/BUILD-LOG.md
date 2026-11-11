@@ -2,6 +2,39 @@
 
 Dated entries, newest first. Each one says why it was done, what failed or would have failed without it, and the mechanism. Control Center's build-signal ingest reads this file; keep names of people, prospects and secrets out of it.
 
+## 2026-11-11: Krish's instruction and the engine's state (protocol 1.20.0)
+
+Ruling (Krish, 2026-11-11): every growth engine's priorities, obsessions,
+next steps and outstanding items feed live across Control Centre, and Krish
+instructs each engine with his next best action, which starts it. Control
+Center serves it as protocol 1.20.0: `krish_instruction` and `features` in
+the directive, and `priorities`, `obsessions`, `next_steps` and
+`instruction_acks` in the report.
+
+Three decisions worth keeping:
+
+- **His words stop at the client.** This repository and its Actions logs are
+  public. `parseInstruction` keeps the id, the time and what it superseded,
+  and drops the words, so no log line, report or request downstream can carry
+  them. No run here reads them anyway: the daily run makes no model call, and
+  the research run probes Control Center's subject list.
+- **The cost wall holds against an instruction too.** The daily run acks it
+  `received`, then `blocked` with "needs a paid research run: press Run now".
+  A research run with it open acks `started`, or `blocked` when the research
+  failed, and never `done`: the run did not read his words, so whether it
+  answered him is his to say with Clear.
+- **The state is read, never written.** Priorities, obsessions and next steps
+  come from `docs/NORTH_STAR.md`, `NOW.md`, `AGENTS.md` and
+  `docs/GET-GOING.md` at the run's commit. A line Control Center's guard would
+  refuse is dropped, never cut, and dates in them are written out in words,
+  because "2026-11-22 04:00" is ten digits in one run, which its guard reads as
+  a phone number and which would refuse the whole report.
+
+Each daily wake's `run_id` now ends in the workflow run and attempt: an
+instruction can wake the engine twice in one day, and the second report would
+otherwise be refused as `report_conflict`, as the extra dispatch on 2026-10-23
+was.
+
 ## 2026-10-19 (last): the growth engine protocol, with the cost wall in the workflow
 
 Krish asked every growth engine to adopt Control Center's protocol (ADR-038

@@ -41,9 +41,12 @@ jobs:
           node-version: '20'
           cache: 'npm'
       - run: npm ci
-      # The dispatch payload ({ directive_id, engine_id }) is not read: the
-      # engine pulls its directive with its own bearer, and a payload is data
-      # that never reaches a shell. Exits 2 naming any missing secret.
+      # The dispatch payload ({ directive_id, engine_id }, and instruction_id
+      # when Krish's instruction woke it) is not read: the engine pulls its
+      # directive with its own bearer, and a payload is data that never
+      # reaches a shell. Krish's words never reach this log (the client drops
+      # them; only the id is logged). GITHUB_RUN_ID and GITHUB_RUN_ATTEMPT give
+      # each wake its own run_id. Exits 2 naming any missing secret.
       - name: Run the protocol loop
         env:
           CONTROL_CENTER_URL: ${{ vars.CONTROL_CENTER_URL }}
