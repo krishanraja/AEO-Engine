@@ -1,9 +1,11 @@
 /**
- * The growth engine protocol 1.0.0 as this engine speaks it: the report
- * envelope (docs/control-center/engine-report.schema.json), the attempt, and
- * the parts of the directive the engine reads. Control Center refuses a field
- * it does not know, so the validator below refuses one too, at every depth,
- * before anything leaves the machine.
+ * The growth engine protocol as this engine speaks it: 1.0.0 reports, and
+ * 1.20.0 reports when the directive serves the engine's state (priorities,
+ * obsessions, next steps and Krish's instruction acks); the report envelope
+ * (docs/control-center/engine-report.schema.json), the attempt, and the parts
+ * of the directive the engine reads. Control Center refuses a field it does
+ * not know, so the validator below refuses one too, at every depth, before
+ * anything leaves the machine.
  */
 import { reportDigest } from '../lib/canonical.js'
 import { EMAIL_RE, EM_DASH_RE } from '../lib/text.js'
@@ -48,8 +50,91 @@ export interface Proposal {
 export interface ReportEvent { event: string; proposal_id: string | null; at: string; evidence_url: string | null }
 export interface Hold { reason: string; detail: string | null }
 
-export interface EngineReport {
-  schema_version: '1.0.0'
+/** The versions this engine sends: 1.0.0, or 1.20.0 when a report carries the engine's state. */
+export type SchemaVersion = '1.0.0' | '1.20.0'
+export const STATE_VERSION = '1.20.0'
+
+/** 1.20.0: what the engine is chasing, most important first (at most 5). */
+export interface EnginePriority { rank: number; line: string; objective_key: string | null }
+/** 1.20.0: Krish's own aims, quoted from this repository's docs (at most 3). */
+export interface EngineObsession { line: string; since: string | null }
+export type WaitsOn = 'engine' | 'krish' | 'other'
+/** 1.20.0: what the engine does next, and who each step waits on (at most 5). */
+export interface EngineNextStep { line: string; waits_on: WaitsOn; when: string | null }
+export type AckState = 'received' | 'started' | 'done' | 'blocked'
+/** 1.20.0: what the engine did with one of Krish's instructions, by id only (at most 5). */
+export interface InstructionAck { instruction_id: string; state: AckState; line: string; at: string; evidence_url: string | null }
+
+/** The engine's state on a 1.20.0 report. A field it has no source for is left out, never filled. */
+export interface EngineState {
+  priorities?: EnginePriority[]
+  obsessions?: EngineObsession[]
+  next_steps?: EngineNextStep[]
+  instruction_acks?: InstructionAck[]
+}
+
+export const PRIORITIES_MAX = 5
+export const OBSESSIONS_MAX = 3
+export const NEXT_STEPS_MAX = 5
+export const INSTRUCTION_ACKS_MAX = 5
+export const STATE_LINE_MAX = 200
+export const ACK_LINE_MAX = 280
+/** An instruction's id as Control Center makes it: ki_ and 24 hex characters. */
+export const INSTRUCTION_ID_RE = /^ki_[0-9a-f]{24}$/
+const YMD_RE = /^\d{4}-\d{2}-\d{2}$/
+// Control Center's own guards on a state or ack line (src/lib/growthEngines.ts,
+// lineCarriesContact): an address, or a run of ten digits or more, refuses the
+// whole report there, so it is refused here first.
+const CONTROL_RE = /[\u0000-\u001f\u007f]/
+const EMAIL_IN_TEXT = /[^\s@]+@[^\s@]+\.[a-z]{2,}/i
+const PHONE_RUN = /\+?\d[\d\s().-]{8,}\d/g
+
+/** Whether a line may go out as a priority, obsession, next step or ack line: one plain line, no address, no number. */
+export function stateLineOk(v: unknown, max: number): v is string {
+  if (typeof v !== 'string') return false
+  const t = v.trim()
+  if (!t || t !== v || v.length > max) return false
+  if (CONTROL_RE.test(v) || EM_DASH_RE.test(v) || EMAIL_IN_TEXT.test(v)) return false
+  return !(v.match(PHONE_RUN) ?? []).some(r => r.replace(/\D/g, '').length >= 10)
+}
+
+/**
+ * Krish's instruction as this engine keeps it (directive `krish_instruction`,
+ * protocol 1.20.0). His words are checked and then dropped at the client:
+ * this repository and its Actions logs are public, and no run here reads
+ * them (the daily run reads and reports only, and the research run probes
+ * Control Center's subject list). Only the id goes anywhere.
+ */
+export interface InstructionRef { id: string; given_at: string; supersedes: string | null }
+
+/** What the directive serves (1.20.0). Absent before 1.20.0, which means: send nothing new. */
+export interface DirectiveFeatures { engine_state: boolean; krish_instruction: boolean }
+
+/**
+ * Reads `krish_instruction` loosely: null for absent, null, or not the shape
+ * 1.20.0 says (an id that is not Control Center's, no words, a bad time).
+ * Never keeps the words.
+ */
+export function parseInstruction(raw: unknown): InstructionRef | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
+  const k = raw as Record<string, unknown>
+  if (typeof k.id !== 'string' || !INSTRUCTION_ID_RE.test(k.id)) return null
+  if (typeof k.words !== 'string' || !k.words.trim()) return null
+  if (typeof k.given_at !== 'string' || Number.isNaN(Date.parse(k.given_at))) return null
+  const supersedes = typeof k.supersedes === 'string' && INSTRUCTION_ID_RE.test(k.supersedes) ? k.supersedes : null
+  return { id: k.id, given_at: k.given_at, supersedes }
+}
+
+/** Reads `features` loosely: null unless both flags are booleans. */
+export function parseFeatures(raw: unknown): DirectiveFeatures | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
+  const f = raw as Record<string, unknown>
+  if (typeof f.engine_state !== 'boolean' || typeof f.krish_instruction !== 'boolean') return null
+  return { engine_state: f.engine_state, krish_instruction: f.krish_instruction }
+}
+
+export interface EngineReport extends EngineState {
+  schema_version: SchemaVersion
   engine_id: string
   product_slug: string
   run_id: string
@@ -93,6 +178,10 @@ export interface Directive {
   in_house?: unknown
   /** 1.5.0, optional. Undefined: unknown today. An empty list: none approved yet. See parseTaste. */
   taste?: Taste
+  /** 1.20.0, optional: Krish's open instruction, its words already dropped (parseInstruction). Null or undefined: none. */
+  krish_instruction?: InstructionRef | null
+  /** 1.20.0: what the directive serves. Undefined: before 1.20.0, so nothing new is sent. */
+  features?: DirectiveFeatures
 }
 
 /** One of Krish's approved voice rules, as the directive carries it (protocol 1.5.0). */
@@ -182,8 +271,10 @@ function list(path: string, v: unknown, max: number, errs: Errs): unknown[] {
 export function validateReport(r: unknown): { ok: true } | { ok: false; errors: string[] } {
   const errs: Errs = []
   const top = ['schema_version', 'engine_id', 'product_slug', 'run_id', 'mode', 'observed_at', 'source', 'status', 'objectives', 'activity', 'proposals', 'events', 'holds', 'payload_sha256']
-  if (!closed('report', r, top, top, errs)) return { ok: false, errors: errs }
-  if (r.schema_version !== '1.0.0') errs.push('report.schema_version: must be 1.0.0')
+  const stateKeys = ['priorities', 'obsessions', 'next_steps', 'instruction_acks']
+  if (!closed('report', r, [...top, ...stateKeys], top, errs)) return { ok: false, errors: errs }
+  if (r.schema_version !== '1.0.0' && r.schema_version !== STATE_VERSION) errs.push(`report.schema_version: 1.0.0 or ${STATE_VERSION}`)
+  if (r.schema_version !== STATE_VERSION) for (const k of stateKeys) if (k in r) errs.push(`report.${k}: needs schema_version ${STATE_VERSION}`)
   str('report.engine_id', r.engine_id, errs, { max: 64 })
   str('report.product_slug', r.product_slug, errs, { max: 64 })
   str('report.run_id', r.run_id, errs, { re: ID_RE })
@@ -265,7 +356,48 @@ export function validateReport(r: unknown): { ok: true } | { ok: false; errors: 
     str(`${p}.detail`, h.detail ?? null, errs, { max: 1000, nullable: true })
   })
 
+  stateErrors(r, errs)
+
   str('report.payload_sha256', r.payload_sha256, errs, { re: SHA_RE })
   if (typeof r.payload_sha256 === 'string' && r.payload_sha256 !== reportDigest(r)) errs.push('report.payload_sha256: does not match the canonical digest')
   return errs.length ? { ok: false, errors: errs } : { ok: true }
+}
+
+/** 1.20.0's four fields, each optional, each as Control Center's parseEngineState takes it. */
+function stateErrors(r: Record<string, unknown>, errs: Errs): void {
+  const line = (path: string, v: unknown, max: number) => { if (!stateLineOk(v, max)) errs.push(`${path}: one plain line of at most ${max}, with no address, number or em dash`) }
+  const ymd = (path: string, v: unknown) => { if (v !== null && v !== undefined && !(typeof v === 'string' && YMD_RE.test(v) && !Number.isNaN(Date.parse(`${v}T00:00:00Z`)))) errs.push(`${path}: YYYY-MM-DD or null`) }
+
+  if ('priorities' in r) list('report.priorities', r.priorities, PRIORITIES_MAX, errs).forEach((x, i) => {
+    const p = `report.priorities[${i}]`
+    if (!closed(p, x, ['rank', 'line', 'objective_key'], ['rank', 'line'], errs)) return
+    if (!Number.isInteger(x.rank) || (x.rank as number) < 1 || (x.rank as number) > PRIORITIES_MAX) errs.push(`${p}.rank: a whole number from 1 to ${PRIORITIES_MAX}`)
+    line(`${p}.line`, x.line, STATE_LINE_MAX)
+    str(`${p}.objective_key`, x.objective_key ?? null, errs, { re: KEY_RE, nullable: true })
+  })
+
+  if ('obsessions' in r) list('report.obsessions', r.obsessions, OBSESSIONS_MAX, errs).forEach((x, i) => {
+    const p = `report.obsessions[${i}]`
+    if (!closed(p, x, ['line', 'since'], ['line'], errs)) return
+    line(`${p}.line`, x.line, STATE_LINE_MAX)
+    ymd(`${p}.since`, x.since)
+  })
+
+  if ('next_steps' in r) list('report.next_steps', r.next_steps, NEXT_STEPS_MAX, errs).forEach((x, i) => {
+    const p = `report.next_steps[${i}]`
+    if (!closed(p, x, ['line', 'waits_on', 'when'], ['line', 'waits_on'], errs)) return
+    line(`${p}.line`, x.line, STATE_LINE_MAX)
+    if (!['engine', 'krish', 'other'].includes(x.waits_on as string)) errs.push(`${p}.waits_on: engine, krish or other`)
+    ymd(`${p}.when`, x.when)
+  })
+
+  if ('instruction_acks' in r) list('report.instruction_acks', r.instruction_acks, INSTRUCTION_ACKS_MAX, errs).forEach((x, i) => {
+    const p = `report.instruction_acks[${i}]`
+    if (!closed(p, x, ['instruction_id', 'state', 'line', 'at', 'evidence_url'], ['instruction_id', 'state', 'line', 'at'], errs)) return
+    str(`${p}.instruction_id`, x.instruction_id, errs, { re: INSTRUCTION_ID_RE })
+    if (!['received', 'started', 'done', 'blocked'].includes(x.state as string)) errs.push(`${p}.state: received, started, done or blocked`)
+    line(`${p}.line`, x.line, ACK_LINE_MAX)
+    time(`${p}.at`, x.at, errs)
+    str(`${p}.evidence_url`, x.evidence_url ?? null, errs, { re: HTTPS_RE, nullable: true })
+  })
 }

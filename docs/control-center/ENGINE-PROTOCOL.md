@@ -282,3 +282,37 @@ The states are `inactive`, `never_reported`, `healthy`, `held`, `degraded`, `fai
 | An unwalled proposal | Growth > Engines, where he can pick it as tomorrow's push |
 | Objectives, activity, holds | Growth > Engines |
 | Media and copy to review | Growth > Packs, until packs join this protocol |
+
+<!-- Added 2026-11-11 from krishanraja/control-center docs/app/growth/ENGINE-PROTOCOL.md at main 14379de: only the 1.20.0 section below, verbatim. The rest of this copy still lags; Control Center's copy is authoritative. The directive's `krish_instruction` and `features`, and the report's four fields, are in the two schema copies beside this file. -->
+
+## Krish's instruction and the engine's state (1.20.0)
+
+Ruling (Krish, 2026-11-11): every growth engine's priorities, obsessions, next steps and outstanding items feed live across Control Centre, and Krish instructs each engine with his next best action, which starts it. In his words: "They are responsible for driving the overall success of each venture, so make sure I can instruct each one with my next best action and have it get going (as well as always understand the current state of play and what's outstanding)."
+
+**His instruction.** He gives it from any engine through the one door (the Engine drawer's Instruct, the door's `engine` hint; `api/_sayRun.ts` kind `instruction`, no model). Control Center keeps it in `growth_engine_instructions` and:
+
+1. marks any open instruction of yours `superseded`: one is open at a time;
+2. stores the new one, `ki_` and 24 hex characters, open;
+3. if you are held or paused: does not wake you and leaves your directive alone (`queued_held`). When he releases you, it is carried and woken once, under the cap;
+4. otherwise rebuilds today's directive so it carries `krish_instruction`, keeping the rule's `next_action` and any pick of his, and sets `picked_up_at` back to null;
+5. wakes you at most once in 5 minutes and 12 times in his day (over that, `capped`: the next wake or push carries it);
+6. sends the same `repository_dispatch` `cc-growth-directive`, now with `{ directive_id, engine_id, instruction_id }`: ids only, never his words. With no dispatch token it is `pull_only`, which is not a failure.
+
+`krish_instruction` is `null | { id, words, given_at, given_by: "krish", supersedes }`, carried in every day's directive until you ack it `done`, he withdraws it (Purge), marks it done (Clear) or replaces it, or it is 7 days old (then `expired`). His Bump ("Send it again tomorrow") leaves it out until the start of his next day, so that day's push carries and wakes it. It is never `next_action.instruction`, which stays Control Center's own words. **It is never an approval**: the walls do not move, so a send, post, spend, delete or permission change it asks for still comes back to him as a walled proposal he approves by `payload_sha256`. A held engine's directive carries `krish_instruction: null` and `HELD_RULE`, nothing else.
+
+**Never print, log or commit his words.** Your repository and its Actions logs are public: show only the id and, if you must, a SHA-256 digest.
+
+**Your acks.** On the run whose directive carries an instruction you have not acked, send `instruction_acks: [{ instruction_id, state: 'received', line, at, evidence_url }]` and put one activity line first saying you received Krish's instruction `<id>` (the id only). If you act on it in that run, send `started` and then `done` or `blocked`, each with a line: what you did, or why it is blocked and what would unblock it, never his words. Control Center applies acks from live reports only, to your own instructions only, and forward only: `received`, then `started` or `blocked` (each can follow the other), then `done`, and nothing after `done`. `done` closes it. An id that is not yours is ignored and counted (`unknown`), a step backwards is ignored and counted (`stale`). An ack never goes in `holds`.
+
+**Your state.** At 1.20.0, and only when the directive says `features.engine_state: true`, a report may carry:
+
+| Field | Shape | What it is |
+|---|---|---|
+| `priorities[]` | at most 5 `{ rank: 1..5, line, objective_key \| null }` | what you are chasing, most important first: from your North Star line and your own constraint or recommendation |
+| `obsessions[]` | at most 3 `{ line, since: YYYY-MM-DD \| null }` | only Krish's own quoted aims from your docs, as lines. Never invent one; leave the field out when you have no source |
+| `next_steps[]` | at most 5 `{ line, waits_on: engine \| krish \| other, when: YYYY-MM-DD \| null }` | what you do next: your first unticked step and your NOW.md's "What is next" |
+| `instruction_acks[]` | at most 5, as above | what you did with his instruction |
+
+Each line is plain text on one line, at most 200 characters (an ack's at most 280), with no address or phone number; anything else refuses the report. Control Center shows them on every place exactly as you sent them (`GET /api/growth/engines`), says "Not reported yet" for a field you left out, and never infers one. When you send no `next_steps`, it shows your NOW.md's "What is next and what is waiting on Krish" instead, and your "Where it is right now" is the state of play either way.
+
+**In this engine** (`src/protocol/`, `tests/instruction.test.ts`): the client drops his words as it reads the directive and keeps the id. The daily run acks a new instruction `received`, then `blocked` with the line "needs a paid research run: press Run now", because a directive never starts paid research here. A research run with an instruction open acks `started` when the research ran and `blocked` when it did not, and never `done`: it probes Control Center's subject list, never his words, so done is his to say. Whether an instruction was acked before is read from this engine's own recent live reports. The state comes from this repository's own docs (`src/protocol/state.ts`). Each daily wake's `run_id` carries the workflow run and its attempt.

@@ -12,7 +12,11 @@ import { validateReport, type Attempt } from '../src/schema/report.js'
 
 export interface Seen { method: string; path: string; headers: Record<string, string | string[] | undefined>; body: unknown }
 export interface Stored { payload_sha256: string; mode: string; accepted_at: string; report: Record<string, unknown> }
-type Route = 'attempts' | 'directive' | 'reports' | 'readback' | 'decisions'
+type Route = 'attempts' | 'directive' | 'reports' | 'readback' | 'decisions' | 'recent'
+
+/** Synthetic words for Krish's instruction: a test fails if they ever reach a report, a request body or a log line. */
+export const SYNTHETIC_WORDS = 'Synthetic instruction words that must never leave this run'
+export const SYNTHETIC_INSTRUCTION = { id: 'ki_0123456789abcdef01234567', words: SYNTHETIC_WORDS, given_at: '2026-10-19T05:00:00Z', given_by: 'krish', supersedes: null }
 
 export const SYNTHETIC_DIRECTIVE = {
   schema_version: '1.0.0',
@@ -72,7 +76,7 @@ export class StandIn {
     if (!url.pathname.startsWith(prefix)) return this.send(res, 404, { error: 'not_found' })
     if (req.headers.authorization !== `Bearer ${this.token}`) return this.send(res, 401, { error: 'unauthorized' })
     const rest = url.pathname.slice(prefix.length)
-    const route: Route | null = rest === '/attempts' ? 'attempts' : rest === '/directive' ? 'directive' : rest === '/reports' ? 'reports' : rest.startsWith('/reports/') ? 'readback' : rest === '/decisions' ? 'decisions' : null
+    const route: Route | null = rest === '/attempts' ? 'attempts' : rest === '/directive' ? 'directive' : rest === '/reports' && req.method === 'GET' && url.searchParams.has('recent') ? 'recent' : rest === '/reports' ? 'reports' : rest.startsWith('/reports/') ? 'readback' : rest === '/decisions' ? 'decisions' : null
     if (!route) return this.send(res, 404, { error: 'not_found' })
     const forced = this.overrides.get(route)
     if (forced) return this.send(res, forced.status, forced.body, forced.headers)
@@ -115,6 +119,14 @@ export class StandIn {
       return this.send(res, 200, { accepted: true, run_id: id, ...s })
     }
     if (route === 'decisions' && req.method === 'GET') return this.send(res, 200, { ok: true, decisions: this.decisions })
+    if (route === 'recent') {
+      // As Control Center serves it (1.10.0): the engine's own live reports,
+      // newest first, run_id, time, status and activity only.
+      const n = Number(url.searchParams.get('recent'))
+      if (!Number.isInteger(n) || n < 1 || n > 10) return this.send(res, 400, { error: 'recent' })
+      const live = [...this.reports.entries()].filter(([, r]) => r.mode === 'live').sort((a, b) => b[1].accepted_at.localeCompare(a[1].accepted_at)).slice(0, n)
+      return this.send(res, 200, { ok: true, reports: live.map(([run_id, r]) => ({ run_id, accepted_at: r.accepted_at, status: r.report.status ?? null, activity: r.report.activity ?? [] })) })
+    }
     return this.send(res, 405, { error: 'method' })
   }
 }
