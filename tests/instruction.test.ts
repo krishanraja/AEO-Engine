@@ -11,8 +11,8 @@ import { test } from 'node:test'
 import { GrowthEngineHttp } from '../src/clients/growthEngine.js'
 import { runPage, wakeRef } from '../src/protocol/cli.js'
 import { finishResearch, runDirective } from '../src/protocol/loop.js'
-import type { RunSummary } from '../src/protocol/measure.js'
-import { buildDirectiveReport, NEEDS_RESEARCH, type ResearchInput } from '../src/protocol/reports.js'
+import { upcomingRun, type RunSummary } from '../src/protocol/measure.js'
+import { buildDirectiveReport, buildResearchReport, INSTRUCTION_LIFE_DAYS, needsResearch, researchRunId, researchTail, START_BY_HAND, type ResearchInput } from '../src/protocol/reports.js'
 import { buildEngineState, inWords, parseAutonomy, parseFirstUnticked, parseNorthStar, parseUrgency, parseWaitingOnKrish, plain, readRepoState } from '../src/protocol/state.js'
 import { parseFeatures, parseInstruction, stateLineOk, validateReport, type EngineReport, type ObjectiveReading } from '../src/schema/report.js'
 import { ROOT } from './helpers.js'
@@ -94,7 +94,11 @@ test('directive run, instruction present: it comes first, acked received then bl
   assert.equal(r.run_id, 'aeo:2026-11-11:directive:101.1')
   assert.match(r.activity[0].line, new RegExp(`^Received Krish's instruction ${SYNTHETIC_INSTRUCTION.id}\\.`))
   assert.deepEqual(r.instruction_acks?.map(a => [a.instruction_id, a.state]), [[SYNTHETIC_INSTRUCTION.id, 'received'], [SYNTHETIC_INSTRUCTION.id, 'blocked']])
-  assert.equal(r.instruction_acks?.[1].line, NEEDS_RESEARCH)
+  const given = parseInstruction(SYNTHETIC_INSTRUCTION)
+  assert.ok(given)
+  assert.equal(r.instruction_acks?.[1].line, needsResearch(given, DAY(), new Date('2026-11-22T04:00:00Z')))
+  assert.match(r.instruction_acks?.[1].line ?? '', /comes after it lapses on Wednesday 18 November 2026; press Run workflow on AEO weekly in GitHub Actions before then\.$/)
+  assert.ok(r.activity[0].line.endsWith(r.instruction_acks?.[1].line ?? '<none>'), 'the activity line says the same')
   assert.equal(r.instruction_acks?.[0].evidence_url, 'https://github.com/example/aeo-engine/actions/runs/101')
   assert.deepEqual(r.holds, [], 'an ack never goes in holds')
   assert.deepEqual(r.events, [])
@@ -167,6 +171,59 @@ test('a second wake the same day: each wake has its own run_id, so the second re
   assert.equal(wakeRef({ GITHUB_RUN_ID: '1; rm -rf' }, () => new Date(5)), 'local.5', 'only digits make it into an id')
   assert.equal(runPage({ GITHUB_SERVER_URL: 'https://github.com', GITHUB_REPOSITORY: 'example/aeo-engine', GITHUB_RUN_ID: '19234567890' }), 'https://github.com/example/aeo-engine/actions/runs/19234567890')
   assert.equal(runPage({ GITHUB_SERVER_URL: 'http://github.com', GITHUB_REPOSITORY: 'example/aeo-engine', GITHUB_RUN_ID: '1' }), null)
+})
+
+// ---------- when paid research next meets an instruction ----------
+
+test('instruction deadline: the blocked line says whether the next scheduled run comes before the instruction lapses', () => {
+  const ref = (given_at: string) => ({ id: SYNTHETIC_INSTRUCTION.id, given_at, supersedes: null })
+  assert.equal(INSTRUCTION_LIFE_DAYS, 7)
+  // Given on Saturday 21 November: the Sunday 22 November run comes well inside its week.
+  const soon = needsResearch(ref('2026-11-21T09:00:00Z'), new Date('2026-11-21T09:05:00Z'), new Date('2026-11-22T04:00:00Z'))
+  assert.equal(soon, `Needs a paid research run, which this daily run never starts. The next scheduled run, Sunday 22 November 2026, picks it up; to start sooner, press ${START_BY_HAND}.`)
+  // Given in an off week: the next run is after it lapses, so it says when, and the press that works.
+  const late = needsResearch(ref('2026-11-12T08:00:00Z'), new Date('2026-11-13T05:10:00Z'), new Date('2026-11-22T04:00:00Z'))
+  assert.equal(late, `Needs a paid research run, which this daily run never starts. The next scheduled run, Sunday 22 November 2026, comes after it lapses on Thursday 19 November 2026; press ${START_BY_HAND} before then.`)
+  // GitHub starts a scheduled run hours late: a lapse only just after the 04:00 slot does not count as in time.
+  assert.match(researchTail(ref('2026-11-15T06:00:00Z'), new Date('2026-11-15T06:00:00Z'), new Date('2026-11-22T04:00:00Z')), /comes after it lapses on Sunday 22 November 2026/)
+  // Already past its week (Control Center would no longer carry it): only the press.
+  assert.equal(researchTail(ref('2026-10-01T00:00:00Z'), new Date('2026-11-13T05:10:00Z'), new Date('2026-11-22T04:00:00Z')), `Press ${START_BY_HAND}.`)
+  for (const l of [soon, late]) {
+    assert.ok(stateLineOk(l, 280), l)
+    assert.ok(!/Run now/.test(l), 'never a press Control Center no longer draws')
+  }
+})
+
+test('instruction deadline: a failed research run says the same, and the longest dates still fit one ack line', () => {
+  const ref = parseInstruction({ ...SYNTHETIC_INSTRUCTION, given_at: '2026-09-25T09:00:00Z' })
+  assert.ok(ref)
+  // A run started by hand on a Wednesday that could not read its subject list: the longest line this engine writes.
+  const at = new Date('2026-09-30T12:00:00Z')
+  const r = buildResearchReport({ runId: 'aeo:2026-09-30:research', mode: 'synthetic', observedAt: at, revision: 'abc', capturedAt: at, scope: 'all', expected: [], summaries: [], totalCapUsd: 25, planError: 'context_unavailable', state: { repo: readRepoState(ROOT), instruction: ref, seen: true, evidenceUrl: null } })
+  assertValid(r)
+  const blocked = r.instruction_acks?.find(a => a.state === 'blocked')
+  assert.ok(blocked)
+  assert.match(blocked.line, /^The research run on Wednesday 30 September 2026 could not read the subject list, so nothing was researched\. /)
+  assert.ok(blocked.line.length <= 280)
+  assert.ok(blocked.line.includes(START_BY_HAND))
+})
+
+test('upcoming run: on a research Sunday the daily wake still waits for today\'s run until it reports', () => {
+  const slot = new Date('2026-11-22T04:00:00Z')
+  assert.deepEqual(upcomingRun(new Date('2026-11-22T05:10:00Z'), false), slot, 'GitHub has not started it yet')
+  assert.deepEqual(upcomingRun(new Date('2026-11-22T05:10:00Z'), true), new Date('2026-12-06T04:00:00Z'), 'it reported, so the next is a fortnight on')
+  assert.deepEqual(upcomingRun(new Date('2026-11-22T17:00:00Z'), false), new Date('2026-12-06T04:00:00Z'), 'past the late window it is not coming')
+  assert.deepEqual(upcomingRun(new Date('2026-11-15T05:10:00Z'), false), slot, 'an off-week Sunday looks a week on')
+  assert.deepEqual(upcomingRun(new Date('2026-11-21T05:10:00Z'), false), slot)
+
+  const sunday = new Date('2026-11-22T05:10:00Z')
+  const given = parseInstruction({ ...SYNTHETIC_INSTRUCTION, given_at: '2026-11-21T20:00:00Z' })
+  const report = buildDirectiveReport({ runId: 'aeo:2026-11-22:directive:1.1', mode: 'synthetic', observedAt: sunday, revision: 'abc', capturedAt: sunday, directive: { directive_id: 'aeo:2026-11-22', chosen_by: 'rule', decisions_since: [] }, directiveError: null, last: null, lastError: null, state: { repo: readRepoState(ROOT), instruction: given, seen: false, evidenceUrl: null } })
+  assertValid(report)
+  assert.ok(report.activity.some(a => /^Today's scheduled research run \(the 2026-11-22 04:00 UTC slot\) has not reported yet/.test(a.line)))
+  assert.match(report.instruction_acks?.[1].line ?? '', /The next scheduled run, Sunday 22 November 2026, picks it up/)
+  assert.ok(report.next_steps?.some(n => n.when === '2026-11-22'), 'the next step names today\'s run, not one a fortnight on')
+  assert.equal(researchRunId('2026-11-22'), 'aeo:2026-11-22:research')
 })
 
 // ---------- the research run ----------

@@ -16,7 +16,7 @@ type Route = 'attempts' | 'directive' | 'reports' | 'readback' | 'decisions' | '
 
 /** Synthetic words for Krish's instruction: a test fails if they ever reach a report, a request body or a log line. */
 export const SYNTHETIC_WORDS = 'Synthetic instruction words that must never leave this run'
-export const SYNTHETIC_INSTRUCTION = { id: 'ki_0123456789abcdef01234567', words: SYNTHETIC_WORDS, given_at: '2026-10-19T05:00:00Z', given_by: 'krish', supersedes: null }
+export const SYNTHETIC_INSTRUCTION = { id: 'ki_0123456789abcdef01234567', words: SYNTHETIC_WORDS, given_at: '2026-11-11T05:00:00Z', given_by: 'krish', supersedes: null }
 
 export const SYNTHETIC_DIRECTIVE = {
   schema_version: '1.0.0',

@@ -104,6 +104,26 @@ export function nextScheduledRun(now: Date): Date {
   return d
 }
 
+/**
+ * How late GitHub may start a scheduled research run. The schedule says 04:00
+ * UTC; the research runs from 2026-09-27 to 2026-11-08 started between 08:50
+ * and 10:56 UTC, because GitHub queues scheduled workflows.
+ */
+export const SCHEDULE_LATE_MS = 12 * 3_600_000
+
+/**
+ * The scheduled research run still to come. On a research Sunday the daily
+ * wake (about 05:10 UTC) lands after the 04:00 slot but hours before GitHub
+ * starts the run, so until that run has reported, today's slot is still the
+ * one to come, not the one a fortnight later. Otherwise the next slot.
+ */
+export function upcomingRun(now: Date, reportedToday: boolean): Date {
+  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 4, 0, 0))
+  const since = now.getTime() - today.getTime()
+  if (!reportedToday && today.getUTCDay() === 0 && isoWeek(today) % 2 === 1 && since >= 0 && since < SCHEDULE_LATE_MS) return today
+  return nextScheduledRun(now)
+}
+
 /** The fortnight a research run reports: the two ISO weeks ending with the packets' week. */
 export function fortnightStart(weekStart: string): string {
   const d = new Date(`${weekStart}T00:00:00Z`)

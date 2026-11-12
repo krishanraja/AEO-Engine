@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://controlcenter.krishraja.com/schemas/engine-directive-1.0.0.json",
   "title": "Growth engine directive, protocol 1.0.0 to 1.5.0 and 1.20.0 (ADR-038), as this engine reads it",
-  "$comment": "A partial copy of Control Center docs/app/growth/engine-directive.schema.json: 1.0.0 to 1.5.0 as copied on 2026-10-26, and the 1.20.0 krish_instruction and features copied verbatim from krishanraja/control-center main 14379de on 2026-11-11. Control Center's copy is authoritative.",
+  "$comment": "A partial copy of Control Center docs/app/growth/engine-directive.schema.json: 1.0.0 to 1.5.0 as copied on 2026-10-26, and the 1.20.0 krish_instruction and features copied verbatim from krishanraja/control-center main 14379de on 2026-11-11. Checked again against main 0728c9aa on 2026-11-12: krish_instruction is unchanged, and features there also allows growth-makeyourmindup's optional inspiration_used (1.21.0), left out here. Control Center's copy is authoritative.",
   "type": "object",
   "required": [
     "schema_version",

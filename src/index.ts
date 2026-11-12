@@ -1,5 +1,5 @@
 /**
- * aeo-engine: the weekly answer-engine research run.
+ * aeo-engine: the fortnightly answer-engine research run.
  *
  *   tsx src/index.ts [--subject <slug|uuid|all>] [--week YYYY-MM-DD] [--dry] [--offline]
  *                    [--out <path>] [--command-id <n>] [--cap-usd <n>]

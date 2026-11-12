@@ -23,8 +23,12 @@ export const CAPS = {
   ANSWER_SNAPSHOT_CHARS: 1800,
   /** Spend ceiling for one run, all subjects. AEO_MAX_USD_PER_RUN overrides. */
   MAX_USD_PER_RUN: Number(process.env.AEO_MAX_USD_PER_RUN) > 0 ? Number(process.env.AEO_MAX_USD_PER_RUN) : 25,
-  /** Transcript window: the last seven days ending now. */
-  TRANSCRIPT_WINDOW_DAYS: 7,
+  /**
+   * Transcript window: the last fourteen days ending now. The research runs
+   * fortnightly (since 2026-10-15), so a seven-day window never read the calls
+   * of the week between two runs.
+   */
+  TRANSCRIPT_WINDOW_DAYS: 14,
   /** A transcript is attributed to a subject at this classifier confidence or above. */
   MIN_ATTRIBUTION_CONFIDENCE: 0.6,
   /** A watch row needs at least this demand score. */
@@ -34,10 +38,11 @@ export const CAPS = {
 } as const
 
 /**
- * Model ids per provider. The OpenAI id is the Responses API name for the
- * current flagship with the hosted web_search tool; the docs list gpt-5 as
- * that model at the time of writing, so verify it against the OpenAI model
- * page before the first live run and change it here only.
+ * Model ids per provider, changed here only. The OpenAI id is the Responses
+ * API name used with the hosted web_search tool. Both it and the Anthropic id
+ * with its web search tool answer live: in the research run of 2026-11-08
+ * both answered for every subject, and the few probes that failed had timed
+ * out (the job logs on GitHub Actions).
  */
 export const MODELS = {
   anthropic: 'claude-sonnet-5',
