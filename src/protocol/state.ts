@@ -13,7 +13,8 @@
  *   obsessions  only Krish's quoted words: the North Star's aim in
  *               docs/NORTH_STAR.md and his autonomy ruling in AGENTS.md.
  *   next steps  the first unticked step of docs/GET-GOING.md, the next
- *               scheduled research run, and NOW.md's "Waiting on Krish".
+ *               scheduled research run (today's, on a research Sunday before
+ *               it has reported), and NOW.md's "Waiting on Krish".
  *
  * A source that is missing or reads strangely leaves its lines out; a line
  * that would not pass Control Center's guard (an address, a number, over the
@@ -208,7 +209,7 @@ export function buildEngineState(i: StateInput): Omit<EngineState, 'instruction_
   } else {
     priorities.push({ rank: 0, line: `Get an honest reading of queries cited first: only a full research run measures it, and the next is ${inWords(i.nextRun)}.`, objective_key: OBJECTIVE_KEY })
   }
-  priorities.push({ rank: 0, line: 'Keep the cost wall: paid research starts only from the fortnightly schedule or Run now, never from a directive or an instruction.', objective_key: null })
+  priorities.push({ rank: 0, line: 'Keep the cost wall: paid research starts only from the fortnightly schedule or a run Krish starts by hand, never from a directive or an instruction.', objective_key: null })
   const ranked = keep(priorities, PRIORITIES_MAX).map((p, n) => ({ ...p, rank: n + 1 }))
 
   const obsessions = keep<EngineObsession>([

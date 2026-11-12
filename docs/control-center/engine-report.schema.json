@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://controlcenter.krishraja.com/schemas/engine-report-1.0.0.json",
   "title": "Growth engine report, protocol 1.0.0 to 1.2.0 and 1.20.0 (ADR-038), as this engine speaks it",
-  "$comment": "A partial copy of Control Center docs/app/growth/engine-report.schema.json (krishanraja/control-center main 14379de, 2026-11-11): the 1.0.0 to 1.2.0 fields, and the 1.20.0 engine state copied verbatim. Versions 1.3.0 to 1.19.0 add fields this engine never sends and are left out. Control Center's copy is authoritative.",
+  "$comment": "A partial copy of Control Center docs/app/growth/engine-report.schema.json (krishanraja/control-center main 14379de, 2026-11-11): the 1.0.0 to 1.2.0 fields, and the 1.20.0 engine state copied verbatim. Versions 1.3.0 to 1.19.0 add fields this engine never sends and are left out. Checked again against main 0728c9aa on 2026-11-12: the 1.20.0 fields are unchanged there, and 1.21.0 adds only growth-makeyourmindup's inspiration_used, also left out. Control Center's copy is authoritative.",
   "type": "object",
   "additionalProperties": false,
   "required": [

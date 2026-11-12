@@ -1,9 +1,10 @@
 /**
  * The two protocol reports this engine writes, as pure functions:
  *
- *   research  after a paid research run (the fortnightly schedule, or Run
- *             now): the objective from the packets, one activity line per
- *             subject, and a spend proposal only when the cap stopped probes.
+ *   research  after a paid research run (the fortnightly schedule, or a run
+ *             Krish starts by hand): the objective from the packets, one
+ *             activity line per subject, and a spend proposal only when the
+ *             cap stopped probes.
  *   directive after the daily wake-up from Control Center: no paid call at
  *             all. It says when the last research run was and when the next
  *             is, and carries the objective from the last research report.
@@ -20,10 +21,12 @@
  */
 import { canonicalJson, sha256Hex } from '../lib/canonical.js'
 import {
+  ACK_LINE_MAX,
   ENGINE,
   OBJECTIVE_KEY,
   sealReport,
   STATE_VERSION,
+  stateLineOk,
   type ActivityLine,
   type EngineReport,
   type EngineState,
@@ -34,7 +37,7 @@ import {
   type Proposal,
   type ReportStatus,
 } from '../schema/report.js'
-import { fortnightStart, nextScheduledRun, type RunSummary, type SubjectSummary } from './measure.js'
+import { fortnightStart, nextScheduledRun, SCHEDULE_LATE_MS, upcomingRun, type RunSummary, type SubjectSummary } from './measure.js'
 import { buildEngineState, inWords, type RepoState } from './state.js'
 
 export const SPEND_PROPOSAL_ID = 'aeo:spend:max-usd-per-run'
@@ -65,8 +68,44 @@ export interface StateContext {
   evidenceUrl: string | null
 }
 
-/** The line Control Center's brief sets for an instruction the daily run cannot act on: only paid research can. */
-export const NEEDS_RESEARCH = 'needs a paid research run: press Run now'
+/** Control Center stores an instruction `expired` once it is this many days old (ENGINE-PROTOCOL.md, 1.20.0). */
+export const INSTRUCTION_LIFE_DAYS = 7
+
+/**
+ * Where Krish starts a paid research run by hand. Control Center's brief said
+ * "press Run now", but no page in Control Center draws that press any more,
+ * and no Run now dispatch has reached this repository since 2026-09-08; the
+ * Actions button on the research workflow (AEO weekly) is the press that works.
+ */
+export const START_BY_HAND = 'Run workflow on AEO weekly in GitHub Actions'
+
+const dayInWords = (d: Date) => inWords(d).replace(/ at .*$/, '')
+
+/**
+ * When paid research will next meet an open instruction. An instruction lapses
+ * INSTRUCTION_LIFE_DAYS after Krish gives it and the research runs
+ * fortnightly, so this says whether the next scheduled run comes in time
+ * (allowing for GitHub starting it late), and when the instruction lapses if
+ * not. Dates in words: a date and time in digits reads as a phone number to
+ * Control Center's guard.
+ */
+export function researchTail(given: InstructionRef, at: Date, next: Date): string {
+  const lapses = Date.parse(given.given_at) + INSTRUCTION_LIFE_DAYS * DAY_MS
+  if (next.getTime() + SCHEDULE_LATE_MS < lapses) return `The next scheduled run, ${dayInWords(next)}, picks it up; to start sooner, press ${START_BY_HAND}.`
+  if (lapses > at.getTime()) return `The next scheduled run, ${dayInWords(next)}, comes after it lapses on ${dayInWords(new Date(lapses))}; press ${START_BY_HAND} before then.`
+  return `Press ${START_BY_HAND}.`
+}
+
+/** An ack line: the whole of it when Control Center will take it, else its short form. */
+function ackLine(whole: string, short: string): string {
+  return stateLineOk(whole, ACK_LINE_MAX) ? whole : short
+}
+
+/** The ack for an instruction the daily run cannot act on: only paid research can, and the daily run never starts it (the cost wall). */
+export function needsResearch(given: InstructionRef, at: Date, next: Date): string {
+  const head = 'Needs a paid research run, which this daily run never starts.'
+  return ackLine(`${head} ${researchTail(given, at, next)}`, `${head} Press ${START_BY_HAND}.`)
+}
 
 function envelope(e: Envelope, status: ReportStatus, objectives: ObjectiveReading[], activity: ActivityLine[], proposals: Proposal[], holds: Hold[], state: EngineState | null = null): EngineReport {
   const extra: EngineState = {}
@@ -98,9 +137,9 @@ function ack(ctx: StateContext, at: Date, state: InstructionAck['state'], text: 
 }
 
 /** The 1.20.0 state for a report: its lines from the repository, plus the acks, or null for a 1.0.0 report. */
-function stateFor(e: Envelope, objective: ObjectiveReading, acks: InstructionAck[]): EngineState | null {
+function stateFor(e: Envelope, objective: ObjectiveReading, acks: InstructionAck[], nextRun: Date = nextScheduledRun(e.observedAt)): EngineState | null {
   if (!e.state) return null
-  return { ...buildEngineState({ repo: e.state.repo, objective, nextRun: nextScheduledRun(e.observedAt) }), ...(acks.length ? { instruction_acks: acks } : {}) }
+  return { ...buildEngineState({ repo: e.state.repo, objective, nextRun }), ...(acks.length ? { instruction_acks: acks } : {}) }
 }
 
 const line = (s: string): ActivityLine => ({ line: s.slice(0, 500), evidence_url: null })
@@ -117,7 +156,7 @@ export function spendPayloadSha(amountUsd: number): string {
 }
 
 export interface ResearchInput extends Envelope {
-  /** 'all' when the run covered every active subject; 'one' for a single-subject Run now. */
+  /** 'all' when the run covered every active subject; 'one' for a single-subject run started by hand. */
   scope: 'all' | 'one'
   /** The slugs the plan job handed out, one research job each. */
   expected: string[]
@@ -134,7 +173,7 @@ interface Placed { s: SubjectSummary; label: string; counts: boolean; noSummary:
 function place(input: ResearchInput): Placed[] {
   const bySlug = new Map<string, { s: SubjectSummary; noSummary: boolean }>()
   for (const sum of input.summaries) for (const s of sum.subjects) bySlug.set(s.slug, { s, noSummary: false })
-  // A Run now may name its subject by uuid; the job's summary records the
+  // A run started by hand may name its subject by uuid; the job's summary records the
   // argument it was given, so that covers the planned entry too.
   const coveredArgs = new Set(input.summaries.map(s => s.subject_arg))
   for (const slug of input.expected) {
@@ -229,13 +268,19 @@ export function buildResearchReport(input: ResearchInput): EngineReport {
   const ctx = input.state
   if (ctx?.instruction) {
     const id = ctx.instruction.id
-    const day = inWords(input.observedAt).replace(/ at .*$/, '')
+    const day = dayInWords(input.observedAt)
     activity.unshift(line(ctx.seen ? `Krish's instruction ${id} was open during this research run.` : `Received Krish's instruction ${id} in this research run.`))
     if (!ctx.seen) acks.push(ack(ctx, input.observedAt, 'received', `Read in the research run on ${day}.`))
     const researched = placed.filter(p => p.s.ok).length
-    if (input.planError) acks.push(ack(ctx, input.observedAt, 'blocked', `The research run on ${day} could not read the subject list, so nothing was researched. The next scheduled run is ${inWords(next)}, or press Run now.`))
-    else if (degraded) acks.push(ack(ctx, input.observedAt, 'blocked', `The research run on ${day} failed for ${placed.length - researched} of ${placed.length} subjects. The next scheduled run is ${inWords(next)}, or press Run now.`))
-    else acks.push(ack(ctx, input.observedAt, 'started', `A paid research run finished on ${day} with this instruction open: ${researched} of ${placed.length} subjects researched. It probes Control Center's subject list, never the instruction's words.`))
+    const tail = researchTail(ctx.instruction, input.observedAt, next)
+    const short = `Press ${START_BY_HAND}.`
+    if (input.planError) {
+      const head = `The research run on ${day} could not read the subject list, so nothing was researched.`
+      acks.push(ack(ctx, input.observedAt, 'blocked', ackLine(`${head} ${tail}`, `${head} ${short}`)))
+    } else if (degraded) {
+      const head = `The research run on ${day} failed for ${placed.length - researched} of ${placed.length} subjects.`
+      acks.push(ack(ctx, input.observedAt, 'blocked', ackLine(`${head} ${tail}`, `${head} ${short}`)))
+    } else acks.push(ack(ctx, input.observedAt, 'started', `A paid research run finished on ${day} with this instruction open: ${researched} of ${placed.length} subjects researched. It probes Control Center's subject list, never the instruction's words.`))
   }
   return envelope(input, degraded ? 'degraded' : 'ready', [objective], activity, proposals, holds, stateFor(input, objective, acks))
 }
@@ -254,8 +299,8 @@ export interface DirectiveInput extends Envelope {
   lastError: string | null
 }
 
-function carriedObjective(i: DirectiveInput): ObjectiveReading {
-  const next = utc(nextScheduledRun(i.observedAt))
+function carriedObjective(i: DirectiveInput, nextRun: Date): ObjectiveReading {
+  const next = utc(nextRun)
   if (i.lastError) return missing(`The last research report could not be read back (${i.lastError}); the next research run is ${next}.`)
   if (!i.last) return missing(`No full research run has reported in the last ${STALE_DAYS} days, and only a research run measures this; the next is ${next}.`)
   const objs = Array.isArray(i.last.report.objectives) ? (i.last.report.objectives as ObjectiveReading[]) : []
@@ -270,12 +315,19 @@ function carriedObjective(i: DirectiveInput): ObjectiveReading {
 
 export function buildDirectiveReport(i: DirectiveInput): EngineReport {
   const activity: ActivityLine[] = []
-  const next = nextScheduledRun(i.observedAt)
+  // On a research Sunday this wake lands after the 04:00 slot and hours
+  // before GitHub starts the run, so today's run is still the one to come
+  // until it has reported.
+  const reportedToday = i.last?.run_id === researchRunId(i.observedAt.toISOString().slice(0, 10))
+  const next = upcomingRun(i.observedAt, reportedToday)
+  const pendingToday = next.getTime() <= i.observedAt.getTime()
   if (i.last) activity.push(line(`Last full research run reported at ${utc(new Date(String(i.last.report.observed_at ?? i.last.accepted_at)))} (${i.last.run_id}).`))
   else if (i.lastError) activity.push(line(`Could not read back the last research report (${i.lastError}).`))
   else activity.push(line(`No full research run has reported in the last ${STALE_DAYS} days.`))
-  activity.push(line(`Next scheduled research run: ${utc(next)} (Sundays at 04:00 UTC in odd ISO weeks).`))
-  if (i.directive) activity.push(line(`Read directive ${i.directive.directive_id} (next action chosen by ${i.directive.chosen_by || 'rule'}). A directive never starts paid research here; only the fortnightly schedule and Run now do.`))
+  activity.push(line(pendingToday
+    ? `Today's scheduled research run (the ${utc(next)} slot) has not reported yet; GitHub starts scheduled runs hours late.`
+    : `Next scheduled research run: ${utc(next)} (Sundays at 04:00 UTC in odd ISO weeks).`))
+  if (i.directive) activity.push(line(`Read directive ${i.directive.directive_id} (next action chosen by ${i.directive.chosen_by || 'rule'}). A directive never starts paid research here; only the fortnightly schedule and a run Krish starts by hand do.`))
   else activity.push(line(`Could not read today's directive (${i.directiveError ?? 'unknown'}); no work was started from it.`))
 
   // Walled asks from the last research report stay in front of him until he
@@ -299,13 +351,14 @@ export function buildDirectiveReport(i: DirectiveInput): EngineReport {
     carried.push(p)
   }
 
-  const objective = carriedObjective(i)
+  const objective = carriedObjective(i, next)
   const status: ReportStatus = objective.availability === 'measured' && i.directive ? 'ready' : 'degraded'
 
   // Krish's instruction (1.20.0), first in the report. This run reads and
   // reports only, and the cost wall keeps paid research off a directive, so
   // the first time it is read it is acked received and then blocked on the
-  // one thing that unblocks it: a paid research run he starts with Run now.
+  // one thing that unblocks it: a paid research run, the next scheduled one
+  // if it comes before the instruction lapses, or one he starts by hand.
   // After that, a line says it is still open and no ack repeats.
   const acks: InstructionAck[] = []
   const ctx = i.state
@@ -314,10 +367,11 @@ export function buildDirectiveReport(i: DirectiveInput): EngineReport {
     if (ctx.seen) {
       activity.unshift(line(`Krish's instruction ${id} is still open; this engine acked it in an earlier report.`))
     } else {
-      activity.unshift(line(`Received Krish's instruction ${id}. This daily run reads and reports only, so it ${NEEDS_RESEARCH}.`))
-      acks.push(ack(ctx, i.observedAt, 'received', `Read in the daily run on ${inWords(i.observedAt).replace(/ at .*$/, '')}, which reads and reports only.`))
-      acks.push(ack(ctx, i.observedAt, 'blocked', NEEDS_RESEARCH))
+      const needs = needsResearch(ctx.instruction, i.observedAt, next)
+      activity.unshift(line(`Received Krish's instruction ${id}. This daily run reads and reports only. ${needs}`))
+      acks.push(ack(ctx, i.observedAt, 'received', `Read in the daily run on ${dayInWords(i.observedAt)}, which reads and reports only.`))
+      acks.push(ack(ctx, i.observedAt, 'blocked', needs))
     }
   }
-  return envelope(i, status, [objective], activity, carried, [], stateFor(i, objective, acks))
+  return envelope(i, status, [objective], activity, carried, [], stateFor(i, objective, acks, next))
 }

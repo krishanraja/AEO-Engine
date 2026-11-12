@@ -2,6 +2,45 @@
 
 Dated entries, newest first. Each one says why it was done, what failed or would have failed without it, and the mechanism. Control Center's build-signal ingest reads this file; keep names of people, prospects and secrets out of it.
 
+## 2026-11-12: an instruction is told when the research will reach it, and the calls cover the fortnight
+
+Why: Control Center carries an instruction for 7 days, and the research runs
+fortnightly. The daily run never starts paid research (the cost wall), so its
+`blocked` ack said "needs a paid research run: press Run now". No page in
+Control Center draws that press any more, and no Run now dispatch has reached
+this repository since 2026-09-08. An instruction given in an off week would
+sit blocked, pointing at a button that is not there, and lapse before the next
+scheduled run.
+
+Failure it prevents: Krish instructs the engine, reads "press Run now", finds
+nothing to press, and the instruction expires unanswered.
+
+Mechanism: `needsResearch` and `researchTail` in `src/protocol/reports.ts`.
+The line says whether the next scheduled run comes more than 12 hours before
+the instruction lapses (`SCHEDULE_LATE_MS`, because GitHub has started every
+scheduled research run between 08:50 and 10:56 UTC for a 04:00 schedule), or
+gives the date it lapses and the press that works, Run workflow on AEO weekly
+in GitHub Actions (`START_BY_HAND`). A failed research run's `blocked` line
+says the same. The line is one plain line within Control Center's 280
+characters, dates in words; when a combination would run long, a short form is
+sent. `upcomingRun` in `src/protocol/measure.ts` fixes a smaller fault found on
+the way: on a research Sunday the 05:10 wake comes after the 04:00 slot but
+hours before GitHub starts the run, and the report named the run a fortnight
+on as the next one. Until today's run has reported, today's is the one to
+come. The cost wall's priority line and the daily run's activity line no
+longer name Run now either. `tests/instruction.test.ts` holds each case.
+
+The calls window moves from seven days to fourteen (`TRANSCRIPT_WINDOW_DAYS`
+in `src/config/run.ts`). Why: since the run went fortnightly on 2026-10-15,
+a seven-day window never read the calls of the week between two runs, and
+nothing said so. Fourteen days reads every call once on the schedule; a run
+started by hand in between reads some calls twice, which is a smaller fault
+than never reading them.
+
+The 2026-11-08 run's job logs settle what `src/config/run.ts` asked to verify:
+`gpt-5` on the Responses API with web search, and `claude-sonnet-5` with web
+search, both answered for every subject; the probes that failed had timed out.
+
 ## 2026-11-11: Krish's instruction and the engine's state (protocol 1.20.0)
 
 Ruling (Krish, 2026-11-11): every growth engine's priorities, obsessions,

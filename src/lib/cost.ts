@@ -3,7 +3,7 @@
  * estimate in the price table, and the run stops probing when the next call
  * would cross the cap. The cap is a ceiling on estimates, not a bill: the
  * point is that a map that grows to 200 questions cannot quietly turn into a
- * 200-call weekly invoice.
+ * 200-call invoice every run.
  */
 import { PRICE_USD_PER_CALL, type CostKind } from '../config/run.js'
 

@@ -1,5 +1,6 @@
 /**
- * Stage 10: the week's calls. List the last seven days, fetch each, attribute
+ * Stage 10: the fortnight's calls. List the last fourteen days (the research
+ * runs fortnightly, so every call between two runs is read), fetch each, attribute
  * each transcript to one subject with one model call, then write five to ten
  * themes per subject with paraphrase-only evidence. Nothing that identifies a
  * participant survives this stage: speakers are renumbered before the model

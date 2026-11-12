@@ -6,7 +6,7 @@ Three rules hold for every string in the packet, whatever the field: no em dash,
 
 ## Timing
 
-`week_start` is the Monday that owns the week, in UTC, by the same `mondayOf` rule as Control Center's [api/_growth.ts](https://github.com/krishanraja/control-center/blob/main/api/_growth.ts). The workflow runs Sunday 04:00 UTC on odd ISO weeks only (fortnightly since 2026-10-15), and a Sunday belongs to the week that began the previous Monday, so the Sunday run reports that week: its calls are the seven days ending at run time, its probes are that morning's answers, and the `prior` in the context is the earlier packet Control Center holds for the subject (the Monday before while the run was weekly, the run two weeks before since the fortnightly schedule; Control Center chooses it, so this repository cannot confirm which it sends). `--week YYYY-MM-DD` normalises whatever date it is given to its Monday. Control Center refuses a `week_start` that is not a Monday.
+`week_start` is the Monday that owns the week, in UTC, by the same `mondayOf` rule as Control Center's [api/_growth.ts](https://github.com/krishanraja/control-center/blob/main/api/_growth.ts). The workflow is scheduled for Sunday 04:00 UTC on odd ISO weeks only (fortnightly since 2026-10-15; GitHub starts it hours late), and a Sunday belongs to the week that began the previous Monday, so the Sunday run reports that week: its calls are the fourteen days ending at run time (seven until 2026-11-12, which left the calls of the week between two runs unread), its probes are that morning's answers, and the `prior` in the context is the earlier packet Control Center holds for the subject (the Monday before while the run was weekly, the run two weeks before since the fortnightly schedule; Control Center chooses it, so this repository cannot confirm which it sends). `--week YYYY-MM-DD` normalises whatever date it is given to its Monday. Control Center refuses a `week_start` that is not a Monday.
 
 ## Top level
 
@@ -21,7 +21,7 @@ Three rules hold for every string in the packet, whatever the field: no em dash,
 | `engines` | The engines this run asked: the default three plus grok when a key exists. Unique, at least one. |
 | `themes_status` | `ok`: calls were attributed and themes written. `no_calls`: Fireflies answered and there were no calls in the window. `no_attributed_calls`: there were calls, none belonged to this subject at confidence 0.6 or above. `fireflies_unavailable`: any Fireflies error or a missing key; never reported as a quiet week. `not_applicable`: aspirations, which have no calls. |
 | `themes` | Five to ten buyer themes from this subject's calls, each with `calls` (distinct calls behind it) and up to six `evidence` items. Empty unless the status is ok. |
-| `calls` | `considered`: transcripts in the seven-day window. `attributed`: how many the classifier gave to this subject. |
+| `calls` | `considered`: transcripts in the fourteen-day window (seven until 2026-11-12). `attributed`: how many the classifier gave to this subject. |
 | `queries` | The week's questions, scored. Up to 60. |
 | `strongest_signal` | One sentence, the measured fact that matters most this week, or null when nothing was measured. |
 | `recommendations` | Up to five pieces or pages to make, one per recommended query that survives the winnability gate, most demand first. Control Center turns these into content ideas. |
