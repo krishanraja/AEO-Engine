@@ -13,7 +13,7 @@
  * body: a code is what an attempt records.
  */
 import { asArray, asRecord, asString, requestJson, type HttpResult } from './http.js'
-import { ENGINE, parseFeatures, parseInstruction, parseTaste, type Attempt, type Decision, type Directive, type EngineReport } from '../schema/report.js'
+import { ENGINE, parseAnswerRequests, parseFeatures, parseInstruction, parseTaste, type Attempt, type Decision, type Directive, type EngineReport } from '../schema/report.js'
 
 export class ProtocolError extends Error {
   constructor(public readonly code: string, public readonly status: number) {
@@ -107,6 +107,10 @@ export class GrowthEngineHttp {
     const features = parseFeatures(d.features)
     if (features) directive.features = features
     else delete directive.features
+    // 1.22.0: the venture engines' requests to this specialist, read loosely; a misshapen one is dropped.
+    const requests = parseAnswerRequests(d.answer_requests)
+    if (requests.length) directive.answer_requests = requests
+    else delete directive.answer_requests
     return { chosen_by: asString(j.chosen_by), directive }
   }
 

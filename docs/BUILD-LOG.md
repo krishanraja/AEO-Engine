@@ -2,6 +2,35 @@
 
 Dated entries, newest first. Each one says why it was done, what failed or would have failed without it, and the mechanism. Control Center's build-signal ingest reads this file; keep names of people, prospects and secrets out of it.
 
+## 2026-11-12: the one AI-answers specialist every venture's engine calls (protocol 1.22.0)
+
+Why: Ruling (Krish, 2026-11-12): "AEO-Engine becomes the one specialist that
+every venture's growth engine calls for its AI-answer work. Each venture's tile
+shows its own AI-answer standing, the separate 'mind/make, AI answers' tile
+goes, and Control Centre's own AI-answer checks and Heartside's separate
+Answers job fold into AEO." Control Center showed this engine as a second
+Mindmake engine ("mind/make, AI answers"), Control Centre ran a Monday probe
+of its own, and Heartside drafted answers from a job of its own: three systems
+for one job.
+
+Failure it prevents: a venture asks the assistants its own way, its numbers
+never meet this engine's, and Krish reads two tiles for one product.
+
+Mechanism: the directive's `answer_requests` (each venture engine's open
+request, its product's buyer questions) is read loosely
+(`parseAnswerRequests`, `src/schema/report.ts`) by the research job
+(`readAnswerRequests`, `src/index.ts`); a venture subject asks its own
+product's questions word for word, first, as seeds (`requestsFor`,
+`src/pipeline/run.ts`; `proposeQueries`'s `requested`); a request is served
+when every one of its questions was probed (`servedBy`), its id rides the
+sealed summary (`SubjectSummary.served`), and the research report carries
+`answers_served` at 1.22.0 only when the directive serves requests
+(`buildResearchReport`). The packet takes `heartside`, `legibility` and
+`publication` (`PRODUCT_SLUGS`, `docs/packet.schema.json`). The North Star's
+denominator is recorded in `docs/NORTH_STAR.md` by the same ruling: the
+questions asked that fortnight; a question not asked stays unknown. Tested in
+`tests/answers.test.ts`.
+
 ## 2026-11-12: an instruction is told when the research will reach it, and the calls cover the fortnight
 
 Why: Control Center carries an instruction for 7 days, and the research runs

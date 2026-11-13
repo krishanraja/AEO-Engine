@@ -31,7 +31,7 @@ import { runAll, type RunDeps, type RunOpts, type RunResult } from './pipeline/r
 import { writePacket } from './pipeline/70-ship.js'
 import { buildRunSummary } from './protocol/measure.js'
 import { GrowthEngineHttp, ProtocolError } from './clients/growthEngine.js'
-import type { Taste } from './schema/report.js'
+import type { AnswerRequest, Taste } from './schema/report.js'
 
 export interface CliArgs {
   subject: string
@@ -157,11 +157,33 @@ export async function readTaste(env: NodeJS.ProcessEnv, client?: Pick<GrowthEngi
   }
 }
 
+/**
+ * 1.22.0: the venture engines' open requests to this specialist, read from
+ * today's directive through the growth engine door (answer_requests). Empty
+ * when the bearer is not set, the directive could not be read, or none is
+ * open: the run then asks only Control Center's subject list, as before.
+ * Never fatal; the log line carries counts only, never a question.
+ */
+export async function readAnswerRequests(env: NodeJS.ProcessEnv, client?: Pick<GrowthEngineHttp, 'getDirective'>): Promise<AnswerRequest[]> {
+  try {
+    const c = client ?? (env.CONTROL_CENTER_ENGINE_TOKEN ? new GrowthEngineHttp(env.CONTROL_CENTER_PROTOCOL_URL || env.CONTROL_CENTER_URL, env.CONTROL_CENTER_ENGINE_TOKEN) : null)
+    if (!c) { log('answer_requests', { state: 'unknown', reason: 'not_configured' }); return [] }
+    const { directive } = await c.getDirective()
+    const requests = directive.answer_requests ?? []
+    log('answer_requests', { state: 'read', requests: requests.length, questions: requests.reduce((n, r) => n + r.questions.length, 0) })
+    return requests
+  } catch (e) {
+    log('answer_requests', { state: 'unknown', reason: e instanceof ProtocolError ? e.code : 'directive_unavailable' })
+    return []
+  }
+}
+
 export async function main(argv: readonly string[] = process.argv.slice(2)): Promise<number> {
   const args = parseArgs(argv)
   const deps = buildDeps(args)
-  // Offline runs stay offline: fixtures carry no directive, so taste is unknown.
+  // Offline runs stay offline: fixtures carry no directive, so taste is unknown and no request is open.
   if (!args.offline) deps.taste = await readTaste(process.env)
+  if (!args.offline) deps.requests = await readAnswerRequests(process.env)
   const opts: RunOpts = { subject: args.subject, weekStart: args.week, dry: args.dry, outPath: args.out, commandId: args.commandId }
   log('run_start', { subject: args.subject, week_start: args.week, dry: args.dry, offline: args.offline, engines: ENGINES, cap_usd: args.capUsd, command_id: args.commandId })
 

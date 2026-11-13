@@ -26,6 +26,8 @@ export interface SubjectSummary {
   probes: number | null
   probes_failed: number | null
   probes_skipped_cap: number | null
+  /** 1.22.0: the venture requests (ids only) whose every question this subject asked. */
+  served?: string[]
 }
 
 /** One research job's output: one subject in the workflow, any number locally. */
@@ -64,9 +66,10 @@ export function countCitedFirst(packet: AeoPacket, domains: readonly string[]): 
   return { probed_questions: probed, cited_first: first }
 }
 
-export function summariseSubject(packet: AeoPacket, domains: readonly string[]): SubjectSummary {
+export function summariseSubject(packet: AeoPacket, domains: readonly string[], served: readonly string[] = []): SubjectSummary {
   const c = countCitedFirst(packet, domains)
   return {
+    ...(served.length ? { served: [...served] } : {}),
     slug: packet.subject.slug,
     kind: packet.subject.kind,
     product_slug: packet.subject.product_slug,
@@ -140,7 +143,7 @@ export function buildRunSummary(i: {
   capUsd: number
   spentUsd: number
   maxProbeUsd: number
-  results: ReadonlyArray<{ packet: AeoPacket; domains: readonly string[] }>
+  results: ReadonlyArray<{ packet: AeoPacket; domains: readonly string[]; served?: readonly string[] }>
   failures: ReadonlyArray<{ slug: string; kind: SubjectKind | null }>
   errorCode: string | null
 }): RunSummary {
@@ -154,6 +157,6 @@ export function buildRunSummary(i: {
     spent_usd: i.spentUsd,
     max_probe_usd: i.maxProbeUsd,
     error_code: i.errorCode,
-    subjects: [...i.results.map(r => summariseSubject(r.packet, r.domains)), ...i.failures.map(f => failedSubject(f.slug, f.kind))],
+    subjects: [...i.results.map(r => summariseSubject(r.packet, r.domains, r.served ?? [])), ...i.failures.map(f => failedSubject(f.slug, f.kind))],
   }
 }

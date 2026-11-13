@@ -1,8 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://controlcenter.krishraja.com/schemas/engine-directive-1.0.0.json",
-  "title": "Growth engine directive, protocol 1.0.0 to 1.5.0 and 1.20.0 (ADR-038), as this engine reads it",
-  "$comment": "A partial copy of Control Center docs/app/growth/engine-directive.schema.json: 1.0.0 to 1.5.0 as copied on 2026-10-26, and the 1.20.0 krish_instruction and features copied verbatim from krishanraja/control-center main 14379de on 2026-11-11. Checked again against main 0728c9aa on 2026-11-12: krish_instruction is unchanged, and features there also allows growth-makeyourmindup's optional inspiration_used (1.21.0), left out here. Control Center's copy is authoritative.",
+  "title": "Growth engine directive, protocol 1.0.0 to 1.22.0 (ADR-038)",
   "type": "object",
   "required": [
     "schema_version",
@@ -16,6 +15,93 @@
     "constraints"
   ],
   "properties": {
+    "krish_instruction": {
+      "description": "1.20.0, optional: Krish's own next best action for this engine, given through Control Center's one door, or null when none is open (a held engine is told only its hold, so null). Carried every day until the engine reports it done, he withdraws or replaces it, or it is a week old. Never next_action.instruction, which is Control Center's own words. Act on it first, inside the walls: it is never an approval, so walled work still comes back as a proposal. Ack it by id in instruction_acks, and never print, log or commit its words.",
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "words", "given_at", "given_by", "supersedes"],
+          "properties": {
+            "id": { "type": "string", "pattern": "^ki_[0-9a-f]{24}$" },
+            "words": { "type": "string", "minLength": 1, "maxLength": 2000 },
+            "given_at": { "type": "string", "format": "date-time" },
+            "given_by": { "const": "krish" },
+            "supersedes": { "type": ["string", "null"], "pattern": "^ki_[0-9a-f]{24}$", "description": "The instruction this one replaced, or null." }
+          }
+        }
+      ]
+    },
+    "features": {
+      "type": "object",
+      "description": "1.20.0: what this directive's protocol serves. Report priorities, obsessions, next_steps and instruction_acks only when engine_state is true.",
+      "additionalProperties": false,
+      "required": ["engine_state", "krish_instruction"],
+      "properties": {
+        "engine_state": { "type": "boolean" },
+        "krish_instruction": { "type": "boolean" },
+        "inspiration_used": { "type": "boolean", "description": "1.21.0, growth-makeyourmindup: a report may carry inspiration_used." },
+        "ai_answers": { "type": "boolean", "description": "1.22.0, a venture's engine: ai_answers carries its product's AI-answer standing, and POST answers asks AEO-Engine for it." },
+        "answer_requests": { "type": "boolean", "description": "1.22.0, the AI-answers specialist: answer_requests carries the venture engines' open requests, and a report may carry answers_served." }
+      }
+    },
+    "ai_answers": {
+      "type": "object",
+      "description": "1.22.0, optional, a venture's engine (features.ai_answers): its own product's AI-answer standing from AEO-Engine, the one AI-answers specialist, and the rule for asking it. Never probe AI assistants yourself: ask AEO with POST answers. Added when the directive is served; absent when it could not be read.",
+      "additionalProperties": false,
+      "required": ["standing", "rule"],
+      "properties": {
+        "rule": { "type": "string" },
+        "standing": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["product_slug", "tracked", "latest", "misses", "moves", "history", "request"],
+              "properties": {
+                "product_slug": { "type": "string" },
+                "tracked": { "type": "boolean", "description": "AEO has an active subject for the product, so its research asks about it." },
+                "latest": {
+                  "description": "The newest fortnight AEO asked about the product, or null when it has not yet.",
+                  "oneOf": [
+                    { "type": "null" },
+                    { "type": "object", "additionalProperties": false, "required": ["as_of", "asked", "cited_first", "share"], "properties": { "as_of": { "type": "string", "format": "date" }, "asked": { "type": "integer", "minimum": 0 }, "cited_first": { "type": "integer", "minimum": 0 }, "share": { "type": "number", "minimum": 0, "maximum": 100 } } }
+                  ]
+                },
+                "misses": { "type": "array", "maxItems": 3, "items": { "type": "object", "additionalProperties": false, "required": ["question", "first"], "properties": { "question": { "type": "string" }, "first": { "type": ["string", "null"], "description": "The host cited first instead, or null when the answer cited nothing." } } } },
+                "moves": { "type": "array", "maxItems": 3, "items": { "type": "object", "additionalProperties": false, "required": ["title", "target_query"], "properties": { "title": { "type": "string" }, "target_query": { "type": ["string", "null"] } } } },
+                "history": { "type": "array", "maxItems": 6, "items": { "type": "object", "additionalProperties": false, "required": ["as_of", "asked", "cited_first"], "properties": { "as_of": { "type": "string", "format": "date" }, "asked": { "type": "integer" }, "cited_first": { "type": "integer" } } } },
+                "request": {
+                  "oneOf": [
+                    { "type": "null" },
+                    { "type": "object", "additionalProperties": false, "required": ["id", "state", "questions", "requested_at", "served_at"], "properties": { "id": { "type": "string" }, "state": { "enum": ["open", "served"] }, "questions": { "type": "integer" }, "requested_at": { "type": "string", "format": "date-time" }, "served_at": { "type": ["string", "null"], "format": "date-time" } } }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "answer_requests": {
+      "type": "array",
+      "description": "1.22.0, optional, the AI-answers specialist (features.answer_requests): each venture engine's open request, its product's buyer questions to ask verbatim under that product's subject at the next research run. Report the ones asked in answers_served. Added when the directive is served; absent when they could not be read.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["request_id", "engine_id", "product_slug", "subject_slug", "questions", "requested_at"],
+        "properties": {
+          "request_id": { "type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+          "engine_id": { "type": "string" },
+          "product_slug": { "type": "string" },
+          "subject_slug": { "type": "string" },
+          "questions": { "type": "array", "minItems": 1, "maxItems": 25, "items": { "type": "string", "minLength": 8, "maxLength": 300 } },
+          "requested_at": { "type": "string", "format": "date-time" }
+        }
+      }
+    },
     "schema_version": {
       "type": "string",
       "pattern": "^1\\.[0-9]+\\.[0-9]+$",
@@ -194,6 +280,36 @@
             "type": "string",
             "pattern": "^[0-9a-f]{64}$",
             "description": "Present when amended: SHA-256 of the canonical JSON of {amount_usd, exact_payload}."
+          },
+          "carried_out": {
+            "enum": [
+              "draft",
+              "message",
+              "submit",
+              "tapped"
+            ],
+            "description": "1.6.0, present when set: Krish carried it out himself from his home screen (a Gmail draft he sends, a message app opened with the words typed, a form submitted on his tap). 1.14.0 adds tapped: he copied an engagement task's words and posted them himself on each tap's page. Never send, submit or post it yourself."
+          },
+          "reason_code": {
+            "enum": [
+              "wrong_person",
+              "not_now",
+              "already_in_touch",
+              "too_small",
+              "wrong_audience",
+              "not_my_topic",
+              "pitch_off",
+              "other"
+            ],
+            "description": "1.6.0, present on a No he gave a reason for. Offer better, and do not offer that person, or anything like it on that reason, again."
+          },
+          "reason_text": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 1000,
+            "description": "1.6.0, with reason_code: his own words, when he gave any."
           }
         }
       }
@@ -215,7 +331,8 @@
           "type": "number"
         },
         "max_actions": {
-          "type": "integer"
+          "type": "integer",
+          "description": "How many actions a day this directive allows: 5 at no urgency, times the intensity's drafts_multiplier since 1.14.0 (10 at U3 or U4, 15 at U5). A ceiling: the engine's own policy bounds still bind it. The walls and spend_cap_usd never move."
         },
         "autonomy": {
           "enum": [
@@ -358,7 +475,7 @@
     },
     "north_star": {
       "type": "object",
-      "description": "1.4.0: the parent product's number, the engine's own, and what urgency asks of it. The walls and caps never move with it.",
+      "description": "1.4.0: the parent product's number, the engine's own, and what urgency asks of it. The walls and the spend cap never move with it; since 1.14.0 max_actions scales with its drafts_multiplier.",
       "properties": {
         "parent": {
           "type": [
@@ -568,65 +685,746 @@
         }
       }
     },
-    "krish_instruction": {
-      "description": "1.20.0, optional: Krish's own next best action for this engine, given through Control Center's one door, or null when none is open (a held engine is told only its hold, so null). Carried every day until the engine reports it done, he withdraws or replaces it, or it is a week old. Never next_action.instruction, which is Control Center's own words. Act on it first, inside the walls: it is never an approval, so walled work still comes back as a proposal. Ack it by id in instruction_acks, and never print, log or commit its words.",
-      "oneOf": [
-        {
-          "type": "null"
+    "week_goals": {
+      "type": "array",
+      "maxItems": 3,
+      "items": {
+        "type": "string"
+      },
+      "description": "1.6.0, optional: his goals for this week in his own words, newest week. A row proposal's serves quotes one exactly. Empty when none set; absent when they could not be read."
+    },
+    "rows_rule": {
+      "type": "string",
+      "description": "1.6.0, Mindmake only. Retired on 2026-10-28 (growth-mindmake plan section 12, M10): no longer sent. The row doctrine is the engine's, and its taxonomy carries the bounds Control Center checks. Kept here so a 1.x engine that reads it as optional still validates."
+    },
+    "web_analytics": {
+      "type": "object",
+      "description": "1.10.0, optional: the Google Analytics readings of the site whose venture is this engine's product, for a site with the per-post (utm_content) breakdown (makeyourmindup) or one its engine reads without it (mindmake.co, no utm_content rows and events null). The last 28 days through the newest day captured, from web_analytics_daily. Counts only, no personal data. A part that cannot be read is null, with the reason in coverage, never zero. Absent for every other engine. 1.13.0 adds legibility.io for growth-legibility (no utm_content rows), and daily and health, wherever Control Center reads them.",
+      "required": [
+        "property",
+        "measurement_id",
+        "through",
+        "days",
+        "events",
+        "rows",
+        "coverage"
+      ],
+      "properties": {
+        "property": {
+          "type": "string",
+          "description": "The site's prefix in Control Center, for example mymu."
         },
-        {
+        "measurement_id": {
+          "type": "string",
+          "pattern": "^G-[A-Z0-9]+$"
+        },
+        "through": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date",
+          "description": "The newest day captured, which the window ends on. Null when nothing could be read."
+        },
+        "days": {
+          "type": "integer",
+          "description": "The window, in days: 28."
+        },
+        "events": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "description": "Each event name seen in the per-post rows. Null when no per-post row was captured in the window.",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "key_event",
+              "count_28d"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "key_event": {
+                "type": "boolean",
+                "description": "True when its key events add up above zero in the window."
+              },
+              "count_28d": {
+                "type": "number",
+                "minimum": 0,
+                "description": "Sessions in which the event happened, summed over the per-post rows of the window. A count of sessions, not of events."
+              }
+            }
+          }
+        },
+        "rows": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "description": "Every breakdown row in the window, oldest day first. Null when the table could not be read or holds nothing for this site.",
+          "items": {
+            "type": "object",
+            "required": [
+              "date",
+              "dim_type",
+              "value",
+              "sessions",
+              "users",
+              "key_events"
+            ],
+            "properties": {
+              "date": {
+                "type": "string",
+                "format": "date"
+              },
+              "dim_type": {
+                "enum": [
+                  "source_medium",
+                  "landing_page",
+                  "utm_content"
+                ]
+              },
+              "value": {
+                "type": "string",
+                "description": "source_medium: 'source / medium'. landing_page: the path. utm_content: '<utm_content>|<session source>|<event name>'; split it on the first and the last '|', never on every one, because a source can hold a '|'."
+              },
+              "sessions": {
+                "type": "number",
+                "minimum": 0
+              },
+              "users": {
+                "type": "number",
+                "minimum": 0,
+                "description": "Google's users for that row: activeUsers on source and landing page rows, totalUsers on utm_content rows. Never add users across a post's event rows: the same people are in each."
+              },
+              "key_events": {
+                "type": "number",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        "coverage": {
           "type": "object",
-          "additionalProperties": false,
           "required": [
-            "id",
-            "words",
-            "given_at",
-            "given_by",
-            "supersedes"
+            "complete",
+            "reason",
+            "dates"
           ],
           "properties": {
-            "id": {
-              "type": "string",
-              "pattern": "^ki_[0-9a-f]{24}$"
+            "complete": {
+              "type": "boolean",
+              "description": "True only when source, landing page and per-post rows are each on every day of the window, the newest day is current and nothing was cut."
             },
-            "words": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 2000
-            },
-            "given_at": {
-              "type": "string",
-              "format": "date-time"
-            },
-            "given_by": {
-              "const": "krish"
-            },
-            "supersedes": {
+            "reason": {
               "type": [
                 "string",
                 "null"
               ],
-              "pattern": "^ki_[0-9a-f]{24}$",
-              "description": "The instruction this one replaced, or null."
+              "description": "Why it is not complete, in plain words; null when complete. The per-post part is judged on its own days: when the per-post breakdown starts inside the window, or per-post rows are on fewer days than the window, it says so, because events and count_28d then cover only those days."
+            },
+            "dates": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "description": "The days that carry rows of each kind, oldest first; null when nothing could be read. A day missing from utm_content had no tagged visits or was not captured: unknown, never zero.",
+              "required": [
+                "source_medium",
+                "landing_page",
+                "utm_content"
+              ],
+              "properties": {
+                "source_medium": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "format": "date"
+                  }
+                },
+                "landing_page": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "format": "date"
+                  }
+                },
+                "utm_content": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "format": "date"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "consent_gated": {
+          "const": true,
+          "description": "Present only for a site that counts a visitor once they press Allow (mindmake.co): every count is a floor."
+        },
+        "daily": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "description": "1.13.0, optional: the site's headline totals a day from growth_metrics (<prefix>_sessions_1d, _users_1d, _pageviews_1d, _key_events_1d), only the days with at least one figure, oldest first, up to 28 days through the newest day on file there. A day missing from the list is unknown, and a figure not on file on a listed day is null, never zero. An empty list when nothing is on file; null when they could not be read.",
+          "items": {
+            "type": "object",
+            "required": [
+              "date",
+              "sessions",
+              "users",
+              "pageviews",
+              "key_events"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "date": {
+                "type": "string",
+                "format": "date"
+              },
+              "sessions": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0
+              },
+              "users": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0
+              },
+              "pageviews": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0
+              },
+              "key_events": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0
+              }
+            }
+          }
+        },
+        "health": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "1.13.0, optional: the newest daily check of the site (web_property_insights). Null when it could not be read or has never run.",
+          "required": [
+            "as_of",
+            "verdict",
+            "flags",
+            "line"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "as_of": {
+              "type": "string",
+              "format": "date"
+            },
+            "verdict": {
+              "enum": [
+                "no_access",
+                "api_disabled",
+                "wrong_stream",
+                "tag_missing",
+                "never_received",
+                "provisional",
+                "quiet",
+                "ok"
+              ]
+            },
+            "flags": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "consent_gated",
+                  "thresholded",
+                  "admin_unverified",
+                  "undercounting",
+                  "host_filter_off",
+                  "read_failed"
+                ]
+              }
+            },
+            "line": {
+              "type": "string",
+              "description": "The verdict and each flag in plain words."
             }
           }
         }
-      ]
+      }
     },
-    "features": {
+    "icp": {
       "type": "object",
-      "description": "1.20.0: what this directive's protocol serves. Report priorities, obsessions, next_steps and instruction_acks only when engine_state is true.",
-      "additionalProperties": false,
+      "description": "1.13.0, optional, growth-legibility only (features.icp): its own product's buyer from product_icp, in the shape it takes as snapshot.icp. Absent when it could not be read today, and for every other engine.",
       "required": [
-        "engine_state",
-        "krish_instruction"
+        "product_slug",
+        "source",
+        "buyer_definition",
+        "status",
+        "revision",
+        "reviewed_at"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "product_slug": {
+          "type": "string",
+          "description": "The engine's own product, the row it was read from."
+        },
+        "source": {
+          "const": "control-center:product_icp"
+        },
+        "buyer_definition": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 4000,
+          "description": "The buyer in plain words, one field a line. Null unless approved."
+        },
+        "status": {
+          "enum": [
+            "approved",
+            "missing"
+          ],
+          "description": "approved when the row is defined (buyer titles and a who line); missing with no row, an undefined row or words over 4,000 characters."
+        },
+        "revision": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "description": "Changes whenever the row does. Null with no row."
+        },
+        "reviewed_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time",
+          "description": "product_icp.updated_at, UTC to the millisecond. Null with no row."
+        }
+      }
+    },
+    "behind_by": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "1.14.0, optional: the gap to this week's rung of the number that sets the intensity, the more urgent of the engine's own and its product's. Absent when no refresh has read either.",
+      "required": [
+        "of",
+        "repo",
+        "metric",
+        "unit",
+        "week_of",
+        "short_by",
+        "share",
+        "urgency"
       ],
       "properties": {
-        "engine_state": {
-          "type": "boolean"
+        "of": {
+          "enum": [
+            "own",
+            "parent"
+          ]
         },
-        "krish_instruction": {
-          "type": "boolean"
+        "repo": {
+          "type": "string"
+        },
+        "metric": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "unit": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "week_of": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "short_by": {
+          "description": "This week's target less the reading, never below zero; \"private\" for a private figure; null when not measured.",
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "const": "private"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "share": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "The share of this week's rung reached (1 is on it); null when not measured."
+        },
+        "urgency": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "maximum": 5
+        }
+      }
+    },
+    "rank_in_fleet": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "1.14.0, optional: where this engine stands among the active engines (never a held one) by behind_by, furthest behind first: the lowest share, an unmeasured number as far behind as any, then the higher urgency. Absent for an engine that is not active, or when the refresh could not be read.",
+      "required": [
+        "rank",
+        "of"
+      ],
+      "properties": {
+        "rank": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "of": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "inspiration": {
+      "type": "object",
+      "description": "1.15.0, optional, growth-makeyourmindup only (features.inspiration): Krish's own suggestions from his inspiration board, the baseline for what you plan. An empty list when he has made none; absent when they could not be read today, and for every other engine.",
+      "required": [
+        "rule",
+        "suggestions"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "rule": {
+          "type": "string",
+          "description": "How to use them, word for word: the baseline standard, schedule a trial or say why it waits, rebuild never copy, never judge or rank."
+        },
+        "instruction_rule": {
+          "type": "string",
+          "description": "1.21.0, present when any suggestion carries an instruction: what an instruction asks, word for word (use the style in your next fitting asset before its due_at, name the card in that concept's style_card, report it in inspiration_used)."
+        },
+        "suggestions": {
+          "type": "array",
+          "maxItems": 40,
+          "description": "Cards Krish ticked as a style to use come first (1.21.0, instruction), the soonest due first; then newest first. Only cards that carry an instruction, a trial, his words or his answer; a carousel's other slides, a feed and a corpus are left out.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "card_id",
+              "saved_at",
+              "kind",
+              "lane",
+              "name",
+              "trials",
+              "trialed_at",
+              "his_words",
+              "agreed_reasons",
+              "routes",
+              "read_as",
+              "note_for_claude",
+              "post_url",
+              "platform",
+              "author",
+              "drive_url",
+              "answered"
+            ],
+            "properties": {
+              "card_id": {
+                "type": "string",
+                "description": "inspiration_items.id."
+              },
+              "saved_at": {
+                "type": "string",
+                "format": "date-time",
+                "description": "When the file landed in his Drive folder."
+              },
+              "kind": {
+                "enum": [
+                  "video",
+                  "image",
+                  "idea",
+                  "document"
+                ]
+              },
+              "lane": {
+                "enum": [
+                  "production",
+                  "strategy"
+                ],
+                "description": "production is how it is made, strategy what it says."
+              },
+              "name": {
+                "type": "string",
+                "description": "The file's name."
+              },
+              "trials": {
+                "type": "array",
+                "description": "What he wants tried, his taps only, in this order: record_like_this, reskin_news, reskin_meme, borrow_format.",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "trial",
+                    "label",
+                    "means"
+                  ],
+                  "properties": {
+                    "trial": {
+                      "enum": [
+                        "record_like_this",
+                        "reskin_news",
+                        "reskin_meme",
+                        "borrow_format"
+                      ]
+                    },
+                    "label": {
+                      "type": "string",
+                      "description": "The words on his chip."
+                    },
+                    "means": {
+                      "type": "string",
+                      "description": "What the trial asks of you, in plain words."
+                    }
+                  }
+                }
+              },
+              "trialed_at": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time",
+                "description": "When he last changed them; null with none."
+              },
+              "his_words": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "His own words: why it's here, and what he likes when he typed it. Quote these as his."
+              },
+              "agreed_reasons": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Guesses he tapped: reasons he agreed with, never his words."
+              },
+              "routes": {
+                "type": "array",
+                "items": {
+                  "enum": [
+                    "study_style",
+                    "make_piece",
+                    "visibility",
+                    "taste_only",
+                    "offday_post"
+                  ]
+                }
+              },
+              "read_as": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "enum": [
+                  "watch",
+                  "listen",
+                  "read",
+                  "look",
+                  null
+                ],
+                "description": "How he says it must be taken in."
+              },
+              "note_for_claude": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "His note for whoever reads it, in his words."
+              },
+              "post_url": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "The public post he pasted, when it came from a link."
+              },
+              "platform": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "The platform of that post."
+              },
+              "author": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "Who posted it, as the reading found them."
+              },
+              "drive_url": {
+                "type": "string",
+                "description": "The file in his Drive. Private: it opens only for him."
+              },
+              "answered": {
+                "type": "boolean",
+                "description": "Whether he has answered the card on the board."
+              },
+              "instruction": {
+                "type": "object",
+                "description": "1.21.0, optional (features.inspiration_instructions): Krish ticked this card as an instruction, not just inspiration: use its style in a made asset before due_at (Ruling, Krish, 2026-11-12). Absent on every other card.",
+                "additionalProperties": false,
+                "required": ["action_id", "kind", "due_at", "overdue", "words"],
+                "properties": {
+                  "action_id": { "type": "string", "description": "inspiration_actions.id." },
+                  "kind": { "enum": ["copy_style"] },
+                  "due_at": { "type": "string", "format": "date-time", "description": "Use the style in a made asset before this time." },
+                  "overdue": { "type": "boolean", "description": "True once due_at has passed and no made asset used it yet." },
+                  "words": { "type": ["string", "null"], "description": "His words when he ticked it: his instruction, quoted as his." }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "credits": {
+      "type": "object",
+      "description": "1.16.0, optional, every engine whose product a prepaid credit pool is placed on (features.credits): its share of each pool, what is left and the day it is wiped. Spend within remaining_for_you needs no proposal (Ruling, Krish, 2026-10-29); report it in credits_spent. Absent when no pool is placed on the product or the pools could not be read today.",
+      "required": [
+        "rule",
+        "pools"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "rule": {
+          "type": "string"
+        },
+        "pools": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "pool",
+              "tool",
+              "unit",
+              "share",
+              "share_amount",
+              "spent_this_cycle",
+              "remaining_for_you",
+              "pool_balance",
+              "balance_as_of",
+              "use_by",
+              "resets_on",
+              "days_left",
+              "unit_costs"
+            ],
+            "properties": {
+              "pool": {
+                "type": "string",
+                "description": "service_registry key, the pool credits_spent names"
+              },
+              "mode": {"enum": ["use_it", "ceiling"], "description": "use_it: prepaid and wiped at the reset, spend it. ceiling: pay as you go (Apify), the share is the most you may spend, never a target. Absent reads as use_it."},
+              "tool": {
+                "type": "string"
+              },
+              "unit": {
+                "type": "string",
+                "description": "credits, characters or usd"
+              },
+              "share": {
+                "enum": [
+                  "main",
+                  "some"
+                ]
+              },
+              "share_amount": {
+                "type": "number"
+              },
+              "spent_this_cycle": {
+                "type": "number"
+              },
+              "remaining_for_you": {
+                "type": "number"
+              },
+              "pool_balance": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "balance_as_of": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "use_by": {
+                "type": "string",
+                "format": "date"
+              },
+              "resets_on": {
+                "type": "string",
+                "format": "date"
+              },
+              "days_left": {
+                "type": "integer"
+              },
+              "unit_costs": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "output",
+                    "credits"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "output": {
+                      "type": "string"
+                    },
+                    "credits": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            }
+          }
         }
       }
     }

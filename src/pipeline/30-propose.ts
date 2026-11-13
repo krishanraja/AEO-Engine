@@ -82,6 +82,12 @@ export async function proposeQueries(
   themes: Theme[],
   gap: GapResult,
   mintId: (key: string) => string,
+  /**
+   * 1.22.0: buyer questions a venture's engine asked this specialist to track
+   * for its product (directive answer_requests). Asked verbatim, first, as
+   * seeds, so the model and the caps never drop one.
+   */
+  requested: readonly string[] = [],
 ): Promise<ProposedQuery[]> {
   const touchpointIds = new Set((subject.touchpoints ?? []).map(t => t.id))
   const touchpointByNorm = new Map<string, string>()
@@ -106,6 +112,9 @@ export async function proposeQueries(
   }
   // Pad from the deterministic inputs when the model came up short or failed.
   if (candidates.length < CAPS.MIN_PROPOSED_QUERIES) candidates.push(...deterministicCandidates(subject, gap))
+  // A venture engine's own questions lead, word for word (only a name or address is scrubbed).
+  const asked = requested.map(q => ({ query: scrubPII(CLEAN(q, 400), subject.never_say), source: 'seed' as QuerySource, touchpoint_id: null }))
+  candidates = [...asked, ...candidates]
 
   const out: ProposedQuery[] = []
   const seen = new Set<string>()

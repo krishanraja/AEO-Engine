@@ -50,9 +50,12 @@ export interface Proposal {
 export interface ReportEvent { event: string; proposal_id: string | null; at: string; evidence_url: string | null }
 export interface Hold { reason: string; detail: string | null }
 
-/** The versions this engine sends: 1.0.0, or 1.20.0 when a report carries the engine's state. */
-export type SchemaVersion = '1.0.0' | '1.20.0'
+/** The versions this engine sends: 1.0.0, 1.20.0 when a report carries the engine's state, 1.22.0 when it also says which venture requests it asked. */
+export type SchemaVersion = '1.0.0' | '1.20.0' | '1.22.0'
 export const STATE_VERSION = '1.20.0'
+/** 1.22.0: AEO-Engine is the one AI-answers specialist every venture's engine calls (Ruling, Krish, 2026-11-12). */
+export const ANSWERS_VERSION = '1.22.0'
+export const ANSWERS_SERVED_MAX = 50
 
 /** 1.20.0: what the engine is chasing, most important first (at most 5). */
 export interface EnginePriority { rank: number; line: string; objective_key: string | null }
@@ -107,8 +110,37 @@ export function stateLineOk(v: unknown, max: number): v is string {
  */
 export interface InstructionRef { id: string; given_at: string; supersedes: string | null }
 
-/** What the directive serves (1.20.0). Absent before 1.20.0, which means: send nothing new. */
-export interface DirectiveFeatures { engine_state: boolean; krish_instruction: boolean }
+/** What the directive serves (1.20.0; answer_requests 1.22.0). Absent before 1.20.0, which means: send nothing new. */
+export interface DirectiveFeatures { engine_state: boolean; krish_instruction: boolean; answer_requests?: boolean }
+
+/**
+ * 1.22.0: a venture engine's open request to this specialist (directive
+ * `answer_requests`): its own product's buyer questions, asked verbatim
+ * under that product's subject at the next research run.
+ */
+export interface AnswerRequest { request_id: string; engine_id: string; product_slug: string; subject_slug: string; questions: string[]; requested_at: string }
+
+const REQUEST_ID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/
+
+/**
+ * Reads `answer_requests` loosely: a request that is not the shape 1.22.0
+ * says is dropped, never guessed at; absent or not a list is none. A question
+ * is kept only when it is 8 to 300 characters.
+ */
+export function parseAnswerRequests(raw: unknown): AnswerRequest[] {
+  if (!Array.isArray(raw)) return []
+  const out: AnswerRequest[] = []
+  for (const x of raw) {
+    if (!x || typeof x !== 'object' || Array.isArray(x)) continue
+    const r = x as Record<string, unknown>
+    if (typeof r.request_id !== 'string' || !REQUEST_ID_RE.test(r.request_id)) continue
+    if (typeof r.product_slug !== 'string' || typeof r.engine_id !== 'string') continue
+    const questions = Array.isArray(r.questions) ? r.questions.filter((q): q is string => typeof q === 'string' && q.trim().length >= 8 && q.length <= 300).map(q => q.trim()) : []
+    if (!questions.length) continue
+    out.push({ request_id: r.request_id.toLowerCase(), engine_id: r.engine_id, product_slug: r.product_slug, subject_slug: typeof r.subject_slug === 'string' ? r.subject_slug : r.product_slug, questions: questions.slice(0, 25), requested_at: typeof r.requested_at === 'string' ? r.requested_at : '' })
+  }
+  return out
+}
 
 /**
  * Reads `krish_instruction` loosely: null for absent, null, or not the shape
@@ -130,10 +162,12 @@ export function parseFeatures(raw: unknown): DirectiveFeatures | null {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
   const f = raw as Record<string, unknown>
   if (typeof f.engine_state !== 'boolean' || typeof f.krish_instruction !== 'boolean') return null
-  return { engine_state: f.engine_state, krish_instruction: f.krish_instruction }
+  return { engine_state: f.engine_state, krish_instruction: f.krish_instruction, ...(f.answer_requests === true ? { answer_requests: true } : {}) }
 }
 
 export interface EngineReport extends EngineState {
+  /** 1.22.0: the venture requests this research run asked (AnswerRequest.request_id). */
+  answers_served?: string[]
   schema_version: SchemaVersion
   engine_id: string
   product_slug: string
@@ -182,6 +216,8 @@ export interface Directive {
   krish_instruction?: InstructionRef | null
   /** 1.20.0: what the directive serves. Undefined: before 1.20.0, so nothing new is sent. */
   features?: DirectiveFeatures
+  /** 1.22.0, optional: the venture engines' open requests (parseAnswerRequests). Undefined or empty: none. */
+  answer_requests?: AnswerRequest[]
 }
 
 /** One of Krish's approved voice rules, as the directive carries it (protocol 1.5.0). */
@@ -272,9 +308,13 @@ export function validateReport(r: unknown): { ok: true } | { ok: false; errors: 
   const errs: Errs = []
   const top = ['schema_version', 'engine_id', 'product_slug', 'run_id', 'mode', 'observed_at', 'source', 'status', 'objectives', 'activity', 'proposals', 'events', 'holds', 'payload_sha256']
   const stateKeys = ['priorities', 'obsessions', 'next_steps', 'instruction_acks']
-  if (!closed('report', r, [...top, ...stateKeys], top, errs)) return { ok: false, errors: errs }
-  if (r.schema_version !== '1.0.0' && r.schema_version !== STATE_VERSION) errs.push(`report.schema_version: 1.0.0 or ${STATE_VERSION}`)
-  if (r.schema_version !== STATE_VERSION) for (const k of stateKeys) if (k in r) errs.push(`report.${k}: needs schema_version ${STATE_VERSION}`)
+  if (!closed('report', r, [...top, ...stateKeys, 'answers_served'], top, errs)) return { ok: false, errors: errs }
+  if (r.schema_version !== '1.0.0' && r.schema_version !== STATE_VERSION && r.schema_version !== ANSWERS_VERSION) errs.push(`report.schema_version: 1.0.0, ${STATE_VERSION} or ${ANSWERS_VERSION}`)
+  if (r.schema_version === '1.0.0') for (const k of stateKeys) if (k in r) errs.push(`report.${k}: needs schema_version ${STATE_VERSION}`)
+  if ('answers_served' in r) {
+    if (r.schema_version !== ANSWERS_VERSION) errs.push(`report.answers_served: needs schema_version ${ANSWERS_VERSION}`)
+    list('report.answers_served', r.answers_served, ANSWERS_SERVED_MAX, errs).forEach((x, i) => { if (typeof x !== 'string' || !REQUEST_ID_RE.test(x)) errs.push(`report.answers_served[${i}]: a request id`) })
+  }
   str('report.engine_id', r.engine_id, errs, { max: 64 })
   str('report.product_slug', r.product_slug, errs, { max: 64 })
   str('report.run_id', r.run_id, errs, { re: ID_RE })
