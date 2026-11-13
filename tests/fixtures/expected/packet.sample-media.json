@@ -1,0 +1,1527 @@
+{
+  "schema_version": 1,
+  "run_id": "1fd2280b-c57e-457c-a443-770d2b2985f8",
+  "command_id": null,
+  "subject": {
+    "id": "2c8a4d3f-5b6e-4d9c-8f2a-3b4c5d6e7f80",
+    "kind": "prospect",
+    "slug": "sample-media",
+    "product_slug": null
+  },
+  "week_start": "2026-09-07",
+  "generated_at": "2026-11-13T16:39:20.769Z",
+  "engines": [
+    "perplexity",
+    "chatgpt",
+    "claude"
+  ],
+  "themes_status": "no_attributed_calls",
+  "themes": [],
+  "calls": {
+    "considered": 2,
+    "attributed": 0
+  },
+  "queries": [
+    {
+      "query_id": "9dfeee33-78d2-4e4d-80fb-c7222d69b07a",
+      "query": "How do media companies avoid AI errors reaching print?",
+      "source": "seed",
+      "demand_score": 30,
+      "demand_basis": {
+        "llm_demand": 30,
+        "transcript_evidence": 0,
+        "rising_volume": 0,
+        "labels": [
+          "no prompt-volume corpus; proxies only"
+        ]
+      },
+      "call_evidence": [],
+      "gap": {
+        "we_cited_engines": [],
+        "competitor_domains": [
+          "example-trade-daily.com",
+          "research.example-university.edu",
+          "example-adtech.com",
+          "example-press-institute.org"
+        ]
+      },
+      "trend": "new",
+      "status": "watch",
+      "touchpoint_id": null,
+      "probes": [
+        {
+          "engine": "perplexity",
+          "model": "sonar",
+          "question": "How do media companies avoid AI errors reaching print?",
+          "answer_snapshot": "Summary: the question of do media companies avoid AI errors reaching print comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://research.example-university.edu/newsroom-ai",
+            "https://www.example-adtech.com/blog/2026/ad-ops-automation"
+          ],
+          "cost_usd": 0.01
+        },
+        {
+          "engine": "chatgpt",
+          "model": "gpt-5",
+          "question": "How do media companies avoid AI errors reaching print?",
+          "answer_snapshot": "In short: the question of do media companies avoid AI errors reaching print comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-trade-daily.com/2026/08/publishers-ai",
+            "https://research.example-university.edu/newsroom-ai"
+          ],
+          "cost_usd": 0.05
+        },
+        {
+          "engine": "claude",
+          "model": "claude-sonnet-5",
+          "question": "How do media companies avoid AI errors reaching print?",
+          "answer_snapshot": "Here is the practical answer: the question of do media companies avoid AI errors reaching print comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-press-institute.org/ai-newsroom-guide",
+            "https://www.example-trade-daily.com/2026/08/publishers-ai"
+          ],
+          "cost_usd": 0.07
+        }
+      ]
+    },
+    {
+      "query_id": "61829021-63f7-43d7-8490-98d96fe622a0",
+      "query": "How do PE-backed media groups measure AI return on investment?",
+      "source": "room_signal",
+      "demand_score": 30,
+      "demand_basis": {
+        "llm_demand": 30,
+        "transcript_evidence": 0,
+        "rising_volume": 0,
+        "labels": [
+          "no prompt-volume corpus; proxies only"
+        ]
+      },
+      "call_evidence": [],
+      "gap": {
+        "we_cited_engines": [],
+        "competitor_domains": [
+          "example-trade-daily.com",
+          "research.example-university.edu",
+          "example-adtech.com",
+          "example-press-institute.org"
+        ]
+      },
+      "trend": "new",
+      "status": "watch",
+      "touchpoint_id": null,
+      "probes": [
+        {
+          "engine": "perplexity",
+          "model": "sonar",
+          "question": "How do PE-backed media groups measure AI return on investment?",
+          "answer_snapshot": "Summary: the question of do PE-backed media groups measure AI return on investment comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://research.example-university.edu/newsroom-ai",
+            "https://www.example-adtech.com/blog/2026/ad-ops-automation"
+          ],
+          "cost_usd": 0.01
+        },
+        {
+          "engine": "chatgpt",
+          "model": "gpt-5",
+          "question": "How do PE-backed media groups measure AI return on investment?",
+          "answer_snapshot": "In short: the question of do PE-backed media groups measure AI return on investment comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-trade-daily.com/2026/08/publishers-ai",
+            "https://research.example-university.edu/newsroom-ai"
+          ],
+          "cost_usd": 0.05
+        },
+        {
+          "engine": "claude",
+          "model": "claude-sonnet-5",
+          "question": "How do PE-backed media groups measure AI return on investment?",
+          "answer_snapshot": "Here is the practical answer: the question of do PE-backed media groups measure AI return on investment comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-press-institute.org/ai-newsroom-guide",
+            "https://www.example-trade-daily.com/2026/08/publishers-ai"
+          ],
+          "cost_usd": 0.07
+        }
+      ]
+    },
+    {
+      "query_id": "508c245e-8d81-4bd8-81a4-5e967c5db55c",
+      "query": "How do publishers use AI for ad sales proposals?",
+      "source": "seed",
+      "demand_score": 30,
+      "demand_basis": {
+        "llm_demand": 30,
+        "transcript_evidence": 0,
+        "rising_volume": 0,
+        "labels": [
+          "no prompt-volume corpus; proxies only"
+        ]
+      },
+      "call_evidence": [],
+      "gap": {
+        "we_cited_engines": [],
+        "competitor_domains": [
+          "example-trade-daily.com",
+          "research.example-university.edu",
+          "example-adtech.com",
+          "example-press-institute.org"
+        ]
+      },
+      "trend": "new",
+      "status": "recommend",
+      "touchpoint_id": null,
+      "probes": [
+        {
+          "engine": "perplexity",
+          "model": "sonar",
+          "question": "How do publishers use AI for ad sales proposals?",
+          "answer_snapshot": "Summary: the question of do publishers use AI for ad sales proposals comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://research.example-university.edu/newsroom-ai",
+            "https://www.example-adtech.com/blog/2026/ad-ops-automation"
+          ],
+          "cost_usd": 0.01
+        },
+        {
+          "engine": "chatgpt",
+          "model": "gpt-5",
+          "question": "How do publishers use AI for ad sales proposals?",
+          "answer_snapshot": "In short: the question of do publishers use AI for ad sales proposals comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-trade-daily.com/2026/08/publishers-ai",
+            "https://research.example-university.edu/newsroom-ai"
+          ],
+          "cost_usd": 0.05
+        },
+        {
+          "engine": "claude",
+          "model": "claude-sonnet-5",
+          "question": "How do publishers use AI for ad sales proposals?",
+          "answer_snapshot": "Here is the practical answer: the question of do publishers use AI for ad sales proposals comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-press-institute.org/ai-newsroom-guide",
+            "https://www.example-trade-daily.com/2026/08/publishers-ai"
+          ],
+          "cost_usd": 0.07
+        }
+      ]
+    },
+    {
+      "query_id": "9602b6d9-f31f-4f87-88be-37c555c170f7",
+      "query": "How do regional publishers automate ad operations reporting with AI?",
+      "source": "seed",
+      "demand_score": 30,
+      "demand_basis": {
+        "llm_demand": 30,
+        "transcript_evidence": 0,
+        "rising_volume": 0,
+        "labels": [
+          "no prompt-volume corpus; proxies only"
+        ]
+      },
+      "call_evidence": [],
+      "gap": {
+        "we_cited_engines": [],
+        "competitor_domains": [
+          "example-adtech.com",
+          "example-consultancy.com",
+          "example-press-institute.org",
+          "research.example-university.edu"
+        ]
+      },
+      "trend": "new",
+      "status": "watch",
+      "touchpoint_id": null,
+      "probes": [
+        {
+          "engine": "perplexity",
+          "model": "sonar",
+          "question": "How do regional publishers automate ad operations reporting with AI?",
+          "answer_snapshot": "Summary: the question of do regional publishers automate ad operations reporting with AI comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-press-institute.org/ai-newsroom-guide",
+            "https://www.example-consultancy.com/insights/media-ai"
+          ],
+          "cost_usd": 0.01
+        },
+        {
+          "engine": "chatgpt",
+          "model": "gpt-5",
+          "question": "How do regional publishers automate ad operations reporting with AI?",
+          "answer_snapshot": "In short: the question of do regional publishers automate ad operations reporting with AI comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-consultancy.com/insights/media-ai",
+            "https://www.example-adtech.com/blog/2026/ad-ops-automation"
+          ],
+          "cost_usd": 0.05
+        },
+        {
+          "engine": "claude",
+          "model": "claude-sonnet-5",
+          "question": "How do regional publishers automate ad operations reporting with AI?",
+          "answer_snapshot": "Here is the practical answer: the question of do regional publishers automate ad operations reporting with AI comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-adtech.com/blog/2026/ad-ops-automation",
+            "https://research.example-university.edu/newsroom-ai"
+          ],
+          "cost_usd": 0.07
+        }
+      ]
+    },
+    {
+      "query_id": "80794fb9-2212-4f8d-8293-95cc6e5091a0",
+      "query": "How do we choose an AI partner for a media business?",
+      "source": "seed",
+      "demand_score": 30,
+      "demand_basis": {
+        "llm_demand": 30,
+        "transcript_evidence": 0,
+        "rising_volume": 0,
+        "labels": [
+          "no prompt-volume corpus; proxies only"
+        ]
+      },
+      "call_evidence": [],
+      "gap": {
+        "we_cited_engines": [],
+        "competitor_domains": [
+          "example-adtech.com",
+          "example-consultancy.com",
+          "forbes.com",
+          "hbr.org",
+          "mckinsey.com",
+          "youtube.com"
+        ]
+      },
+      "trend": "new",
+      "status": "watch",
+      "touchpoint_id": null,
+      "probes": [
+        {
+          "engine": "perplexity",
+          "model": "sonar",
+          "question": "How do we choose an AI partner for a media business?",
+          "answer_snapshot": "Summary: the question of choose an AI partner for a media business comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.forbes.com/sites/councils/2026/08/choosing-an-ai-partner",
+            "https://www.mckinsey.com/industries/media/our-insights/ai-partner-selection"
+          ],
+          "cost_usd": 0.01
+        },
+        {
+          "engine": "chatgpt",
+          "model": "gpt-5",
+          "question": "How do we choose an AI partner for a media business?",
+          "answer_snapshot": "In short: the question of choose an AI partner for a media business comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://hbr.org/2026/07/how-to-choose-an-ai-partner",
+            "https://www.example-consultancy.com/insights/media-ai"
+          ],
+          "cost_usd": 0.05
+        },
+        {
+          "engine": "claude",
+          "model": "claude-sonnet-5",
+          "question": "How do we choose an AI partner for a media business?",
+          "answer_snapshot": "Here is the practical answer: the question of choose an AI partner for a media business comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.youtube.com/watch?v=aipartnerselection",
+            "https://www.example-adtech.com/blog/2026/ad-ops-automation"
+          ],
+          "cost_usd": 0.07
+        }
+      ]
+    },
+    {
+      "query_id": "dbb4d68e-393a-4aef-837a-3de843081008",
+      "query": "How do we keep readers' trust while using AI in the newsroom?",
+      "source": "seed",
+      "demand_score": 30,
+      "demand_basis": {
+        "llm_demand": 30,
+        "transcript_evidence": 0,
+        "rising_volume": 0,
+        "labels": [
+          "no prompt-volume corpus; proxies only"
+        ]
+      },
+      "call_evidence": [],
+      "gap": {
+        "we_cited_engines": [],
+        "competitor_domains": [
+          "research.example-university.edu",
+          "example-adtech.com",
+          "example-consultancy.com",
+          "example-press-institute.org",
+          "example-trade-daily.com"
+        ]
+      },
+      "trend": "new",
+      "status": "watch",
+      "touchpoint_id": null,
+      "probes": [
+        {
+          "engine": "perplexity",
+          "model": "sonar",
+          "question": "How do we keep readers' trust while using AI in the newsroom?",
+          "answer_snapshot": "Summary: the question of keep readers' trust while using AI in the newsroom comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-consultancy.com/insights/media-ai",
+            "https://research.example-university.edu/newsroom-ai"
+          ],
+          "cost_usd": 0.01
+        },
+        {
+          "engine": "chatgpt",
+          "model": "gpt-5",
+          "question": "How do we keep readers' trust while using AI in the newsroom?",
+          "answer_snapshot": "In short: the question of keep readers' trust while using AI in the newsroom comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-adtech.com/blog/2026/ad-ops-automation",
+            "https://www.example-trade-daily.com/2026/08/publishers-ai"
+          ],
+          "cost_usd": 0.05
+        },
+        {
+          "engine": "claude",
+          "model": "claude-sonnet-5",
+          "question": "How do we keep readers' trust while using AI in the newsroom?",
+          "answer_snapshot": "Here is the practical answer: the question of keep readers' trust while using AI in the newsroom comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://research.example-university.edu/newsroom-ai",
+            "https://www.example-press-institute.org/ai-newsroom-guide"
+          ],
+          "cost_usd": 0.07
+        }
+      ]
+    },
+    {
+      "query_id": "596140cb-8c0a-40ba-822f-21bd20fbb2ea",
+      "query": "How do we run an AI pilot in a newsroom without disrupting deadlines?",
+      "source": "seed",
+      "demand_score": 30,
+      "demand_basis": {
+        "llm_demand": 30,
+        "transcript_evidence": 0,
+        "rising_volume": 0,
+        "labels": [
+          "no prompt-volume corpus; proxies only"
+        ]
+      },
+      "call_evidence": [],
+      "gap": {
+        "we_cited_engines": [],
+        "competitor_domains": [
+          "example-trade-daily.com",
+          "research.example-university.edu",
+          "example-adtech.com",
+          "example-press-institute.org"
+        ]
+      },
+      "trend": "new",
+      "status": "recommend",
+      "touchpoint_id": null,
+      "probes": [
+        {
+          "engine": "perplexity",
+          "model": "sonar",
+          "question": "How do we run an AI pilot in a newsroom without disrupting deadlines?",
+          "answer_snapshot": "Summary: the question of run an AI pilot in a newsroom without disrupting deadlines comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://research.example-university.edu/newsroom-ai",
+            "https://www.example-adtech.com/blog/2026/ad-ops-automation"
+          ],
+          "cost_usd": 0.01
+        },
+        {
+          "engine": "chatgpt",
+          "model": "gpt-5",
+          "question": "How do we run an AI pilot in a newsroom without disrupting deadlines?",
+          "answer_snapshot": "In short: the question of run an AI pilot in a newsroom without disrupting deadlines comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-trade-daily.com/2026/08/publishers-ai",
+            "https://research.example-university.edu/newsroom-ai"
+          ],
+          "cost_usd": 0.05
+        },
+        {
+          "engine": "claude",
+          "model": "claude-sonnet-5",
+          "question": "How do we run an AI pilot in a newsroom without disrupting deadlines?",
+          "answer_snapshot": "Here is the practical answer: the question of run an AI pilot in a newsroom without disrupting deadlines comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-press-institute.org/ai-newsroom-guide",
+            "https://www.example-trade-daily.com/2026/08/publishers-ai"
+          ],
+          "cost_usd": 0.07
+        }
+      ]
+    },
+    {
+      "query_id": "dcef5728-564c-4e94-85ab-8c9a461cc7fa",
+      "query": "How do we sequence AI across the newsroom and ad operations?",
+      "source": "room_signal",
+      "demand_score": 30,
+      "demand_basis": {
+        "llm_demand": 30,
+        "transcript_evidence": 0,
+        "rising_volume": 0,
+        "labels": [
+          "no prompt-volume corpus; proxies only"
+        ]
+      },
+      "call_evidence": [],
+      "gap": {
+        "we_cited_engines": [],
+        "competitor_domains": [
+          "research.example-university.edu",
+          "example-adtech.com",
+          "example-consultancy.com",
+          "example-press-institute.org",
+          "example-trade-daily.com"
+        ]
+      },
+      "trend": "new",
+      "status": "watch",
+      "touchpoint_id": null,
+      "probes": [
+        {
+          "engine": "perplexity",
+          "model": "sonar",
+          "question": "How do we sequence AI across the newsroom and ad operations?",
+          "answer_snapshot": "Summary: the question of sequence AI across the newsroom and ad operations comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-consultancy.com/insights/media-ai",
+            "https://research.example-university.edu/newsroom-ai"
+          ],
+          "cost_usd": 0.01
+        },
+        {
+          "engine": "chatgpt",
+          "model": "gpt-5",
+          "question": "How do we sequence AI across the newsroom and ad operations?",
+          "answer_snapshot": "In short: the question of sequence AI across the newsroom and ad operations comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-adtech.com/blog/2026/ad-ops-automation",
+            "https://www.example-trade-daily.com/2026/08/publishers-ai"
+          ],
+          "cost_usd": 0.05
+        },
+        {
+          "engine": "claude",
+          "model": "claude-sonnet-5",
+          "question": "How do we sequence AI across the newsroom and ad operations?",
+          "answer_snapshot": "Here is the practical answer: the question of sequence AI across the newsroom and ad operations comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://research.example-university.edu/newsroom-ai",
+            "https://www.example-press-institute.org/ai-newsroom-guide"
+          ],
+          "cost_usd": 0.07
+        }
+      ]
+    },
+    {
+      "query_id": "5d6554f8-83d0-4677-854c-fd7b7a01e976",
+      "query": "How do we train editors to use AI without losing quality?",
+      "source": "seed",
+      "demand_score": 30,
+      "demand_basis": {
+        "llm_demand": 30,
+        "transcript_evidence": 0,
+        "rising_volume": 0,
+        "labels": [
+          "no prompt-volume corpus; proxies only"
+        ]
+      },
+      "call_evidence": [],
+      "gap": {
+        "we_cited_engines": [],
+        "competitor_domains": [
+          "example-adtech.com",
+          "example-consultancy.com",
+          "example-press-institute.org",
+          "research.example-university.edu"
+        ]
+      },
+      "trend": "new",
+      "status": "watch",
+      "touchpoint_id": null,
+      "probes": [
+        {
+          "engine": "perplexity",
+          "model": "sonar",
+          "question": "How do we train editors to use AI without losing quality?",
+          "answer_snapshot": "Summary: the question of train editors to use AI without losing quality comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-press-institute.org/ai-newsroom-guide",
+            "https://www.example-consultancy.com/insights/media-ai"
+          ],
+          "cost_usd": 0.01
+        },
+        {
+          "engine": "chatgpt",
+          "model": "gpt-5",
+          "question": "How do we train editors to use AI without losing quality?",
+          "answer_snapshot": "In short: the question of train editors to use AI without losing quality comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-consultancy.com/insights/media-ai",
+            "https://www.example-adtech.com/blog/2026/ad-ops-automation"
+          ],
+          "cost_usd": 0.05
+        },
+        {
+          "engine": "claude",
+          "model": "claude-sonnet-5",
+          "question": "How do we train editors to use AI without losing quality?",
+          "answer_snapshot": "Here is the practical answer: the question of train editors to use AI without losing quality comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-adtech.com/blog/2026/ad-ops-automation",
+            "https://research.example-university.edu/newsroom-ai"
+          ],
+          "cost_usd": 0.07
+        }
+      ]
+    },
+    {
+      "query_id": "e8a264d8-b5e2-4f68-8198-fb09f67c1fb7",
+      "query": "How do we use AI to grow subscription revenue at a regional title?",
+      "source": "seed",
+      "demand_score": 30,
+      "demand_basis": {
+        "llm_demand": 30,
+        "transcript_evidence": 0,
+        "rising_volume": 0,
+        "labels": [
+          "no prompt-volume corpus; proxies only"
+        ]
+      },
+      "call_evidence": [],
+      "gap": {
+        "we_cited_engines": [],
+        "competitor_domains": [
+          "example-adtech.com",
+          "example-consultancy.com",
+          "example-press-institute.org",
+          "example-trade-daily.com",
+          "research.example-university.edu"
+        ]
+      },
+      "trend": "new",
+      "status": "watch",
+      "touchpoint_id": null,
+      "probes": [
+        {
+          "engine": "perplexity",
+          "model": "sonar",
+          "question": "How do we use AI to grow subscription revenue at a regional title?",
+          "answer_snapshot": "Summary: the question of use AI to grow subscription revenue at a regional title comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-adtech.com/blog/2026/ad-ops-automation",
+            "https://www.example-press-institute.org/ai-newsroom-guide"
+          ],
+          "cost_usd": 0.01
+        },
+        {
+          "engine": "chatgpt",
+          "model": "gpt-5",
+          "question": "How do we use AI to grow subscription revenue at a regional title?",
+          "answer_snapshot": "In short: the question of use AI to grow subscription revenue at a regional title comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://research.example-university.edu/newsroom-ai",
+            "https://www.example-consultancy.com/insights/media-ai"
+          ],
+          "cost_usd": 0.05
+        },
+        {
+          "engine": "claude",
+          "model": "claude-sonnet-5",
+          "question": "How do we use AI to grow subscription revenue at a regional title?",
+          "answer_snapshot": "Here is the practical answer: the question of use AI to grow subscription revenue at a regional title comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-trade-daily.com/2026/08/publishers-ai",
+            "https://www.example-adtech.com/blog/2026/ad-ops-automation"
+          ],
+          "cost_usd": 0.07
+        }
+      ]
+    },
+    {
+      "query_id": "7d6088ab-a33e-4484-8e5c-9f25487e8cd6",
+      "query": "How should a regional media group use AI in its newsroom?",
+      "source": "gap",
+      "demand_score": 30,
+      "demand_basis": {
+        "llm_demand": 30,
+        "transcript_evidence": 0,
+        "rising_volume": 0,
+        "labels": [
+          "no prompt-volume corpus; proxies only"
+        ]
+      },
+      "call_evidence": [],
+      "gap": {
+        "we_cited_engines": [],
+        "competitor_domains": [
+          "example-adtech.com",
+          "example-consultancy.com",
+          "example-press-institute.org",
+          "research.example-university.edu"
+        ]
+      },
+      "trend": "new",
+      "status": "watch",
+      "touchpoint_id": null,
+      "probes": [
+        {
+          "engine": "perplexity",
+          "model": "sonar",
+          "question": "How should a regional media group use AI in its newsroom?",
+          "answer_snapshot": "Summary: the question of a regional media group use AI in its newsroom comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-press-institute.org/ai-newsroom-guide",
+            "https://www.example-consultancy.com/insights/media-ai"
+          ],
+          "cost_usd": 0.01
+        },
+        {
+          "engine": "chatgpt",
+          "model": "gpt-5",
+          "question": "How should a regional media group use AI in its newsroom?",
+          "answer_snapshot": "In short: the question of a regional media group use AI in its newsroom comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-consultancy.com/insights/media-ai",
+            "https://www.example-adtech.com/blog/2026/ad-ops-automation"
+          ],
+          "cost_usd": 0.05
+        },
+        {
+          "engine": "claude",
+          "model": "claude-sonnet-5",
+          "question": "How should a regional media group use AI in its newsroom?",
+          "answer_snapshot": "Here is the practical answer: the question of a regional media group use AI in its newsroom comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-adtech.com/blog/2026/ad-ops-automation",
+            "https://research.example-university.edu/newsroom-ai"
+          ],
+          "cost_usd": 0.07
+        }
+      ]
+    },
+    {
+      "query_id": "2cffd959-591f-4120-8a50-10afbe3effb1",
+      "query": "What does an AI policy for a local news group look like?",
+      "source": "seed",
+      "demand_score": 30,
+      "demand_basis": {
+        "llm_demand": 30,
+        "transcript_evidence": 0,
+        "rising_volume": 0,
+        "labels": [
+          "no prompt-volume corpus; proxies only"
+        ]
+      },
+      "call_evidence": [],
+      "gap": {
+        "we_cited_engines": [],
+        "competitor_domains": [
+          "research.example-university.edu",
+          "example-adtech.com",
+          "example-consultancy.com",
+          "example-press-institute.org",
+          "example-trade-daily.com"
+        ]
+      },
+      "trend": "new",
+      "status": "recommend",
+      "touchpoint_id": null,
+      "probes": [
+        {
+          "engine": "perplexity",
+          "model": "sonar",
+          "question": "What does an AI policy for a local news group look like?",
+          "answer_snapshot": "Summary: the question of an AI policy for a local news group look like comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-consultancy.com/insights/media-ai",
+            "https://research.example-university.edu/newsroom-ai"
+          ],
+          "cost_usd": 0.01
+        },
+        {
+          "engine": "chatgpt",
+          "model": "gpt-5",
+          "question": "What does an AI policy for a local news group look like?",
+          "answer_snapshot": "In short: the question of an AI policy for a local news group look like comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-adtech.com/blog/2026/ad-ops-automation",
+            "https://www.example-trade-daily.com/2026/08/publishers-ai"
+          ],
+          "cost_usd": 0.05
+        },
+        {
+          "engine": "claude",
+          "model": "claude-sonnet-5",
+          "question": "What does an AI policy for a local news group look like?",
+          "answer_snapshot": "Here is the practical answer: the question of an AI policy for a local news group look like comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://research.example-university.edu/newsroom-ai",
+            "https://www.example-press-institute.org/ai-newsroom-guide"
+          ],
+          "cost_usd": 0.07
+        }
+      ]
+    },
+    {
+      "query_id": "7c8e7821-7a0c-4d69-8d1c-53016957727c",
+      "query": "What happens to ad ops jobs when reporting is automated?",
+      "source": "seed",
+      "demand_score": 30,
+      "demand_basis": {
+        "llm_demand": 30,
+        "transcript_evidence": 0,
+        "rising_volume": 0,
+        "labels": [
+          "no prompt-volume corpus; proxies only"
+        ]
+      },
+      "call_evidence": [],
+      "gap": {
+        "we_cited_engines": [],
+        "competitor_domains": [
+          "example-adtech.com",
+          "example-consultancy.com",
+          "example-press-institute.org",
+          "research.example-university.edu"
+        ]
+      },
+      "trend": "new",
+      "status": "watch",
+      "touchpoint_id": null,
+      "probes": [
+        {
+          "engine": "perplexity",
+          "model": "sonar",
+          "question": "What happens to ad ops jobs when reporting is automated?",
+          "answer_snapshot": "Summary: the question of to ad ops jobs when reporting is automated comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-press-institute.org/ai-newsroom-guide",
+            "https://www.example-consultancy.com/insights/media-ai"
+          ],
+          "cost_usd": 0.01
+        },
+        {
+          "engine": "chatgpt",
+          "model": "gpt-5",
+          "question": "What happens to ad ops jobs when reporting is automated?",
+          "answer_snapshot": "In short: the question of to ad ops jobs when reporting is automated comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-consultancy.com/insights/media-ai",
+            "https://www.example-adtech.com/blog/2026/ad-ops-automation"
+          ],
+          "cost_usd": 0.05
+        },
+        {
+          "engine": "claude",
+          "model": "claude-sonnet-5",
+          "question": "What happens to ad ops jobs when reporting is automated?",
+          "answer_snapshot": "Here is the practical answer: the question of to ad ops jobs when reporting is automated comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-adtech.com/blog/2026/ad-ops-automation",
+            "https://research.example-university.edu/newsroom-ai"
+          ],
+          "cost_usd": 0.07
+        }
+      ]
+    },
+    {
+      "query_id": "57205419-b612-4aba-8a62-ebec3743093c",
+      "query": "What is a first-party data strategy for a regional media group?",
+      "source": "seed",
+      "demand_score": 30,
+      "demand_basis": {
+        "llm_demand": 30,
+        "transcript_evidence": 0,
+        "rising_volume": 0,
+        "labels": [
+          "no prompt-volume corpus; proxies only"
+        ]
+      },
+      "call_evidence": [],
+      "gap": {
+        "we_cited_engines": [],
+        "competitor_domains": [
+          "research.example-university.edu",
+          "example-adtech.com",
+          "example-consultancy.com",
+          "example-press-institute.org",
+          "example-trade-daily.com"
+        ]
+      },
+      "trend": "new",
+      "status": "recommend",
+      "touchpoint_id": null,
+      "probes": [
+        {
+          "engine": "perplexity",
+          "model": "sonar",
+          "question": "What is a first-party data strategy for a regional media group?",
+          "answer_snapshot": "Summary: the question of a first-party data strategy for a regional media group comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-consultancy.com/insights/media-ai",
+            "https://research.example-university.edu/newsroom-ai"
+          ],
+          "cost_usd": 0.01
+        },
+        {
+          "engine": "chatgpt",
+          "model": "gpt-5",
+          "question": "What is a first-party data strategy for a regional media group?",
+          "answer_snapshot": "In short: the question of a first-party data strategy for a regional media group comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-adtech.com/blog/2026/ad-ops-automation",
+            "https://www.example-trade-daily.com/2026/08/publishers-ai"
+          ],
+          "cost_usd": 0.05
+        },
+        {
+          "engine": "claude",
+          "model": "claude-sonnet-5",
+          "question": "What is a first-party data strategy for a regional media group?",
+          "answer_snapshot": "Here is the practical answer: the question of a first-party data strategy for a regional media group comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://research.example-university.edu/newsroom-ai",
+            "https://www.example-press-institute.org/ai-newsroom-guide"
+          ],
+          "cost_usd": 0.07
+        }
+      ]
+    },
+    {
+      "query_id": "2a1e7368-64aa-456d-88fe-3f7ad6be9e7a",
+      "query": "What should a newsroom AI working group deliver in its first 90 days?",
+      "source": "room_signal",
+      "demand_score": 30,
+      "demand_basis": {
+        "llm_demand": 30,
+        "transcript_evidence": 0,
+        "rising_volume": 0,
+        "labels": [
+          "no prompt-volume corpus; proxies only"
+        ]
+      },
+      "call_evidence": [],
+      "gap": {
+        "we_cited_engines": [],
+        "competitor_domains": [
+          "example-adtech.com",
+          "example-consultancy.com",
+          "example-press-institute.org",
+          "example-trade-daily.com",
+          "research.example-university.edu"
+        ]
+      },
+      "trend": "new",
+      "status": "recommend",
+      "touchpoint_id": null,
+      "probes": [
+        {
+          "engine": "perplexity",
+          "model": "sonar",
+          "question": "What should a newsroom AI working group deliver in its first 90 days?",
+          "answer_snapshot": "Summary: the question of a newsroom AI working group deliver in its first 90 days comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-adtech.com/blog/2026/ad-ops-automation",
+            "https://www.example-press-institute.org/ai-newsroom-guide"
+          ],
+          "cost_usd": 0.01
+        },
+        {
+          "engine": "chatgpt",
+          "model": "gpt-5",
+          "question": "What should a newsroom AI working group deliver in its first 90 days?",
+          "answer_snapshot": "In short: the question of a newsroom AI working group deliver in its first 90 days comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://research.example-university.edu/newsroom-ai",
+            "https://www.example-consultancy.com/insights/media-ai"
+          ],
+          "cost_usd": 0.05
+        },
+        {
+          "engine": "claude",
+          "model": "claude-sonnet-5",
+          "question": "What should a newsroom AI working group deliver in its first 90 days?",
+          "answer_snapshot": "Here is the practical answer: the question of a newsroom AI working group deliver in its first 90 days comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-trade-daily.com/2026/08/publishers-ai",
+            "https://www.example-adtech.com/blog/2026/ad-ops-automation"
+          ],
+          "cost_usd": 0.07
+        }
+      ]
+    },
+    {
+      "query_id": "c42ad118-6d6f-477a-85ef-51a59493cd6a",
+      "query": "Which newsroom tasks should AI take over first?",
+      "source": "seed",
+      "demand_score": 30,
+      "demand_basis": {
+        "llm_demand": 30,
+        "transcript_evidence": 0,
+        "rising_volume": 0,
+        "labels": [
+          "no prompt-volume corpus; proxies only"
+        ]
+      },
+      "call_evidence": [],
+      "gap": {
+        "we_cited_engines": [],
+        "competitor_domains": [
+          "example-adtech.com",
+          "example-consultancy.com",
+          "example-press-institute.org",
+          "example-trade-daily.com",
+          "research.example-university.edu"
+        ]
+      },
+      "trend": "new",
+      "status": "watch",
+      "touchpoint_id": null,
+      "probes": [
+        {
+          "engine": "perplexity",
+          "model": "sonar",
+          "question": "Which newsroom tasks should AI take over first?",
+          "answer_snapshot": "Summary: the question of newsroom tasks should AI take over first comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-adtech.com/blog/2026/ad-ops-automation",
+            "https://www.example-press-institute.org/ai-newsroom-guide"
+          ],
+          "cost_usd": 0.01
+        },
+        {
+          "engine": "chatgpt",
+          "model": "gpt-5",
+          "question": "Which newsroom tasks should AI take over first?",
+          "answer_snapshot": "In short: the question of newsroom tasks should AI take over first comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://research.example-university.edu/newsroom-ai",
+            "https://www.example-consultancy.com/insights/media-ai"
+          ],
+          "cost_usd": 0.05
+        },
+        {
+          "engine": "claude",
+          "model": "claude-sonnet-5",
+          "question": "Which newsroom tasks should AI take over first?",
+          "answer_snapshot": "Here is the practical answer: the question of newsroom tasks should AI take over first comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-trade-daily.com/2026/08/publishers-ai",
+            "https://www.example-adtech.com/blog/2026/ad-ops-automation"
+          ],
+          "cost_usd": 0.07
+        }
+      ]
+    },
+    {
+      "query_id": "9ee193fa-9a90-4f44-89af-7586759a7cbd",
+      "query": "How do we answer a board that asks what the AI plan is?",
+      "source": "room_signal",
+      "demand_score": 10,
+      "demand_basis": {
+        "llm_demand": 10,
+        "transcript_evidence": 0,
+        "rising_volume": 0,
+        "labels": [
+          "no prompt-volume corpus; proxies only"
+        ]
+      },
+      "call_evidence": [],
+      "gap": {
+        "we_cited_engines": [
+          "chatgpt"
+        ],
+        "competitor_domains": [
+          "example-consultancy.com",
+          "example-trade-daily.com"
+        ]
+      },
+      "trend": "new",
+      "status": "watch",
+      "touchpoint_id": null,
+      "probes": [
+        {
+          "engine": "perplexity",
+          "model": "sonar",
+          "question": "How do we answer a board that asks what the AI plan is?",
+          "answer_snapshot": "Summary: the question of answer a board that asks what the AI plan is comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-trade-daily.com/2026/08/publishers-ai"
+          ],
+          "cost_usd": 0.01
+        },
+        {
+          "engine": "chatgpt",
+          "model": "gpt-5",
+          "question": "How do we answer a board that asks what the AI plan is?",
+          "answer_snapshot": "In short: the question of answer a board that asks what the AI plan is comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": true,
+          "citations": [
+            "https://mindmakerlive.substack.com/p/the-board-question",
+            "https://www.example-consultancy.com/insights/media-ai"
+          ],
+          "cost_usd": 0.05
+        },
+        {
+          "engine": "claude",
+          "model": "claude-sonnet-5",
+          "question": "How do we answer a board that asks what the AI plan is?",
+          "answer_snapshot": "Here is the practical answer: the question of answer a board that asks what the AI plan is comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-consultancy.com/insights/media-ai"
+          ],
+          "cost_usd": 0.07
+        }
+      ]
+    },
+    {
+      "query_id": "94aa74a4-3a35-4ce1-8b0f-7d38f4b4b81a",
+      "query": "How are other regional media groups using AI in 2026?",
+      "source": "seed",
+      "demand_score": 0,
+      "demand_basis": {
+        "llm_demand": 0,
+        "transcript_evidence": 0,
+        "rising_volume": 0,
+        "labels": [
+          "no prompt-volume corpus; proxies only"
+        ]
+      },
+      "call_evidence": [],
+      "gap": {
+        "we_cited_engines": [],
+        "competitor_domains": [
+          "example-consultancy.com",
+          "example-press-institute.org",
+          "example-trade-daily.com"
+        ]
+      },
+      "trend": "new",
+      "status": "drop",
+      "touchpoint_id": null,
+      "probes": [
+        {
+          "engine": "perplexity",
+          "model": "sonar",
+          "question": "How are other regional media groups using AI in 2026?",
+          "answer_snapshot": "Mostly pilots in the newsroom, a few in ad operations, and very little that has reached the P&L yet.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-trade-daily.com/2026/08/publishers-ai"
+          ],
+          "cost_usd": 0.01
+        },
+        {
+          "engine": "chatgpt",
+          "model": "gpt-5",
+          "question": "How are other regional media groups using AI in 2026?",
+          "answer_snapshot": "In short: the question of other regional media groups using AI in 2026 comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-press-institute.org/ai-newsroom-guide"
+          ],
+          "cost_usd": 0.05
+        },
+        {
+          "engine": "claude",
+          "model": "claude-sonnet-5",
+          "question": "How are other regional media groups using AI in 2026?",
+          "answer_snapshot": "Here is the practical answer: the question of other regional media groups using AI in 2026 comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-consultancy.com/insights/media-ai"
+          ],
+          "cost_usd": 0.07
+        }
+      ]
+    },
+    {
+      "query_id": "ae1595d7-11c7-4d06-8f4d-611b49de60bc",
+      "query": "Should a regional publisher build or buy AI tools for the newsroom?",
+      "source": "seed",
+      "demand_score": 0,
+      "demand_basis": {
+        "llm_demand": 0,
+        "transcript_evidence": 0,
+        "rising_volume": 0,
+        "labels": [
+          "no prompt-volume corpus; proxies only"
+        ]
+      },
+      "call_evidence": [],
+      "gap": {
+        "we_cited_engines": [],
+        "competitor_domains": [
+          "example-consultancy.com",
+          "example-press-institute.org",
+          "example-trade-daily.com"
+        ]
+      },
+      "trend": "new",
+      "status": "drop",
+      "touchpoint_id": null,
+      "probes": [
+        {
+          "engine": "perplexity",
+          "model": "sonar",
+          "question": "Should a regional publisher build or buy AI tools for the newsroom?",
+          "answer_snapshot": "Summary: the question of Should a regional publisher build or buy AI tools for the newsroom comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-trade-daily.com/2026/08/publishers-ai"
+          ],
+          "cost_usd": 0.01
+        },
+        {
+          "engine": "chatgpt",
+          "model": "gpt-5",
+          "question": "Should a regional publisher build or buy AI tools for the newsroom?",
+          "answer_snapshot": "In short: the question of Should a regional publisher build or buy AI tools for the newsroom comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-press-institute.org/ai-newsroom-guide"
+          ],
+          "cost_usd": 0.05
+        },
+        {
+          "engine": "claude",
+          "model": "claude-sonnet-5",
+          "question": "Should a regional publisher build or buy AI tools for the newsroom?",
+          "answer_snapshot": "Here is the practical answer: the question of Should a regional publisher build or buy AI tools for the newsroom comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-consultancy.com/insights/media-ai"
+          ],
+          "cost_usd": 0.07
+        }
+      ]
+    },
+    {
+      "query_id": "b7ade307-2543-4d11-8966-6148d022ff3c",
+      "query": "What does a media group need in a data platform before using AI?",
+      "source": "seed",
+      "demand_score": 0,
+      "demand_basis": {
+        "llm_demand": 0,
+        "transcript_evidence": 0,
+        "rising_volume": 0,
+        "labels": [
+          "no prompt-volume corpus; proxies only"
+        ]
+      },
+      "call_evidence": [],
+      "gap": {
+        "we_cited_engines": [],
+        "competitor_domains": [
+          "example-consultancy.com",
+          "example-press-institute.org",
+          "example-trade-daily.com"
+        ]
+      },
+      "trend": "new",
+      "status": "drop",
+      "touchpoint_id": null,
+      "probes": [
+        {
+          "engine": "perplexity",
+          "model": "sonar",
+          "question": "What does a media group need in a data platform before using AI?",
+          "answer_snapshot": "Summary: the question of a media group need in a data platform before using AI comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-trade-daily.com/2026/08/publishers-ai"
+          ],
+          "cost_usd": 0.01
+        },
+        {
+          "engine": "chatgpt",
+          "model": "gpt-5",
+          "question": "What does a media group need in a data platform before using AI?",
+          "answer_snapshot": "In short: the question of a media group need in a data platform before using AI comes down to two or three decisions. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-press-institute.org/ai-newsroom-guide"
+          ],
+          "cost_usd": 0.05
+        },
+        {
+          "engine": "claude",
+          "model": "claude-sonnet-5",
+          "question": "What does a media group need in a data platform before using AI?",
+          "answer_snapshot": "Here is the practical answer: the question of a media group need in a data platform before using AI comes down to a few concrete steps. First, decide what good looks like and write it down as examples rather than adjectives. Second, give the tool those examples in a form it can check itself against, then measure the drift over a week of real use. Third, keep a short list of the cases where it still fails and fix those one at a time rather than rewriting the whole setup. Most teams that do this see the output settle within a couple of weeks; the ones that skip the examples step keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-consultancy.com/insights/media-ai"
+          ],
+          "cost_usd": 0.07
+        }
+      ]
+    }
+  ],
+  "strongest_signal": "\"What should a newsroom AI working group deliver in its first 90 days?\" scored 30 and we are absent on perplexity, chatgpt, claude",
+  "recommendations": [
+    {
+      "n": 1,
+      "title": "Answer \"What should a newsroom AI working group deliver in its first 90 days?\"",
+      "target_query": "What should a newsroom AI working group deliver in its first 90 days?",
+      "query_id": "2a1e7368-64aa-456d-88fe-3f7ad6be9e7a",
+      "angle": "No page of ours answers this question: write one, in the buyer's words. We are not cited on perplexity, chatgpt, claude for this question. Cited instead: example-adtech.com, example-consultancy.com, example-press-institute.org. No call this week carried the theme.",
+      "evidence": [
+        "demand 30: llm 30, transcript 0, volume 0",
+        "absent on perplexity, chatgpt, claude; cited on none",
+        "competitors cited: example-adtech.com, example-consultancy.com, example-press-institute.org",
+        "gap: no_page (no page of ours answers it); no page of ours matches; first cited: example-adtech.com, vendor"
+      ],
+      "engines": [
+        "perplexity",
+        "chatgpt",
+        "claude"
+      ],
+      "demand": 30,
+      "why_you_can_win": null
+    },
+    {
+      "n": 2,
+      "title": "Answer \"What does an AI policy for a local news group look like?\"",
+      "target_query": "What does an AI policy for a local news group look like?",
+      "query_id": "2cffd959-591f-4120-8a50-10afbe3effb1",
+      "angle": "No page of ours answers this question: write one, in the buyer's words. We are not cited on perplexity, chatgpt, claude for this question. Cited instead: research.example-university.edu, example-adtech.com, example-consultancy.com. No call this week carried the theme.",
+      "evidence": [
+        "demand 30: llm 30, transcript 0, volume 0",
+        "absent on perplexity, chatgpt, claude; cited on none",
+        "competitors cited: research.example-university.edu, example-adtech.com, example-consultancy.com",
+        "gap: no_page (no page of ours answers it); no page of ours matches; first cited: example-consultancy.com, unknown"
+      ],
+      "engines": [
+        "perplexity",
+        "chatgpt",
+        "claude"
+      ],
+      "demand": 30,
+      "why_you_can_win": null
+    },
+    {
+      "n": 3,
+      "title": "Answer \"How do publishers use AI for ad sales proposals?\"",
+      "target_query": "How do publishers use AI for ad sales proposals?",
+      "query_id": "508c245e-8d81-4bd8-81a4-5e967c5db55c",
+      "angle": "No page of ours answers this question: write one, in the buyer's words. We are not cited on perplexity, chatgpt, claude for this question. Cited instead: example-trade-daily.com, research.example-university.edu, example-adtech.com. No call this week carried the theme.",
+      "evidence": [
+        "demand 30: llm 30, transcript 0, volume 0",
+        "absent on perplexity, chatgpt, claude; cited on none",
+        "competitors cited: example-trade-daily.com, research.example-university.edu, example-adtech.com",
+        "gap: no_page (no page of ours answers it); no page of ours matches; first cited: research.example-university.edu, unknown"
+      ],
+      "engines": [
+        "perplexity",
+        "chatgpt",
+        "claude"
+      ],
+      "demand": 30,
+      "why_you_can_win": null
+    },
+    {
+      "n": 4,
+      "title": "Answer \"What is a first-party data strategy for a regional media group?\"",
+      "target_query": "What is a first-party data strategy for a regional media group?",
+      "query_id": "57205419-b612-4aba-8a62-ebec3743093c",
+      "angle": "No page of ours answers this question: write one, in the buyer's words. We are not cited on perplexity, chatgpt, claude for this question. Cited instead: research.example-university.edu, example-adtech.com, example-consultancy.com. No call this week carried the theme.",
+      "evidence": [
+        "demand 30: llm 30, transcript 0, volume 0",
+        "absent on perplexity, chatgpt, claude; cited on none",
+        "competitors cited: research.example-university.edu, example-adtech.com, example-consultancy.com",
+        "gap: no_page (no page of ours answers it); no page of ours matches; first cited: example-consultancy.com, unknown"
+      ],
+      "engines": [
+        "perplexity",
+        "chatgpt",
+        "claude"
+      ],
+      "demand": 30,
+      "why_you_can_win": null
+    },
+    {
+      "n": 5,
+      "title": "Answer \"How do we run an AI pilot in a newsroom without disrupting deadlines?\"",
+      "target_query": "How do we run an AI pilot in a newsroom without disrupting deadlines?",
+      "query_id": "596140cb-8c0a-40ba-822f-21bd20fbb2ea",
+      "angle": "No page of ours answers this question: write one, in the buyer's words. We are not cited on perplexity, chatgpt, claude for this question. Cited instead: example-trade-daily.com, research.example-university.edu, example-adtech.com. No call this week carried the theme.",
+      "evidence": [
+        "demand 30: llm 30, transcript 0, volume 0",
+        "absent on perplexity, chatgpt, claude; cited on none",
+        "competitors cited: example-trade-daily.com, research.example-university.edu, example-adtech.com",
+        "gap: no_page (no page of ours answers it); no page of ours matches; first cited: research.example-university.edu, unknown"
+      ],
+      "engines": [
+        "perplexity",
+        "chatgpt",
+        "claude"
+      ],
+      "demand": 30,
+      "why_you_can_win": null
+    }
+  ],
+  "not_worth_chasing": [
+    {
+      "query_id": "80794fb9-2212-4f8d-8293-95cc6e5091a0",
+      "query": "How do we choose an AI partner for a media business?",
+      "owned_by": [
+        "forbes.com",
+        "hbr.org",
+        "mckinsey.com",
+        "youtube.com"
+      ],
+      "why_not": "The answer is owned by forbes.com, hbr.org, mckinsey.com, won on reach and format rather than on argument, and one piece will not displace that. The writing pass was unavailable this week, so nothing beyond who is cited was judged."
+    }
+  ],
+  "watch_list": [
+    {
+      "query_id": "9dfeee33-78d2-4e4d-80fb-c7222d69b07a",
+      "query": "How do media companies avoid AI errors reaching print?",
+      "why": "demand 30, new; cited on 0 of 3 probed engines"
+    },
+    {
+      "query_id": "61829021-63f7-43d7-8490-98d96fe622a0",
+      "query": "How do PE-backed media groups measure AI return on investment?",
+      "why": "demand 30, new; cited on 0 of 3 probed engines"
+    },
+    {
+      "query_id": "9602b6d9-f31f-4f87-88be-37c555c170f7",
+      "query": "How do regional publishers automate ad operations reporting with AI?",
+      "why": "demand 30, new; cited on 0 of 3 probed engines"
+    },
+    {
+      "query_id": "80794fb9-2212-4f8d-8293-95cc6e5091a0",
+      "query": "How do we choose an AI partner for a media business?",
+      "why": "demand 30, new; cited on 0 of 3 probed engines"
+    },
+    {
+      "query_id": "dbb4d68e-393a-4aef-837a-3de843081008",
+      "query": "How do we keep readers' trust while using AI in the newsroom?",
+      "why": "demand 30, new; cited on 0 of 3 probed engines"
+    },
+    {
+      "query_id": "dcef5728-564c-4e94-85ab-8c9a461cc7fa",
+      "query": "How do we sequence AI across the newsroom and ad operations?",
+      "why": "demand 30, new; cited on 0 of 3 probed engines"
+    },
+    {
+      "query_id": "5d6554f8-83d0-4677-854c-fd7b7a01e976",
+      "query": "How do we train editors to use AI without losing quality?",
+      "why": "demand 30, new; cited on 0 of 3 probed engines"
+    },
+    {
+      "query_id": "e8a264d8-b5e2-4f68-8198-fb09f67c1fb7",
+      "query": "How do we use AI to grow subscription revenue at a regional title?",
+      "why": "demand 30, new; cited on 0 of 3 probed engines"
+    },
+    {
+      "query_id": "7d6088ab-a33e-4484-8e5c-9f25487e8cd6",
+      "query": "How should a regional media group use AI in its newsroom?",
+      "why": "demand 30, new; cited on 0 of 3 probed engines"
+    },
+    {
+      "query_id": "7c8e7821-7a0c-4d69-8d1c-53016957727c",
+      "query": "What happens to ad ops jobs when reporting is automated?",
+      "why": "demand 30, new; cited on 0 of 3 probed engines"
+    },
+    {
+      "query_id": "c42ad118-6d6f-477a-85ef-51a59493cd6a",
+      "query": "Which newsroom tasks should AI take over first?",
+      "why": "demand 30, new; cited on 0 of 3 probed engines"
+    },
+    {
+      "query_id": "9ee193fa-9a90-4f44-89af-7586759a7cbd",
+      "query": "How do we answer a board that asks what the AI plan is?",
+      "why": "demand 10, new; cited on 1 of 3 probed engines"
+    }
+  ],
+  "competitor_gap": {
+    "domain": "example-adtech.com",
+    "times_cited": 23,
+    "questions": [
+      "How do media companies avoid AI errors reaching print?",
+      "How do PE-backed media groups measure AI return on investment?",
+      "How do publishers use AI for ad sales proposals?",
+      "How do regional publishers automate ad operations reporting with AI?",
+      "How do we choose an AI partner for a media business?",
+      "How do we keep readers' trust while using AI in the newsroom?",
+      "How do we run an AI pilot in a newsroom without disrupting deadlines?",
+      "How do we sequence AI across the newsroom and ad operations?",
+      "How do we train editors to use AI without losing quality?",
+      "How do we use AI to grow subscription revenue at a regional title?"
+    ]
+  },
+  "playbook": null,
+  "approach_hook": "When your team asks an AI assistant \"What should a newsroom AI working group deliver in its first 90 days?\", the answer cites example-adtech.com and does not mention Mindmake.",
+  "stats": {
+    "queries": 20,
+    "probes": 60,
+    "probes_failed": 0,
+    "probes_skipped_cap": 0,
+    "cost_usd": 2.6,
+    "engines": 3,
+    "transcripts": 2,
+    "digest_writer": "fallback"
+  }
+}

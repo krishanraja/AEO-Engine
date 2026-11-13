@@ -9,6 +9,7 @@
     "build": "tsc",
     "run": "tsx src/index.ts",
     "protocol": "tsx src/protocol/cli.ts",
+    "site": "tsx src/site.ts",
     "test": "tsx --test tests/*.test.ts",
     "typecheck": "tsc --noEmit",
     "check:config": "tsx scripts/check-config.mts"

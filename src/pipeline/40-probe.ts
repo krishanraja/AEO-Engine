@@ -18,11 +18,22 @@ import { ourHits } from '../lib/domains.js'
 import { errText, log } from '../lib/log.js'
 import { probeDetail, type ProbeDetail } from '../lib/probeDetail.js'
 import { CLEAN, EMAIL_RE, HANDLE_RE, scrubPII } from '../lib/text.js'
-import { inPacket, type Engine, type GatedEngine, type Probe, type QuerySource } from '../schema/packet.js'
+import { inPacket, type Engine, type GatedEngine, type Probe, type ProbeEngine, type QuerySource } from '../schema/packet.js'
 import type { ProposedQuery } from './30-propose.js'
+
+/**
+ * What one answer said about where it looked, kept in memory for the
+ * diagnosis and the win kits (src/pipeline/45-pages.ts, 62-kits.ts) and never
+ * written to the packet, a log or the summary: its inline citations as the
+ * engine gave them (raw order, before cleaning), what its search retrieved,
+ * and the search queries it ran.
+ */
+export interface ProbeEvidence { engine: ProbeEngine; citations: string[]; retrieved: string[]; fan_out: string[] }
 
 export interface ProbeOutcome {
   probesByQuery: Map<string, Probe[]>
+  /** Per probed question, each answer's raw citations, retrieved URLs and fan-out, in engine order, gated engines included. In memory only. */
+  evidenceByQuery?: Map<string, ProbeEvidence[]>
   /** Per probed question, what each answer measured about us, in engine order, gated engines included. Never in the packet. */
   detailsByQuery?: Map<string, ProbeDetail[]>
   /** The packet's engines only: these three are the packet's stats. */
@@ -109,7 +120,8 @@ export function isGroundingRedirect(u: string): boolean {
   try { return new URL(u).hostname.toLowerCase() === REDIRECT_HOST } catch { return false }
 }
 
-function cleanCitation(u: string): string | null {
+/** A citation as the packet may carry it: trimmed and cut, or null when it holds an email, a handle or a grounding redirect. */
+export function cleanCitation(u: string): string | null {
   const s = String(u).trim().slice(0, 500)
   EMAIL_RE.lastIndex = 0
   HANDLE_RE.lastIndex = 0
@@ -134,10 +146,11 @@ export async function probeQueries(
   opts: ProbeOptions = {},
 ): Promise<ProbeOutcome> {
   const out: ProbeOutcome = {
-    probesByQuery: new Map(), detailsByQuery: new Map(), probes: 0, probes_failed: 0, probes_skipped_cap: 0,
+    probesByQuery: new Map(), detailsByQuery: new Map(), evidenceByQuery: new Map(), probes: 0, probes_failed: 0, probes_skipped_cap: 0,
     probes_skipped_limit: 0, probes_limit_warning: 0, probes_fallback: 0, probes_skipped_free_tier: 0, gated_failed: 0, gated_skipped_cap: 0, typed_urls_dropped: 0,
   }
   const details = out.detailsByQuery as Map<string, ProbeDetail[]>
+  const evidence = out.evidenceByQuery as Map<string, ProbeEvidence[]>
   const open = opts.open ?? []
   const counted = (e: EngineClient) => inPacket(e.engine, open)
   const shadow = opts.shadow && opts.shadow.questions > 0 ? opts.shadow : null
@@ -222,7 +235,7 @@ export async function probeQueries(
         if (typeof a.typed_urls_dropped === 'number' && a.typed_urls_dropped > 0) out.typed_urls_dropped = (out.typed_urls_dropped ?? 0) + a.typed_urls_dropped
         // Measured before cleaning: cleaning drops a URL that carries an
         // email or a handle, which would promote a later source to first.
-        const detail = probeDetail(q.query_id, engine.engine, { text: a.text, citations: raw, searched: a.searched }, krishHitsDomains)
+        const detail = probeDetail(q.query_id, engine.engine, { text: a.text, citations: raw, searched: a.searched, retrieved: Array.isArray(a.retrieved) ? a.retrieved.map(String) : [] }, krishHitsDomains)
         const citations = raw.map(cleanCitation).filter((c): c is string => !!c).slice(0, CAPS.MAX_CITATIONS)
         const probe: Probe = {
           // A gated engine reaches the packet only once the context opened it,
@@ -237,7 +250,13 @@ export async function probeQueries(
           citations,
           cost_usd: usd,
         }
-        return { engine, ok: { probe, detail, answer: a } }
+        const ev: ProbeEvidence = {
+          engine: engine.engine,
+          citations: raw.filter(c => c.trim().length > 0).map(c => c.trim().slice(0, 500)),
+          retrieved: Array.isArray(a.retrieved) ? a.retrieved.map(String).filter(Boolean).slice(0, 50).map(c => c.slice(0, 500)) : [],
+          fan_out: Array.isArray(a.fan_out) ? a.fan_out.map(String).filter(Boolean).slice(0, 20).map(c => c.slice(0, 300)) : [],
+        }
+        return { engine, ok: { probe, detail, answer: a, evidence: ev } }
       } catch (e) {
         if (e instanceof FreeTierExhausted) {
           // Not asked, so not paid for: the charge made before the ask is taken back.
@@ -259,6 +278,7 @@ export async function probeQueries(
     // engine's answer is measured and counted in the summary only.
     const rows: Array<{ probe: Probe; detail: ProbeDetail }> = []
     const qDetails: ProbeDetail[] = []
+    const qEvidence: ProbeEvidence[] = []
     for (const r of settled) {
       const inP = counted(r.engine)
       if (r.skippedFreeTier) { out.probes_skipped_free_tier = (out.probes_skipped_free_tier ?? 0) + 1; continue }
@@ -268,11 +288,13 @@ export async function probeQueries(
         continue
       }
       qDetails.push(r.ok.detail)
+      qEvidence.push(r.ok.evidence)
       if (inP) rows.push(r.ok)
     }
     out.probes += rows.length
     if (rows.length) out.probesByQuery.set(q.query_id, rows.map(r => r.probe))
     if (qDetails.length) details.set(q.query_id, qDetails)
+    if (qEvidence.length) evidence.set(q.query_id, qEvidence)
   }
   const all = [...details.values()].flat()
   // `requested` counts the requested questions an assistant actually answered,
@@ -289,7 +311,7 @@ export async function probeQueries(
 
 interface Settled {
   engine: EngineClient
-  ok?: { probe: Probe; detail: ProbeDetail; answer: EngineAnswer }
+  ok?: { probe: Probe; detail: ProbeDetail; answer: EngineAnswer; evidence: ProbeEvidence }
   skippedFreeTier?: boolean
 }
 

@@ -1,0 +1,8 @@
+{
+  "_url": "https://mindmake.co/robots.txt",
+  "status": 200,
+  "headers": {
+    "content-type": "text/plain"
+  },
+  "text": "User-agent: *\nDisallow: /admin\n"
+}

@@ -141,6 +141,33 @@ export const CAPS = {
   WATCH_MIN_SCORE: 30,
   /** A demand score that moves by this much against last week reads as up or down. */
   TREND_STEP: 10,
+  /**
+   * The site reader (src/clients/site.ts): fetch only, GET only, never a
+   * script run. Requests to one host in one process, its throttle, its
+   * deadline, its body cap and its redirect hops.
+   */
+  SITE_MAX_REQUESTS_PER_HOST: 40,
+  SITE_MIN_GAP_MS: 1000,
+  SITE_TIMEOUT_MS: 15_000,
+  SITE_MAX_BYTES: 512 * 1024,
+  SITE_MAX_HOPS: 3,
+  /** A host that fails this many requests in a row is read no further this process. */
+  SITE_MAX_ERRORS_PER_HOST: 3,
+  /**
+   * The site audit (src/pipeline/15-site.ts): our own hosts per subject, the
+   * pages a subject's diagnosis reads, the pages read on one host (each host
+   * is audited once a run, src/site.ts), and sitemap files and URLs per host.
+   */
+  SITE_MAX_HOSTS_PER_SUBJECT: 3,
+  SITE_MAX_PAGES_PER_SUBJECT: 25,
+  SITE_MAX_PAGES_PER_HOST: 25,
+  SITE_MAX_SITEMAPS_PER_HOST: 8,
+  SITE_MAX_SITEMAP_URLS_PER_HOST: 200,
+  /** The pages cited first for our questions (src/pipeline/45-pages.ts): per subject, and per host. Never their links. */
+  THIRD_PARTY_MAX_PAGES_PER_SUBJECT: 15,
+  THIRD_PARTY_MAX_PAGES_PER_HOST: 3,
+  /** A page of ours answers a question when this share of the question's words is in its title and H1. */
+  PAGE_MATCH_MIN: 0.35,
 } as const
 
 /**

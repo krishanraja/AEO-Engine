@@ -14,7 +14,7 @@
  * Counts and flags only. No URL, no answer text, no question.
  */
 import type { ProbeEngine } from '../schema/packet.js'
-import { ourHits, ourPosition } from './domains.js'
+import { ourHits, ourPosition, urlMatchesDomain } from './domains.js'
 
 export interface ProbeDetail {
   query_id: string
@@ -30,9 +30,17 @@ export interface ProbeDetail {
   searched: boolean
   /** The answer cited no source in its text. */
   zero_citation: boolean
+  /**
+   * Any URL the engine's search returned (its retrieved list, cited or not) is
+   * on one of our domains. False when the engine does not say what it
+   * retrieved. The diagnosis reads it (src/pipeline/52-diagnose.ts): a page
+   * of ours that is retrieved and not cited is a different miss from one
+   * that is never retrieved.
+   */
+  retrieved_ours: boolean
 }
 
-export interface RawAnswer { text: string; citations: readonly string[]; searched?: boolean }
+export interface RawAnswer { text: string; citations: readonly string[]; searched?: boolean; retrieved?: readonly string[] }
 
 /**
  * The detail of one probe, from the answer's raw inline citations. When an
@@ -50,5 +58,6 @@ export function probeDetail(queryId: string, engine: ProbeEngine, a: RawAnswer, 
     cited_any: ourHits(a.text, citations, domains).length > 0,
     searched: typeof a.searched === 'boolean' ? a.searched : citations.length > 0,
     zero_citation: citations.length === 0,
+    retrieved_ours: (a.retrieved ?? []).some(u => typeof u === 'string' && domains.some(d => urlMatchesDomain(u, d))),
   }
 }

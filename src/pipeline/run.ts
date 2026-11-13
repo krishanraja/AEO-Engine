@@ -5,6 +5,8 @@
 import { randomUUID } from 'node:crypto'
 import { CAPS } from '../config/run.js'
 import type { ControlCenterClient, EngineClient, FirefliesClient, ModelClient } from '../clients/types.js'
+import type { SiteFetcher } from '../clients/site.js'
+import { subjectsConfig, isHeld } from '../config/subjects.js'
 import type { Ledger } from '../lib/cost.js'
 import { errText, log } from '../lib/log.js'
 import type { UsageMeter } from '../lib/usage.js'
@@ -17,9 +19,15 @@ import { krishHitsDomains, loadContext } from './00-context.js'
 import { classifyTranscripts, gatherTranscripts, themesForSubject, type Attribution, type Gathered } from './10-transcripts.js'
 import { gapFor } from './20-gap.js'
 import { proposeQueries } from './30-propose.js'
-import { probeLimitFor, probeQueries, type ProbeOutcome } from './40-probe.js'
+import { probeLimitFor, probeQueries, type ProbeEvidence, type ProbeOutcome } from './40-probe.js'
 import type { ProbeDetail } from '../lib/probeDetail.js'
-import { scoreQueries } from './50-score.js'
+import { EMPTY_AUDIT, failedGates, siteAudit, type HostAuditResult, type SiteAudit } from './15-site.js'
+import { firstCitedEntries, matchPages, readFirstCited, thirdPartyPerHost, type CitedEntry, type PageMatch } from './45-pages.js'
+import { scoreQueries, rowPriority } from './50-score.js'
+import { diagnoseAll, type Diagnosis } from './52-diagnose.js'
+import { buildKits, gapCounts, kitCandidate } from './62-kits.js'
+import { KIT_BACKUPS_MAX, type SubjectDiagnosis } from '../schema/kit.js'
+import { withFallback } from './stage.js'
 import { writeDigest } from './60-digest.js'
 import { applyVoice } from './65-voice.js'
 import { ship, writePacket, type ShipResult } from './70-ship.js'
@@ -63,6 +71,18 @@ export interface RunDeps {
   shadow?: EngineClient
   /** The Claude lane this run resolved (src/config/run.ts). Undefined offline. */
   claudeLane?: string
+  /**
+   * The site reader (src/clients/site.ts), fetch only: the pages cited first,
+   * and our own hosts' audit when there is no shared one. Absent or null: no
+   * page is read here (a retry attempt reads none).
+   */
+  site?: SiteFetcher | null
+  /**
+   * The run's own-host audit, read once by its site job (src/site.ts,
+   * --site-in). When set, even empty, our own hosts come only from it and are
+   * never requested here: a host many subjects share is read once a run.
+   */
+  sharedAudit?: ReadonlyMap<string, HostAuditResult>
 }
 
 export interface RunOpts {
@@ -81,7 +101,9 @@ export interface RunOpts {
  * many of this subject's requests were not asked in full (the spend cap, a
  * failed call or the probe limit stopped a question), a count only.
  */
-export interface SubjectResult { slug: string; packet: AeoPacket; shipped: ShipResult; domains: string[]; details?: ProbeDetail[]; served?: string[]; unserved?: number; extras?: ProbeExtras }
+export interface SubjectResult { slug: string; packet: AeoPacket; shipped: ShipResult; domains: string[]; details?: ProbeDetail[]; served?: string[]; unserved?: number; extras?: ProbeExtras; diagnosis?: SubjectDiagnosis }
+
+export type { SubjectDiagnosis }
 
 /**
  * What the probes counted beyond the packet's stats, for the sealed summary
@@ -94,7 +116,41 @@ export type ProbeExtras = Pick<ProbeOutcome, 'probes_skipped_limit' | 'probes_li
 }
 
 /** One subject's packet and the measurement that travels beside it. */
-export interface SubjectRun { packet: AeoPacket; details: ProbeDetail[]; domains: string[]; extras?: ProbeExtras; open?: GatedEngine[] }
+export interface SubjectRun { packet: AeoPacket; details: ProbeDetail[]; domains: string[]; extras?: ProbeExtras; open?: GatedEngine[]; diagnosis?: SubjectDiagnosis }
+
+/** A per-question map kept to the packet's engines. */
+function packetOnly<T extends { engine: string }>(m: ReadonlyMap<string, readonly T[]> | undefined, engines: ReadonlySet<string>): Map<string, T[]> {
+  const out = new Map<string, T[]>()
+  for (const [k, v] of m ?? []) {
+    const kept = v.filter(x => engines.has(x.engine))
+    if (kept.length) out.set(k, kept)
+  }
+  return out
+}
+
+/**
+ * Stages 15, 45, 52: the site audit, our best page per question, the pages
+ * cited first, and why each question is not won. Each stage degrades to its
+ * fallback rather than fail the subject. The audit is started before the
+ * probes and awaited after them, so it adds no time to a subject's run.
+ */
+async function diagnoseSubject(
+  subject: ContextSubject,
+  domains: readonly string[],
+  proposed: ReadonlyArray<{ query_id: string; query: string }>,
+  outcome: ProbeOutcome,
+  engines: readonly Engine[],
+  auditing: Promise<SiteAudit>,
+): Promise<{ audit: SiteAudit; diagnoses: Map<string, Diagnosis>; matches: Map<string, PageMatch>; details: Map<string, ProbeDetail[]>; evidence: Map<string, ProbeEvidence[]>; entries: Map<string, CitedEntry[]> }> {
+  const set = new Set<string>(engines)
+  const details = packetOnly(outcome.detailsByQuery, set)
+  const evidence = packetOnly(outcome.evidenceByQuery, set)
+  const audit = await auditing
+  const matches = await withFallback('page_match', () => matchPages(proposed, audit.pages), () => new Map<string, PageMatch>(), { subject: subject.slug })
+  const entries = await withFallback('first_cited', () => firstCitedEntries(evidence, domains), () => new Map<string, CitedEntry[]>(), { subject: subject.slug })
+  const diagnoses = await withFallback('diagnose', () => diagnoseAll(proposed, details, matches, entries, evidence, domains), () => new Map<string, Diagnosis>(), { subject: subject.slug })
+  return { audit, diagnoses, matches, details, evidence, entries }
+}
 
 /** The venture requests a subject answers: a venture subject, its own product's requests only. Pure. */
 export function requestsFor(subject: Pick<ContextSubject, 'kind' | 'product_slug'>, requests: readonly AnswerRequest[] | undefined): AnswerRequest[] {
@@ -134,11 +190,36 @@ export async function runSubject(subject: ContextSubject, shared: Shared, deps: 
   const limit = probeLimitFor(proposed.filter(q => q.requested).length)
   const reserve = deps.ledger.priceOf('digest') + (deps.taste?.approved_voice_rules?.length ? deps.ledger.priceOf('voice') : 0)
   const shadow = deps.shadow ? { client: deps.shadow, questions: CAPS.COMPARE_API_QUESTIONS_PER_SUBJECT } : undefined
+  // The diagnosis is about OUR pages: a venture's, or Mindmake's and Krish's
+  // for a prospect. An aspiration's "ours" is another company's site, so it
+  // is neither audited nor diagnosed, and keeps the status rule it had.
+  const diagnosing = subject.kind !== 'aspiration'
+  // The site audit reads our own hosts while the probes run, or takes them
+  // from the run's shared audit, which then makes no request here.
+  const site = diagnosing ? deps.site ?? null : null
+  const sharedAudit = diagnosing ? deps.sharedAudit : undefined
+  const auditing = site || sharedAudit ? withFallback('site_audit', () => siteAudit(subject, site, domains, CAPS.SITE_MAX_PAGES_PER_SUBJECT, sharedAudit), EMPTY_AUDIT, { subject: subject.slug }) : Promise.resolve(EMPTY_AUDIT)
   const outcome = await probeQueries(deps.engines, proposed, domains, deps.ledger, subject.never_say ?? [], limit, reserve, { open, shadow })
-  const queries = scoreQueries(proposed, outcome, themes.themes, subject, domains)
+  const diag = await diagnoseSubject(subject, domains, proposed, outcome, engines, auditing)
+  const queries = scoreQueries(proposed, outcome, themes.themes, subject, domains, diagnosing ? diag.diagnoses : undefined)
+  // The pages cited first are read now, the highest-priority questions first,
+  // and the diagnosis takes their features; its classes do not change.
+  let diagnoses = diag.diagnoses
+  let citedRead = 0
+  if (site && diag.entries.size) {
+    const order = queries.filter(q => q.probes.length).sort((a, b) => rowPriority(b, diagnoses).priority - rowPriority(a, diagnoses).priority || a.query_id.localeCompare(b.query_id))
+    // Fewer pages a host when the run has many subjects, so one run never reads more than the per-host budget of any host.
+    const maxPerHost = thirdPartyPerHost(ctx.subjects.filter(s => s.kind !== 'aspiration').length)
+    const read = await withFallback('first_cited_read', () => readFirstCited(order, diag.entries, site, { subject: subject.slug, maxPerHost }), null, { subject: subject.slug })
+    if (read) {
+      citedRead = read.read
+      diag.entries = read.byQuery
+      diagnoses = await withFallback('diagnose', () => diagnoseAll(proposed, diag.details, diag.matches, read.byQuery, diag.evidence, domains), diagnoses, { subject: subject.slug })
+    }
+  }
   // The digest judges and drafts with no taste; the approved voice rules are
   // applied afterwards to its drafted words only (stage 65), never to a choice.
-  const judged = await writeDigest(deps.model, deps.ledger, { subject, ctx, weekStart: opts.weekStart, engines, queries, themes, gap, krishHitsDomains: domains })
+  const judged = await writeDigest(deps.model, deps.ledger, { subject, ctx, weekStart: opts.weekStart, engines, queries, themes, gap, krishHitsDomains: domains, ...(diagnosing ? { diagnoses } : {}) })
   const digest = await applyVoice(deps.model, deps.ledger, subject, deps.taste ?? null, judged)
 
   const packet: AeoPacket = {
@@ -183,7 +264,27 @@ export async function runSubject(subject: ContextSubject, shared: Shared, deps: 
     ...(outcome.compare ? { compare: outcome.compare } : {}),
     ...(gated.length ? { gated_engines: gated } : {}),
   }
-  return { packet, details, domains, extras, open }
+  if (!diagnosing) return { packet, details, domains, extras, open }
+  // Stage 62: the win kits, for a venture whose product is not held.
+  const held = await withFallback('held', () => isHeld(subject, subjectsConfig()), true, { subject: subject.slug })
+  // A question the packet says is not worth chasing gets no kit.
+  const walled = new Set(digest.not_worth_chasing.map(w => w.query_id))
+  const kits = held ? [] : await withFallback('kits', () => buildKits({
+    subject, queries, diagnoses, evidence: diag.evidence, details: diag.details, cited: diag.entries, audit: diag.audit, domains, engines, config: subjectsConfig(), walled,
+  }), [], { subject: subject.slug })
+  const top = kits[0] ? await withFallback('kit_render', () => kitCandidate(kits[0]), null, { subject: subject.slug }) : null
+  const backups = top ? await withFallback('kit_render', () => kits.slice(1, 1 + KIT_BACKUPS_MAX).map(kitCandidate), [], { subject: subject.slug }) : []
+  const classes = gapCounts(diagnoses)
+  log('diagnosed', { subject: subject.slug, ...classes, kits: kits.length, held })
+  const diagnosis: SubjectDiagnosis = {
+    gap_classes: classes,
+    kits: kits.length,
+    held,
+    kit_candidate: top,
+    kit_backups: backups,
+    site: site || sharedAudit ? { hosts: diag.audit.hosts.length, pages: diag.audit.pages.length, requests: diag.audit.requests, errors: diag.audit.errors, gates_failed: failedGates(diag.audit), cited_read: citedRead } : null,
+  }
+  return { packet, details, domains, extras, open, diagnosis }
 }
 
 function round4(n: number): number { return Math.round(n * 10000) / 10000 }
@@ -205,14 +306,14 @@ export async function runAll(deps: RunDeps, opts: RunOpts): Promise<RunResult> {
   const bundle = opts.dry && !!opts.outPath && selected.length > 1
   for (const subject of selected) {
     try {
-      const { packet, details, domains, extras, open } = await runSubject(subject, shared, deps, opts)
+      const { packet, details, domains, extras, open, diagnosis } = await runSubject(subject, shared, deps, opts)
       const outPath = bundle ? null : opts.outPath ?? defaultOutPath(subject.slug, opts.weekStart)
       const shipped = await ship(deps.cc, packet, { dry: opts.dry, outPath, open })
       const asked = requestsFor(subject, deps.requests)
       const served = opts.dry ? [] : servedBy(packet, asked)
       const unserved = opts.dry ? 0 : asked.length - served.length
       if (unserved) log('answer_requests_unserved', { subject: subject.slug, requests: asked.length, unserved, skipped_cap: packet.stats.probes_skipped_cap })
-      results.push({ slug: subject.slug, packet, shipped, domains, details, served, unserved, extras })
+      results.push({ slug: subject.slug, packet, shipped, domains, details, served, unserved, extras, ...(diagnosis ? { diagnosis } : {}) })
       log('subject_done', { subject: subject.slug, queries: packet.stats.queries, probes: packet.stats.probes, cost_usd: packet.stats.cost_usd, ledger_usd: deps.ledger.total })
     } catch (e) {
       failures.push({ slug: subject.slug, kind: subject.kind, error: errText(e) })

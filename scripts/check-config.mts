@@ -8,6 +8,8 @@ import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { CAPS, ENGINES, PRICE_USD_PER_CALL, resolveEngines, SUBSCRIPTION_KINDS, type CostKind } from '../src/config/run.js'
 import { parseOwnDomains } from '../src/config/ownDomains.js'
+import { parseSubjectsConfig } from '../src/config/subjects.js'
+import { SITE_FETCH, SITE_USER_AGENT } from '../src/clients/site.js'
 import { CHILD_ENV_KEYS, childEnv } from '../src/clients/claudeCode.js'
 import { ENGINES_ALL, GATED_ENGINES } from '../src/schema/packet.js'
 
@@ -61,6 +63,43 @@ try {
   failures.push(`${ownDomainsFile} could not be read as JSON: ${(e as Error).message}`)
 }
 
+// Per venture settings (src/config/subjects.ts): held products and owner repositories, product slugs only.
+const subjectsFile = 'config/subjects.json'
+try {
+  const parsed = parseSubjectsConfig(JSON.parse(readFileSync(subjectsFile, 'utf8')))
+  if (!parsed.ok) for (const e of parsed.errors) failures.push(`${subjectsFile}: ${e}`)
+} catch (e) {
+  failures.push(`${subjectsFile} could not be read as JSON: ${(e as Error).message}`)
+}
+
+// The site reader fetches and never runs a page (src/clients/site.ts): no
+// browser automation package anywhere in package.json, redirects by hand, a
+// positive budget, and an honest User-Agent that names no crawler or browser.
+const BROWSER_PACKAGES = ['playwright', 'playwright-core', '@playwright/test', 'puppeteer', 'puppeteer-core', 'jsdom', 'happy-dom', 'linkedom', 'selenium-webdriver', 'webdriverio', 'chrome-remote-interface', '@sparticuz/chromium', 'chromium', 'nightmare', 'zombie', 'phantomjs', 'phantomjs-prebuilt', 'cypress']
+try {
+  const pkg = JSON.parse(readFileSync('package.json', 'utf8')) as Record<string, unknown>
+  for (const field of ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies', 'bundledDependencies']) {
+    const deps = pkg[field]
+    const names = Array.isArray(deps) ? deps.map(String) : deps && typeof deps === 'object' ? Object.keys(deps) : []
+    for (const n of names) if (BROWSER_PACKAGES.includes(n) || /playwright|puppeteer|selenium|headless|chromium/i.test(n)) failures.push(`package.json ${field} names ${n}; the site reader fetches only and never runs a page`)
+  }
+} catch (e) {
+  failures.push(`package.json could not be read: ${(e as Error).message}`)
+}
+if (SITE_FETCH.redirect !== 'manual') failures.push('src/clients/site.ts must declare redirect: manual')
+if (SITE_FETCH.method !== 'GET') failures.push('src/clients/site.ts must fetch with GET only')
+for (const k of ['maxPerHost', 'maxHops', 'timeoutMs', 'maxBytes', 'minGapMs'] as const) if (!(typeof SITE_FETCH[k] === 'number' && SITE_FETCH[k] > 0)) failures.push(`SITE_FETCH.${k} must be a positive number`)
+if (SITE_FETCH.maxPerHost > 40) failures.push('SITE_FETCH.maxPerHost may not exceed 40 requests a host')
+if (SITE_FETCH.minGapMs < 1000) failures.push('SITE_FETCH.minGapMs must keep requests to one host at least a second apart')
+if (SITE_FETCH.maxHops > 3) failures.push('SITE_FETCH.maxHops may not exceed 3')
+if (CAPS.THIRD_PARTY_MAX_PAGES_PER_SUBJECT > 15 || CAPS.THIRD_PARTY_MAX_PAGES_PER_HOST > 3) failures.push('third-party pages: at most 15 a subject and 3 a host')
+if (!/^AEO-Engine\/\d+\.\d+ \(\+https:\/\/github\.com\/krishanraja\/AEO-Engine; fetch-only audit\)$/.test(SITE_USER_AGENT) || /bot|mozilla|chrome|safari|gecko/i.test(SITE_USER_AGENT)) failures.push('SITE_USER_AGENT must name this engine honestly, never a crawler or a browser')
+const httpSrc = readFileSync('src/clients/http.ts', 'utf8')
+const requestTextSrc = httpSrc.slice(httpSrc.indexOf('export async function requestText'), httpSrc.indexOf('/** Throws HttpError unless'))
+if (!/redirect: 'manual'/.test(requestTextSrc)) failures.push('src/clients/http.ts requestText must fetch with redirect: manual')
+const siteSrc = readFileSync('src/clients/site.ts', 'utf8')
+if (!/redirect: 'manual'/.test(siteSrc)) failures.push("src/clients/site.ts must declare redirect: 'manual'")
+
 function walk(dir: string): string[] {
   return readdirSync(dir).flatMap(name => {
     const p = join(dir, name)
@@ -111,8 +150,14 @@ try {
   const wf = readFileSync(researchWorkflow, 'utf8')
   const uploads = wf.split(/\n(?=\s*- (?:name|uses):)/).filter(step => step.includes('actions/upload-artifact'))
   for (const step of uploads) {
-    if (!/path:\s*summary\/\s*$/m.test(step)) failures.push(`${researchWorkflow} uploads something other than the sealed summary; packets never leave the runner`)
+    if (!/path:\s*(summary|site)\/\s*$/m.test(step)) failures.push(`${researchWorkflow} uploads something other than the sealed summary or the sealed site audit; packets never leave the runner`)
   }
+  // Our own hosts are read once a run, in the site job: the subject jobs read
+  // its sealed file and must never audit our hosts themselves (src/site.ts).
+  const siteJob = wf.match(/\n {2}site:\n([\s\S]*?)(?=\n {2}[a-z][a-z0-9_-]*:\n|$)/)?.[1] ?? ''
+  if (!/npm run --silent site -- /.test(siteJob)) failures.push(`${researchWorkflow}: no site job audits our hosts once for the run`)
+  const researchSteps = wf.match(/\n {2}research:\n([\s\S]*?)(?=\n {2}[a-z][a-z0-9_-]*:\n|$)/)?.[1] ?? ''
+  if (!/--site-in site\/audit\.json/.test(researchSteps)) failures.push(`${researchWorkflow}: the research job does not read the run's site audit (--site-in), so each subject job would audit our hosts itself`)
   // The Claude Code CLI is pinned to the version its stream was recorded from.
   const installs = [...wf.matchAll(/npm i(?:nstall)? -g (@anthropic-ai\/claude-code\S*)/g)].map(m => m[1])
   if (!installs.length) failures.push(`${researchWorkflow} does not install the Claude Code CLI`)
@@ -137,4 +182,4 @@ if (failures.length) {
   for (const f of failures) console.error(`- ${f}`)
   process.exit(1)
 }
-console.log(`check:config passed: engines ${ENGINES.join(', ')}; caps positive; subscription kinds at 0; Gemini inside its free tier on one attempt a job; childEnv an allowlist; ${ownDomainsFile} valid; no em dash in src/, docs/ or config/; no permission-skipping flag and no search key in src/ or the workflows; the directive workflow holds no paid key or token; the research workflow uploads no packet, pins the CLI and runs it on the Node it needs.`)
+console.log(`check:config passed: engines ${ENGINES.join(', ')}; caps positive; subscription kinds at 0; Gemini inside its free tier on one attempt a job; childEnv an allowlist; ${ownDomainsFile} and ${subjectsFile} valid; the site reader fetches only (no browser package, redirect manual, a budget, an honest User-Agent); no em dash in src/, docs/ or config/; no permission-skipping flag and no search key in src/ or the workflows; the directive workflow holds no paid key or token; the research workflow uploads no packet, reads our hosts once in its site job, pins the CLI and runs it on the Node it needs.`)

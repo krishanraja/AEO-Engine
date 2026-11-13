@@ -80,7 +80,7 @@ test('cited first: a domain with a path counts only under that path', () => {
 test('cited first: the probe details decide, not the cleaned packet list', () => {
   const packet = ctrlPacket()
   const probed = packet.queries.filter(q => q.probes.length)
-  const detail = (query_id: string, first: boolean, over: Partial<ProbeDetail> = {}): ProbeDetail => ({ query_id, engine: 'chatgpt', first_host_ours: first, our_position: first ? 1 : null, cited_any: first, searched: true, zero_citation: false, ...over })
+  const detail = (query_id: string, first: boolean, over: Partial<ProbeDetail> = {}): ProbeDetail => ({ query_id, engine: 'chatgpt', first_host_ours: first, our_position: first ? 1 : null, cited_any: first, searched: true, zero_citation: false, retrieved_ours: false, ...over })
   // The packet alone says 2; the details say the first question was cited first
   // (its first source was dropped from the cleaned list) and nothing else was.
   const details = probed.map((q, i) => detail(q.query_id, i === 0))
@@ -293,6 +293,9 @@ test('directive loop: attempt started, directive, report, readback, decisions, a
   assert.equal(order[1], 'GET /api/growth/engines/aeo/directive')
   assert.equal(order.filter(o => o === 'GET /api/growth/engines/aeo/reports/<research>').length, 16, 'one free read per day back to the stale line')
   assert.deepEqual(order.slice(-4), ['POST /api/growth/engines/aeo/reports', 'GET /api/growth/engines/aeo/reports/aeo%3A2026-10-19%3Adirective', 'GET /api/growth/engines/aeo/decisions', 'POST /api/growth/engines/aeo/attempts'])
+  // His decisions are also read once before the report, so a walled ask he decided more than seven days ago is not carried again.
+  const before = order.slice(0, order.indexOf('POST /api/growth/engines/aeo/reports'))
+  assert.equal(before.filter(o => o === 'GET /api/growth/engines/aeo/decisions').length, 1)
   for (const x of s.seen) assert.ok(x.path.startsWith('/api/growth/engines/aeo/'), 'only the protocol routes')
 })
 
@@ -437,6 +440,15 @@ test('end to end: an offline research run leaves a sealed summary the report job
     assert.equal(report.objectives[0].value, 2 + (bySlug['sample-media'].cited_first ?? 0))
     assert.ok(!JSON.stringify(report).includes('sample-media') && !JSON.stringify(report).includes('sample-studio'))
     assert.deepEqual((s.attempts.get('aeo:2026-09-13:research:777.1') ?? []).map(a => a.status), ['succeeded'])
+    // The diagnosis, end to end: the venture's top win kit is the one proposal,
+    // prepared behind strategy; the prospect and the aspiration carry none.
+    assert.equal(bySlug.ctrl.kit_candidate?.query_id, 'b352032b-3bee-4b1e-8b22-d838679921b0')
+    assert.equal(bySlug.ctrl.gap_classes?.retrieved_not_cited, 1)
+    assert.equal(bySlug['sample-media'].kit_candidate, undefined)
+    assert.equal(bySlug['sample-studio'].kit_candidate, undefined)
+    assert.deepEqual(report.proposals.map(p => [p.proposal_id, p.kind, p.wall]), [['aeo:kit:ctrl:b352032b', 'prepared', 'strategy']])
+    assert.match(report.proposals[0].exact_payload ?? '', /^Win kit kit:ctrl:b352032b \(v1\)\nProduct: ctrl\nQuestion: What is a personal AI writing style\?/)
+    assert.ok(!text.includes('personal AI writing style') && !text.includes('ctrl.mindmake.co/answers'), 'the kit never reaches a log line')
 
     // The wrong run cannot open the summaries: every subject reads as failed.
     const other = await captureStderr(() => protocolMain([

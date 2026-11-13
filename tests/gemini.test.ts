@@ -242,13 +242,13 @@ test('the gate: the packet validator refuses gemini unless it is open, and the N
   assert.equal(validatePacket(withGemini, ['gemini']).ok, true)
 
   const probed = packet.queries.filter(x => x.probes.length)
-  const geminiFirst = probed.map(x => ({ query_id: x.query_id, engine: 'gemini' as const, first_host_ours: true, our_position: 1, cited_any: true, searched: true, zero_citation: false }))
+  const geminiFirst = probed.map(x => ({ query_id: x.query_id, engine: 'gemini' as const, first_host_ours: true, our_position: 1, cited_any: true, searched: true, zero_citation: false, retrieved_ours: false }))
   const before = countCitedFirst(packet, ['ctrl.mindmake.co', 'mindmake.co'])
   const after = countCitedFirst(packet, ['ctrl.mindmake.co', 'mindmake.co'], geminiFirst)
   assert.equal(after.cited_first, before.cited_first, 'gemini cited us first on every question, and the count is what the packet engines alone say')
   // Beside a packet engine's detail that is not ours, gemini's still adds nothing to that question.
   const one = probed[0]
-  const mixed = [{ query_id: one.query_id, engine: 'claude' as const, first_host_ours: false, our_position: null, cited_any: false, searched: true, zero_citation: false }, geminiFirst[0]]
+  const mixed = [{ query_id: one.query_id, engine: 'claude' as const, first_host_ours: false, our_position: null, cited_any: false, searched: true, zero_citation: false, retrieved_ours: false }, geminiFirst[0]]
   const onlyClaude = [mixed[0]]
   assert.equal(countCitedFirst(packet, ['ctrl.mindmake.co', 'mindmake.co'], mixed).cited_first, countCitedFirst(packet, ['ctrl.mindmake.co', 'mindmake.co'], onlyClaude).cited_first)
   assert.equal(before.probed_questions, after.probed_questions)

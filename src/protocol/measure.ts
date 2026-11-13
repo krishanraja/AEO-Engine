@@ -21,6 +21,7 @@ import type { CompareCounts } from '../lib/compare.js'
 import { urlMatchesDomain } from '../lib/domains.js'
 import type { ProbeDetail } from '../lib/probeDetail.js'
 import type { AeoPacket, SubjectKind } from '../schema/packet.js'
+import { KIT_BACKUPS_MAX, type GapClass, type KitCandidate, type SiteCounts, type SubjectDiagnosis } from '../schema/kit.js'
 
 /**
  * One engine's answers in a subject, as counts: answered, searched, cited no
@@ -81,6 +82,23 @@ export interface SubjectSummary {
   typed_urls_dropped?: number
   /** compare mode: the Claude Code lane and the API lane on the subject's first questions (src/lib/compare.ts). */
   claude_compare?: CompareCounts
+  /** Why each question is not won, counted by gap class (src/pipeline/52-diagnose.ts). Absent: not diagnosed. */
+  gap_classes?: Record<GapClass, number>
+  /** Win kits prepared for this subject. Absent: not diagnosed. */
+  kits?: number
+  /** The product is held: measured, and no kit was prepared (config/subjects.json or Control Center). */
+  held?: boolean
+  /**
+   * The subject's top win kit, rendered for Krish (src/pipeline/62-kits.ts).
+   * The one field here that is not a count: it holds a question and URLs, so
+   * it travels only in this sealed summary and to Control Center, never in a
+   * log or a public artifact.
+   */
+  kit_candidate?: KitCandidate
+  /** The next kits after the top one (at most KIT_BACKUPS_MAX), sealed like it: read only when Krish already decided the top one. */
+  kit_backups?: KitCandidate[]
+  /** The site reader's counts: our hosts and pages read, requests, failures, failed gates, and first-cited pages read. */
+  site?: SiteCounts
 }
 
 /** One research job's output: one subject in the workflow, any number locally. */
@@ -184,7 +202,20 @@ function extrasOf(x: SubjectExtras | undefined): Partial<SubjectSummary> {
   return out
 }
 
-export function summariseSubject(packet: AeoPacket, domains: readonly string[], served: readonly string[] = [], details: readonly ProbeDetail[] = [], unserved = 0, extras?: SubjectExtras): SubjectSummary {
+/** The diagnosis a summary carries: counts, the held flag, and the top kit. */
+function diagnosisOf(x: SubjectDiagnosis | undefined): Partial<SubjectSummary> {
+  if (!x) return {}
+  return {
+    gap_classes: { ...x.gap_classes },
+    kits: x.kits,
+    ...(x.held ? { held: true } : {}),
+    ...(x.kit_candidate && !x.held ? { kit_candidate: x.kit_candidate } : {}),
+    ...(x.kit_candidate && !x.held && x.kit_backups?.length ? { kit_backups: x.kit_backups.slice(0, KIT_BACKUPS_MAX) } : {}),
+    ...(x.site ? { site: { ...x.site } } : {}),
+  }
+}
+
+export function summariseSubject(packet: AeoPacket, domains: readonly string[], served: readonly string[] = [], details: readonly ProbeDetail[] = [], unserved = 0, extras?: SubjectExtras, diagnosis?: SubjectDiagnosis): SubjectSummary {
   const c = countCitedFirst(packet, domains, details)
   const d = countDetails(details, packet.engines)
   return {
@@ -202,6 +233,7 @@ export function summariseSubject(packet: AeoPacket, domains: readonly string[], 
     probes_skipped_cap: packet.stats.probes_skipped_cap,
     ...(d ? { cited_any: d.cited_any, engines: d.engines } : {}),
     ...extrasOf(extras),
+    ...diagnosisOf(diagnosis),
   }
 }
 
@@ -265,7 +297,7 @@ export function buildRunSummary(i: {
   capUsd: number
   spentUsd: number
   maxProbeUsd: number
-  results: ReadonlyArray<{ packet: AeoPacket; domains: readonly string[]; served?: readonly string[]; details?: readonly ProbeDetail[]; unserved?: number; extras?: SubjectExtras }>
+  results: ReadonlyArray<{ packet: AeoPacket; domains: readonly string[]; served?: readonly string[]; details?: readonly ProbeDetail[]; unserved?: number; extras?: SubjectExtras; diagnosis?: SubjectDiagnosis }>
   failures: ReadonlyArray<{ slug: string; kind: SubjectKind | null }>
   errorCode: string | null
   /** Web search requests the Claude probes reported (UsageMeter.searchesBy('aeo-probe')). */
@@ -283,7 +315,7 @@ export function buildRunSummary(i: {
     spent_usd: i.spentUsd,
     max_probe_usd: i.maxProbeUsd,
     error_code: i.errorCode,
-    subjects: [...i.results.map(r => summariseSubject(r.packet, r.domains, r.served ?? [], r.details ?? [], r.unserved ?? 0, r.extras)), ...i.failures.map(f => failedSubject(f.slug, f.kind))],
+    subjects: [...i.results.map(r => summariseSubject(r.packet, r.domains, r.served ?? [], r.details ?? [], r.unserved ?? 0, r.extras, r.diagnosis)), ...i.failures.map(f => failedSubject(f.slug, f.kind))],
     ...(typeof i.searchRequests === 'number' ? { search_requests: i.searchRequests } : {}),
     ...(i.claudeLane ? { claude_lane: i.claudeLane } : {}),
     ...(i.subscription && i.subscription.calls > 0 ? { subscription_calls: i.subscription.calls, subscription_tokens: i.subscription.tokens } : {}),

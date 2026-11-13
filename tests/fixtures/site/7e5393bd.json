@@ -1,0 +1,8 @@
+{
+  "_url": "https://ctrl.mindmake.co/robots.txt",
+  "status": 200,
+  "headers": {
+    "content-type": "text/plain"
+  },
+  "text": "# Synthetic fixture\nUser-agent: *\nAllow: /\nDisallow: /account/\n\nUser-agent: GPTBot\nDisallow: /\n\nSitemap: https://ctrl.mindmake.co/sitemap.xml"
+}

@@ -71,6 +71,13 @@ export interface ContextSubject {
   striking_distance: StrikingDistanceRow[]
   probes_4w: PriorProbe[]
   prior: PriorWeek | null
+  /**
+   * Whether Control Center holds this venture's growth engine. Optional and
+   * read loosely: absent until Control Center serves it, and then
+   * config/subjects.json's held list decides (src/config/subjects.ts). When
+   * present it wins: a held venture is measured and gets no win kit.
+   */
+  engine_held?: boolean
 }
 
 export interface AeoContext {

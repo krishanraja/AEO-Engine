@@ -1,0 +1,8 @@
+{
+  "_url": "https://ctrl.mindmake.co/sitemap-answers.xml",
+  "status": 200,
+  "headers": {
+    "content-type": "application/xml"
+  },
+  "text": "<?xml version=\"1.0\"?><urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\"><url><loc>https://ctrl.mindmake.co/answers/personal-ai-writing-style</loc></url><url><loc>https://ctrl.mindmake.co/blog/style-guide-for-an-ai-assistant</loc></url><url><loc>https://ctrl.mindmake.co/assets/app.js</loc></url></urlset>"
+}

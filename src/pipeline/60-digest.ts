@@ -10,11 +10,14 @@ import type { ModelClient } from '../clients/types.js'
 import type { Ledger } from '../lib/cost.js'
 import { errText, log } from '../lib/log.js'
 import { CLEAN, robustJson, scrubPII } from '../lib/text.js'
-import { hostMatches } from '../lib/domains.js'
+import { ownedByPlatforms } from '../lib/platforms.js'
 import type { AeoContext, ContextSubject } from '../schema/context.js'
 import type { CompetitorGap, DigestWriter, Engine, NotWorthChasing, PacketQuery, PlaybookEntry, Recommendation, WatchItem } from '../schema/packet.js'
 import type { ThemesResult } from './10-transcripts.js'
 import { competitorGapFrom, tallyHosts, theyCitedFrom, type GapResult, type ProbeLike, type TheyCited } from './20-gap.js'
+import { answersFirst } from './45-pages.js'
+import { GAP_LABEL, RECOMMEND_CLASSES, type Diagnosis } from './52-diagnose.js'
+import { rowPriority } from './50-score.js'
 
 export interface DigestInput {
   subject: ContextSubject
@@ -25,6 +28,12 @@ export interface DigestInput {
   themes: ThemesResult
   gap: GapResult
   krishHitsDomains: readonly string[]
+  /**
+   * Why each question is not won (src/pipeline/52-diagnose.ts). Optional: a
+   * caller with none gets the classes the packet alone can show. The evidence
+   * the model reads and every recommendation's evidence carry it.
+   */
+  diagnoses?: ReadonlyMap<string, Diagnosis>
 }
 
 export interface DigestResult {
@@ -46,11 +55,12 @@ const DIGEST_SYSTEM = [
   'ABSOLUTE RULE: absence is not opportunity. A question we are missing from because a large general platform or publisher owns the answer is a wall, not a gap. Recommend only what can be won, and say plainly what cannot.',
   'Respond with ONLY a JSON object:',
   '{"strongest_signal": string under 240 characters or null (the one measured fact that matters most this week),',
-  ' "recommendations": [{"query_id": string (one of the evidence rows with status recommend), "title": string under 200 characters (the piece or page to make), "angle": string under 600 characters (what it argues and why it would be cited), "why_you_can_win": string under 300 characters or null (the specific reason Krish can win THIS answer when the sites cited today structurally cannot; null when you cannot name one, and never a generality such as "he knows a lot about this"), "evidence": [string under 300 characters] (2 to 4 lines, each citing something measured: a score, an engine we are absent on, a competitor host, a call theme)}] (up to 5, one per recommend row that can be won, most demand first),',
+  ' "recommendations": [{"query_id": string (one of the evidence rows with status recommend), "title": string under 200 characters (the piece or page to make), "angle": string under 600 characters (what it argues and why it would be cited), "why_you_can_win": string under 300 characters or null (the specific reason Krish can win THIS answer when the sites cited today structurally cannot; null when you cannot name one, and never a generality such as "he knows a lot about this"), "evidence": [string under 300 characters] (2 to 4 lines, each citing something measured: a score, an engine we are absent on, a competitor host, a call theme, the gap class)}] (up to 5, one per recommend row that can be won, highest priority first),',
   ' "not_worth_chasing": [{"query_id": string (any row in the evidence), "owned_by": [string] (the hosts that own the answer now, taken from the evidence), "why_not": string under 300 characters (one plain sentence on why he will not displace them)}] (at most 6, the probed questions he should not try to win; a query_id here must not also appear in recommendations),',
   ' "watch_list": [{"query_id": string (a row with status watch), "why": string under 240 characters}],',
   ' "approach_hook": string under 300 characters or null (prospects only: one sentence Krish could open a conversation with, grounded in a cited answer their leaders would see; null when nothing measured supports one),',
   ' "playbook": [{"url": string (from playbook_groups), "why": string under 300 characters (why the engines cite this page shape)}] (aspirations only, else [])}',
+  'gap_class says why we are not cited first (cited_not_first, retrieved_not_cited, not_retrieved, no_page); first_cited is the page cited first today and what it does. Each angle names the fix the class calls for.',
   'No prose outside the JSON. No em dashes anywhere in any string, and no ASCII stand-ins for one either: never write "--" or a spaced hyphen as a dash. Use a comma, a full stop, or parentheses. Never write a person\'s name, email address or handle.',
 ].join('\n\n')
 
@@ -113,6 +123,19 @@ export function digestSystem(krish?: AeoContext['krish']): string {
   return parts.join('\n\n')
 }
 
+/** The diagnosis fields an evidence row carries for the model: the class, the priority, our best page, and the page cited first with its features. */
+function evidenceDiagnosis(d: Diagnosis | undefined, q: PacketQuery, all: ReadonlyMap<string, Diagnosis> | undefined): Record<string, unknown> {
+  const { gap_class, priority } = rowPriority(q, all)
+  return {
+    gap_class,
+    priority,
+    our_best_url: d?.our_best_url ?? null,
+    our_cited_url: d?.our_cited_url ?? null,
+    first_cited: d?.first_cited ? { host: d.first_cited.host, url: d.first_cited.url, source_type: d.first_cited.source_type, features: d.first_cited.features.read ? d.first_cited.features : null } : null,
+    owned_by_platform: d?.owned_by_platform ?? false,
+  }
+}
+
 function absentEngines(q: PacketQuery): Engine[] {
   return [...new Set(q.probes.filter(p => !p.we_cited).map(p => p.engine))]
 }
@@ -121,39 +144,9 @@ function citedEngines(q: PacketQuery): Engine[] {
   return [...new Set(q.probes.filter(p => p.we_cited).map(p => p.engine))]
 }
 
-/**
- * Hosts that own an answer by reach and format rather than by argument: social
- * networks, video platforms, encyclopaedias and answer aggregators, national
- * business titles, and the big consultancies. One piece does not displace any
- * of them, so a question they own is a wall and not a gap. The list is
- * deliberately short and deliberately obvious; it exists so the deterministic
- * fallback can answer "who owns this now" without a model, and it never
- * decides anything on its own beyond that one question.
- */
-export const GENERAL_PLATFORMS: readonly string[] = [
-  'linkedin.com', 'youtube.com', 'facebook.com', 'instagram.com', 'tiktok.com', 'x.com', 'twitter.com',
-  'reddit.com', 'quora.com', 'medium.com', 'wikipedia.org', 'pinterest.com',
-  'forbes.com', 'hbr.org', 'inc.com', 'entrepreneur.com', 'fastcompany.com', 'businessinsider.com',
-  'bloomberg.com', 'ft.com', 'wsj.com', 'cnbc.com', 'economist.com', 'nytimes.com', 'techcrunch.com',
-  'wired.com', 'theverge.com', 'gartner.com',
-  'mckinsey.com', 'bcg.com', 'bain.com', 'deloitte.com', 'accenture.com', 'pwc.com', 'ey.com', 'kpmg.com', 'ibm.com',
-]
-
-/** Which of these cited hosts are large general platforms, in the order given. */
-export function generalPlatformsAmong(hosts: readonly string[]): string[] {
-  return hosts.filter(h => GENERAL_PLATFORMS.some(p => hostMatches(String(h), p)))
-}
-
-/**
- * Rule one of the winnability judgement, made deterministically: the answer is
- * owned when more than half the hosts cited on it are large general platforms.
- * A majority rather than a single hit, because one social link beside two
- * specialists is still a question a specialist won and a specialist can take.
- */
-export function ownedByPlatforms(hosts: readonly string[]): string[] {
-  const owners = generalPlatformsAmong(hosts)
-  return owners.length * 2 > hosts.length ? owners : []
-}
+// The general platforms moved to src/lib/platforms.ts so the diagnosis can
+// read them without importing the digest; re-exported here for callers.
+export { GENERAL_PLATFORMS, generalPlatformsAmong, ownedByPlatforms } from '../lib/platforms.js'
 
 interface PlaybookGroup { url: string; host: string; path_pattern: string; times_cited: number; questions: string[] }
 
@@ -187,11 +180,51 @@ export function computeCompetitorGap(input: DigestInput): CompetitorGap {
   return competitorGapFrom(tallyHosts([...fourWeeks, ...thisWeekProbes(input.queries)], input.krishHitsDomains, competitorDomains))
 }
 
-function fallbackRecommendation(q: PacketQuery, n: number, neverSay: readonly string[]): Recommendation {
+/** What the first-cited page does, in a few words, when it was read. */
+function featuresBrief(f: NonNullable<Diagnosis['first_cited']>['features']): string {
+  if (!f.read || f.words === null) return ''
+  const first = answersFirst(f)
+  const parts = [`${f.words} words`]
+  if (first !== null) parts.push(first ? `answer first in ${f.answer_first_words} words` : `first paragraph ${f.answer_first_words} words`)
+  if (f.h2_count !== null) parts.push(`${f.h2_count} H2s`)
+  if (f.dated !== null) parts.push(f.dated ? 'dated' : 'undated')
+  if (f.server_rendered === false) parts.push('not server rendered')
+  return parts.join(', ')
+}
+
+/**
+ * The diagnosis as one evidence line (at most 300 characters): the gap class,
+ * our best page, and the page cited first with what it does. It is added to
+ * every recommendation, so Control Center's moves carry the cause.
+ */
+export function diagnosisLine(d: Diagnosis | undefined, neverSay: readonly string[] = []): string | null {
+  if (!d) return null
+  const parts = [`gap: ${d.gap_class} (${GAP_LABEL[d.gap_class]})`]
+  parts.push(d.our_best_url ? `our page: ${d.our_best_url}` : d.our_cited_url ? `our page ${d.gap_class === 'cited_not_first' ? 'cited' : 'retrieved'}: ${d.our_cited_url}` : 'no page of ours matches')
+  if (d.first_cited) {
+    const brief = featuresBrief(d.first_cited.features)
+    parts.push(`first cited: ${d.first_cited.host}, ${d.first_cited.source_type}${brief ? `, ${brief}` : ''}`)
+  }
+  if (d.owned_by_platform) parts.push('platforms own the first citation')
+  return scrubPII(CLEAN(parts.join('; '), 300), neverSay) || null
+}
+
+/** The fix a gap class names, as the opening of a fallback angle. */
+const FIX_SENTENCE: Record<Diagnosis['gap_class'], string> = {
+  won: 'We are cited first here already.',
+  cited_not_first: 'An engine cites us here, not first: the page needs to lead with the answer.',
+  retrieved_not_cited: 'An engine\'s search returns our page and the answer cites others: make the page worth citing, answer first.',
+  not_retrieved: 'We have a page for this that no engine\'s search returns: make it findable.',
+  no_page: 'No page of ours answers this question: write one, in the buyer\'s words.',
+  unknown: 'No engine answered this question this run.',
+}
+
+function fallbackRecommendation(q: PacketQuery, n: number, neverSay: readonly string[], d?: Diagnosis): Recommendation {
   const absent = absentEngines(q)
   const competitors = q.gap.competitor_domains.slice(0, 3)
   const b = q.demand_basis
   const angle = [
+    ...(d ? [FIX_SENTENCE[d.gap_class]] : []),
     `We are not cited on ${absent.join(', ') || 'any probed engine'} for this question.`,
     competitors.length ? `Cited instead: ${competitors.join(', ')}.` : 'No competitor host was cited either.',
     q.call_evidence.length ? `${q.call_evidence.length} call evidence item${q.call_evidence.length === 1 ? '' : 's'} carry the same theme.` : 'No call this week carried the theme.',
@@ -201,13 +234,15 @@ function fallbackRecommendation(q: PacketQuery, n: number, neverSay: readonly st
     `absent on ${absent.join(', ') || 'none probed'}; cited on ${citedEngines(q).join(', ') || 'none'}`,
   ]
   if (competitors.length) evidence.push(`competitors cited: ${competitors.join(', ')}`)
+  const diag = diagnosisLine(d, neverSay)
+  if (diag) evidence.push(diag)
   return {
     n,
     title: scrubPII(CLEAN(`Answer "${q.query}"`, 200), neverSay),
     target_query: q.query,
     query_id: q.query_id,
     angle: scrubPII(CLEAN(angle, 600), neverSay),
-    evidence: evidence.map(e => CLEAN(e, 300)),
+    evidence: evidence.map(e => (e === diag ? e : CLEAN(e, 300))),
     engines: absent,
     demand: q.demand_score,
     // Never invented here. The fallback can see who is cited; it cannot see
@@ -256,7 +291,12 @@ function fallbackHook(recommend: readonly PacketQuery[], gap: CompetitorGap): st
 export async function writeDigest(model: ModelClient, ledger: Ledger, input: DigestInput): Promise<DigestResult> {
   const { subject, queries } = input
   const neverSay = subject.never_say ?? []
+  // With a diagnosis, highest kit priority first (50-score.ts ranks by it),
+  // ties on query_id; without one, demand order, as before.
+  const prio = new Map(queries.map(q => [q.query_id, rowPriority(q, input.diagnoses).priority]))
   const recommend = queries.filter(q => q.status === 'recommend')
+  if (input.diagnoses) recommend.sort((a, b) => (prio.get(b.query_id) ?? 0) - (prio.get(a.query_id) ?? 0) || a.query_id.localeCompare(b.query_id))
+  const diagOf = (id: string) => input.diagnoses?.get(id)
   const watch = queries.filter(q => q.status === 'watch')
   const competitor_gap = computeCompetitorGap(input)
   const groups = subject.kind === 'aspiration'
@@ -286,6 +326,7 @@ export async function writeDigest(model: ModelClient, ledger: Ledger, input: Dig
       cited_on: citedEngines(q),
       competitor_domains: q.gap.competitor_domains,
       call_evidence: q.call_evidence.length,
+      ...(input.diagnoses ? evidenceDiagnosis(input.diagnoses.get(q.query_id), q, input.diagnoses) : {}),
       probes: q.probes.map(p => ({ engine: p.engine, we_cited: p.we_cited, hosts: p.citations.slice(0, 5), snippet: p.answer_snapshot.slice(0, 300) })),
     })),
     competitor_gap,
@@ -337,7 +378,13 @@ export async function writeDigest(model: ModelClient, ledger: Ledger, input: Dig
       })
     }
   } else {
-    for (const q of recommend.slice(0, 5)) {
+    // With a diagnosis a platform-owned question ranks low and may not be
+    // recommended at all, so every question we are absent from is checked,
+    // most demand first; without one, the recommend rows, as before.
+    const pool = input.diagnoses
+      ? queries.filter(q => q.probes.length && RECOMMEND_CLASSES.includes(rowPriority(q, input.diagnoses).gap_class))
+      : recommend.slice(0, 5)
+    for (const q of pool) {
       const owners = ownedByPlatforms(q.gap.competitor_domains)
       if (owners.length) addWall(fallbackNotWorthChasing(q, owners))
     }
@@ -358,13 +405,14 @@ export async function writeDigest(model: ModelClient, ledger: Ledger, input: Dig
     if (walled.has(q.query_id)) continue
     const n = recs.length + 1
     const r = written.get(q.query_id)
-    const fb = fallbackRecommendation(q, n, neverSay)
+    const fb = fallbackRecommendation(q, n, neverSay, diagOf(q.query_id))
     if (!r) { recs.push(fb); continue }
     const title = clean(r.title, 200)
     const angle = clean(r.angle, 600)
     const win = clean(r.why_you_can_win, 300)
-    const lines = asArray(r.evidence).map(x => clean(x, 300)).filter(Boolean).slice(0, 6)
-    recs.push({ ...fb, title: title || fb.title, angle: angle || fb.angle, why_you_can_win: win || null, evidence: lines.length ? lines : fb.evidence })
+    const diag = diagnosisLine(diagOf(q.query_id), neverSay)
+    const lines = asArray(r.evidence).map(x => clean(x, 300)).filter(Boolean).filter(x => x !== diag).slice(0, diag ? 5 : 6)
+    recs.push({ ...fb, title: title || fb.title, angle: angle || fb.angle, why_you_can_win: win || null, evidence: lines.length ? (diag ? [...lines, diag] : lines) : fb.evidence })
   }
 
   const whys = new Map<string, string>()

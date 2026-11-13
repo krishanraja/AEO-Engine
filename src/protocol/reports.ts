@@ -29,7 +29,9 @@ import {
   sealReport,
   STATE_VERSION,
   stateLineOk,
+  validateReport,
   type ActivityLine,
+  type Decision,
   type EngineReport,
   type EngineState,
   type Hold,
@@ -40,12 +42,54 @@ import {
   type ReportStatus,
 } from '../schema/report.js'
 import { fortnightStart, nextScheduledRun, SCHEDULE_LATE_MS, upcomingRun, type RunSummary, type SubjectSummary } from './measure.js'
+import type { KitCandidate } from '../schema/kit.js'
 import { buildEngineState, inWords, type RepoState } from './state.js'
 
 export const SPEND_PROPOSAL_ID = 'aeo:spend:max-usd-per-run'
+/** A win kit's proposal id: aeo:kit:<product_slug>:<first 8 of query_id>, stable across runs for one question. */
+export const KIT_PROPOSAL_PREFIX = 'aeo:kit:'
+export const kitProposalId = (productSlug: string, queryId: string) => `${KIT_PROPOSAL_PREFIX}${productSlug}:${queryId.slice(0, 8)}`
 export const SPEND_TARGET = 'AEO_MAX_USD_PER_RUN'
 /** A fortnightly engine reads as stale after 15 days (ENGINE-PROTOCOL.md, Health). */
 export const STALE_DAYS = 15
+/**
+ * How far back a research run reads Krish's decisions before it picks a kit:
+ * about four research runs. A kit he declined or approved in that time never
+ * comes back as a fresh ask (approved: it is in flight, Phase 3's "kit in
+ * flight"); after it, its question may be proposed again if it still leads.
+ */
+export const DECISIONS_LOOKBACK_DAYS = 60
+
+/** A decision as the reports read it: the id, his answer, when, and the payload it was made on. */
+export type DecisionLite = Pick<Decision, 'proposal_id' | 'decided_at' | 'payload_sha256'> & { decision: string }
+
+/** One decision per proposal: the latest by decided_at, from any number of lists (the directive's seven days, a longer GET). */
+export function latestDecisions(...lists: ReadonlyArray<readonly DecisionLite[] | null | undefined>): Map<string, DecisionLite> {
+  const out = new Map<string, DecisionLite>()
+  for (const list of lists) for (const d of list ?? []) {
+    if (!d || typeof d.proposal_id !== 'string') continue
+    const had = out.get(d.proposal_id)
+    if (!had || Date.parse(d.decided_at) > Date.parse(had.decided_at)) out.set(d.proposal_id, d)
+  }
+  return out
+}
+
+/**
+ * The win kit still waiting on his list from a stored research report: a kit
+ * proposal he has not decided (any version) and that has not expired. Null
+ * when there is none.
+ */
+export function pendingKitOf(report: Record<string, unknown> | null | undefined, decisions: readonly DecisionLite[], at: Date): Proposal | null {
+  const proposals = report && Array.isArray(report.proposals) ? (report.proposals as Proposal[]) : []
+  const decided = new Set(decisions.map(d => d.proposal_id))
+  for (const p of proposals) {
+    if (!p || typeof p.proposal_id !== 'string' || !p.proposal_id.startsWith(KIT_PROPOSAL_PREFIX)) continue
+    if (decided.has(p.proposal_id)) continue
+    if (p.expires_at && Date.parse(p.expires_at) <= at.getTime()) continue
+    return p
+  }
+  return null
+}
 const DAY_MS = 86_400_000
 
 export interface Envelope {
@@ -172,6 +216,48 @@ function missing(reason: string, windowStart: string | null = null, windowEnd: s
   return { key: OBJECTIVE_KEY, value: null, unit: 'questions', window_start: windowStart, window_end: windowEnd, timezone: 'UTC', availability: 'missing', reason: reason.slice(0, 500) }
 }
 
+/** A walled proposal's payload digest: SHA-256 of canonical JSON of exactly { amount_usd, exact_payload }, the shape an amendment's digest takes. */
+export function wordsPayloadSha(exactPayload: string | null, amountUsd: number | null = null): string {
+  return sha256Hex(canonicalJson({ amount_usd: amountUsd, exact_payload: exactPayload }))
+}
+
+/** Why a kit, in one plain paragraph, from its gap class. Counts and classes only. */
+const KIT_WHY: Record<KitCandidate['gap_class'], string> = {
+  won: 'It is cited first already.',
+  cited_not_first: 'The assistants cite us for this question, but not first.',
+  retrieved_not_cited: 'An assistant\'s search returns a page of ours for this question, and its answer cites others.',
+  not_retrieved: 'We have a page for this question that no assistant\'s search returned.',
+  no_page: 'No page of ours answers this question, and the assistants cite others.',
+  unknown: 'No assistant answered this question.',
+}
+
+/**
+ * The one win kit this research run puts on Krish's list (Ruling, Krish,
+ * 2026-11-13: until Control Center carries kits to the venture engines, AEO
+ * proposes one kit a run itself). Prepared, behind strategy: AEO never
+ * publishes, so it is never a post; his yes sends it to the product's build
+ * session or its growth engine to ship, and AEO acts on nothing.
+ */
+export function kitProposal(k: KitCandidate, expiresAt: Date): Proposal {
+  const reference = k.reference.trim() || null
+  const why = `${KIT_WHY[k.gap_class]} The kit says what to change and why, from this run's answers and a fetch-only read of the pages involved. AEO ships nothing: the product's build session or its growth engine does, and the next research run checks whether it is cited first.`
+  return {
+    proposal_id: kitProposalId(k.product_slug, k.query_id),
+    title: `Win '${k.title}' for ${k.product_slug}`.slice(0, 160),
+    why: why.slice(0, 1000),
+    kind: 'prepared',
+    wall: 'strategy',
+    amount_usd: null,
+    channel: null,
+    objective_key: OBJECTIVE_KEY,
+    exact_payload: k.exact_payload,
+    payload_sha256: wordsPayloadSha(k.exact_payload),
+    evidence: reference && /^https:\/\/\S+$/.test(reference) ? [{ label: 'The page the kit changes', url: reference.slice(0, 500) }] : [],
+    close_condition: { event: 'kit_shipped', reference: reference ? reference.slice(0, 500) : null },
+    expires_at: expiresAt.toISOString(),
+  }
+}
+
 /** The spend ask's payload: the amount and the variable it would change. */
 export function spendPayloadSha(amountUsd: number): string {
   return sha256Hex(canonicalJson({ amount_usd: amountUsd, target: SPEND_TARGET }))
@@ -187,6 +273,18 @@ export interface ResearchInput extends Envelope {
   totalCapUsd: number
   /** Set when the plan could not read the subject list. */
   planError: string | null
+  /**
+   * His decisions over the last DECISIONS_LOOKBACK_DAYS, read before this
+   * report is built (a free GET). Null: they could not be read, so no kit is
+   * proposed, since one he declined could come back. Undefined: none given.
+   */
+  decisions?: DecisionLite[] | null
+  /**
+   * The kit still waiting on his list from the last full research report
+   * (pendingKitOf). A full run keeps that one slot: it renews the same kit when
+   * it is still a candidate, else carries it as it is, and never adds a second.
+   */
+  pendingKit?: Proposal | null
 }
 
 interface Placed { s: SubjectSummary; label: string; counts: boolean; noSummary: boolean }
@@ -331,6 +429,73 @@ export function buildResearchReport(input: ResearchInput): EngineReport {
     })
   }
 
+  // One win kit on his list: the highest-priority candidate across the
+  // ventures that are not held (ties on product, then query), passing over
+  // any he has already decided. A held venture never carries one; the check
+  // is repeated here so a summary cannot slip one past.
+  const candidates = placed
+    .filter(p => p.s.ok && p.s.kind === 'venture' && !p.s.held && p.s.kit_candidate && p.s.kit_candidate.exact_payload)
+    .flatMap(p => [p.s.kit_candidate as KitCandidate, ...(p.s.kit_backups ?? [])])
+    .filter(k => k && k.exact_payload)
+    .sort((a, b) => b.priority - a.priority || a.product_slug.localeCompare(b.product_slug) || a.query_id.localeCompare(b.query_id))
+  const decided = new Set((input.decisions ?? []).map(d => d.proposal_id))
+  const open = candidates.filter(k => !decided.has(kitProposalId(k.product_slug, k.query_id)))
+  const passedOver = new Set(candidates.filter(k => decided.has(kitProposalId(k.product_slug, k.query_id))).map(k => kitProposalId(k.product_slug, k.query_id))).size
+  let kitAsk: Proposal | null = null
+  let kitLine: ActivityLine | null = null
+  if (candidates.length && input.scope !== 'all') {
+    // A run of one subject is started by hand between the full runs; a kit
+    // from it would sit beside the full run's with nothing to take either back.
+    activity.push(line('A run of one subject puts no win kit on Krish\'s list; the full research run does.'))
+  } else if (candidates.length && input.decisions === null) {
+    holds.push({ reason: 'kit_not_proposed', detail: 'His decisions could not be read before this report, so no win kit is proposed: one he declined could come back.' })
+  } else if (input.pendingKit) {
+    // One kit at a time: the one already waiting is kept current, never joined by a second.
+    const waiting = input.pendingKit
+    const fresh = open.find(k => kitProposalId(k.product_slug, k.query_id) === waiting.proposal_id)
+    kitAsk = fresh ? kitProposal(fresh, next) : waiting
+    kitLine = line(fresh
+      ? `The win kit already on Krish's list, for ${fresh.product_slug}, is kept current; no second kit is added.`
+      : `The win kit already on Krish's list, for ${waiting.proposal_id.split(':')[2] ?? 'a venture'}, stays as it is until he decides; no second kit is added.`)
+  } else if (open[0]) {
+    kitAsk = kitProposal(open[0], next)
+    kitLine = line(`One win kit is on Krish's list, for ${open[0].product_slug}; the next research run checks it.`)
+  }
+  if (kitAsk && kitLine) {
+    proposals.push(kitAsk)
+    activity.push(kitLine)
+  }
+  if (passedOver && input.scope === 'all') activity.push(line(`${plural(passedOver, 'win kit')} Krish already decided ${passedOver === 1 ? 'was' : 'were'} left off his list.`))
+
+  // Why the questions are not won, by gap class (counts only): each venture
+  // by name, the prospects together (their "ours" is Mindmake's pages).
+  // Last, so the 40-line cap can only ever cut this detail.
+  const classLine = (g: Record<string, number>) => {
+    const parts = [`${g.won} won`, `${g.cited_not_first} cited not first`, `${g.retrieved_not_cited} retrieved not cited`, `${g.not_retrieved} with a page not retrieved`, `${g.no_page} with no page`]
+    if (g.unknown) parts.push(`${g.unknown} not answered`)
+    return parts.join(', ')
+  }
+  for (const p of placed) {
+    const g = p.s.ok && p.s.kind === 'venture' ? p.s.gap_classes : undefined
+    if (!g) continue
+    activity.push(line(`Why ${p.label}'s questions are not won: ${classLine(g)}; ${p.s.held ? 'held, so no kit' : `${plural(p.s.kits ?? 0, 'win kit')} prepared`}.`))
+  }
+  const prospects = placed.filter(p => p.s.ok && p.s.kind === 'prospect' && p.s.gap_classes)
+  if (prospects.length) {
+    const sum: Record<string, number> = {}
+    for (const p of prospects) for (const [k, v] of Object.entries(p.s.gap_classes ?? {})) sum[k] = (sum[k] ?? 0) + v
+    activity.push(line(`Why the questions of ${plural(prospects.length, 'prospect')} are not won by Mindmake's pages: ${classLine(sum)}.`))
+  }
+  // The site reader, counts only: fetch only, never a script run.
+  const site = placed.reduce((acc, p) => {
+    const x = p.s.ok ? p.s.site : undefined
+    if (x) { acc.pages += x.pages; acc.hosts += x.hosts; acc.gates += x.gates_failed; acc.cited += x.cited_read; acc.n++ }
+    return acc
+  }, { pages: 0, hosts: 0, gates: 0, cited: 0, n: 0 })
+  // Our hosts are read once a run and shared, so these sum each subject's
+  // view: a host two subjects share counts once for each, and says so.
+  if (site.n) activity.push(line(`The diagnoses used ${plural(site.pages, 'page')} of our own from ${plural(site.hosts, 'host audit')} (each host read once a run; one shared by subjects counts once for each), with ${plural(site.gates, 'failed site gate')} among them, and read ${plural(site.cited, 'page')} cited first, fetch only, never a script run.`))
+
   const degraded = !!input.planError || placed.some(p => !p.s.ok)
 
   // Krish's instruction (1.20.0). This run is the paid research the daily
@@ -356,7 +521,17 @@ export function buildResearchReport(input: ResearchInput): EngineReport {
       acks.push(ack(ctx, input.observedAt, 'blocked', ackLine(`${head} ${tail}`, `${head} ${short}`)))
     } else acks.push(ack(ctx, input.observedAt, 'started', `A paid research run finished on ${day} with this instruction open: ${researched} of ${placed.length} subjects researched. It probes Control Center's subject list, never the instruction's words.`))
   }
-  return envelope(input, degraded ? 'degraded' : 'ready', [objective], activity, proposals, holds, stateFor(input, objective, acks), served)
+  const state = stateFor(input, objective, acks)
+  const report = envelope(input, degraded ? 'degraded' : 'ready', [objective], activity, proposals, holds, state, served)
+  // A kit is built from pages and answers this engine does not write. If its
+  // words would make the report one Control Center refuses, the kit is held
+  // back and the report still lands: the fortnight's reading matters more
+  // than one kit.
+  if (kitAsk && !validateReport(report).ok) {
+    const held: Hold = { reason: 'kit_not_proposed', detail: `The top win kit, for ${kitAsk.proposal_id.split(':')[2]}, carried text a report may not carry, so it is not on his list this run.` }
+    return envelope(input, degraded ? 'degraded' : 'ready', [objective], activity.filter(a => a !== kitLine), proposals.filter(p => p !== kitAsk), [...holds, held], state, served)
+  }
+  return report
 }
 
 /** The research run_id the dispatch looks for: one full run a day. */
@@ -367,6 +542,13 @@ export interface StoredResearch { run_id: string; accepted_at: string; report: R
 export interface DirectiveInput extends Envelope {
   /** `instruction` (1.20.0) is Krish's open instruction by id; the report acts on it only through `state`, when the directive serves the engine's state. */
   directive: { directive_id: string; chosen_by: string; decisions_since: Array<{ proposal_id: string; decision: string; decided_at: string; payload_sha256: string | null }>; instruction?: InstructionRef | null } | null
+  /**
+   * His decisions read with a GET before this report, back past the last
+   * research report: the directive's decisions_since covers seven days and a
+   * kit lives about fourteen, so a decline on day one still drops it on day
+   * eight. Merged with decisions_since, the latest per proposal winning.
+   */
+  decisions?: DecisionLite[] | null
   directiveError: string | null
   /** The newest full research report found, or null. */
   last: StoredResearch | null
@@ -407,8 +589,7 @@ export function buildDirectiveReport(i: DirectiveInput): EngineReport {
   // Walled asks from the last research report stay in front of him until he
   // answers them or they expire. Same id and same payload, so nothing changes
   // unless he has decided.
-  const decided = new Map<string, { decision: string; decided_at: string; payload_sha256: string | null }>()
-  for (const d of i.directive?.decisions_since ?? []) decided.set(d.proposal_id, d)
+  const decided = latestDecisions(i.directive?.decisions_since, i.decisions)
   const carried: Proposal[] = []
   const lastProposals = i.last && Array.isArray(i.last.report.proposals) ? (i.last.report.proposals as Proposal[]) : []
   for (const p of lastProposals) {
@@ -416,8 +597,9 @@ export function buildDirectiveReport(i: DirectiveInput): EngineReport {
     const d = decided.get(p.proposal_id)
     if (d) {
       const same = d.payload_sha256 === p.payload_sha256
+      const isKit = p.proposal_id.startsWith(KIT_PROPOSAL_PREFIX)
       activity.push(line(same
-        ? `Krish ${d.decision} "${p.title}" on ${d.decided_at.slice(0, 10)}. This engine still changes nothing behind a wall; ${p.wall === 'spend' ? `the cap moves only when he sets ${SPEND_TARGET}` : 'the action stays his'}.`
+        ? `Krish ${d.decision} "${p.title}" on ${d.decided_at.slice(0, 10)}. This engine still changes nothing behind a wall; ${p.wall === 'spend' ? `the cap moves only when he sets ${SPEND_TARGET}` : isKit ? 'a kit ships through the product\'s build session or its growth engine, never from here' : 'the action stays his'}.`
         : `Krish ${d.decision} an earlier version of "${p.title}"; the current payload differs, so it is still his to decide.`))
       if (same) continue
     }

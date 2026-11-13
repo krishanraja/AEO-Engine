@@ -9,8 +9,11 @@
  *   --out      where a dry run writes; with several subjects one file holds an array
  *   --summary-out  where to leave this run's counts, sealed, for the protocol
  *                  report job (src/protocol/). Needs AEO_ENGINE_SECRET; the
- *                  file holds counts only and opens only inside the same
- *                  workflow run (GITHUB_RUN_ID).
+ *                  file holds counts and a venture's top win kits, and opens
+ *                  only inside the same workflow run (GITHUB_RUN_ID).
+ *   --site-in  the run's site audit, sealed by its site job (src/site.ts). With
+ *              it, our own pages come from the file and none is requested
+ *              here; a missing or unreadable file means no audit this run.
  */
 import { createHash, randomUUID } from 'node:crypto'
 import { attemptOf, CAPS, MODELS, PRICE_USD_PER_CALL, resolveClaudeLane, resolveEngines, type ClaudeLane } from './config/run.js'
@@ -20,6 +23,8 @@ import { ControlCenterHttp } from './clients/controlCenter.js'
 import { FirefliesHttp } from './clients/fireflies.js'
 import { GeminiClient } from './clients/gemini.js'
 import { OfflineControlCenter, OfflineEngine, OfflineFireflies, OfflineModel } from './clients/offline.js'
+import { LiveSite, OfflineSite } from './clients/site.js'
+import { readSharedAudit } from './site.js'
 import { OpenAIClient } from './clients/openai.js'
 import { PerplexityClient } from './clients/perplexity.js'
 import type { EngineClient, ModelClient } from './clients/types.js'
@@ -44,13 +49,14 @@ export interface CliArgs {
   offline: boolean
   out: string | null
   summaryOut: string | null
+  siteIn: string | null
   commandId: number | null
   capUsd: number
   fixtures: string
 }
 
 export function parseArgs(argv: readonly string[], now = new Date()): CliArgs {
-  const args: CliArgs = { subject: 'all', week: mondayOf(now), dry: false, offline: false, out: null, summaryOut: null, commandId: null, capUsd: CAPS.MAX_USD_PER_RUN, fixtures: 'tests/fixtures' }
+  const args: CliArgs = { subject: 'all', week: mondayOf(now), dry: false, offline: false, out: null, summaryOut: null, siteIn: null, commandId: null, capUsd: CAPS.MAX_USD_PER_RUN, fixtures: 'tests/fixtures' }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     const next = () => { const v = argv[++i]; if (v === undefined) throw new Error(`${a} needs a value`); return v }
@@ -66,6 +72,7 @@ export function parseArgs(argv: readonly string[], now = new Date()): CliArgs {
       case '--offline': args.offline = true; break
       case '--out': args.out = next(); break
       case '--summary-out': args.summaryOut = next(); break
+      case '--site-in': args.siteIn = next(); break
       case '--command-id': {
         const n = Number(next())
         if (!Number.isInteger(n) || n < 1) throw new Error('--command-id must be a positive integer')
@@ -146,6 +153,8 @@ export function buildDeps(args: CliArgs, env: NodeJS.ProcessEnv = process.env, n
       // and the offline twin's packets must not change with a key in the shell.
       engines: resolveEngines(env).filter((e): e is Engine => !isGatedEngine(e)).map(e => new OfflineEngine(e, MODELS[e === 'chatgpt' ? 'openai' : e === 'claude' ? 'anthropic' : e === 'grok' ? 'xai' : 'perplexity'], dir)),
       model: new OfflineModel(dir),
+      // Synthetic pages under tests/fixtures/site; a URL with no fixture reads as unavailable.
+      site: new OfflineSite(dir),
       ledger,
       usage,
       mintId: uuidFromKey,
@@ -160,6 +169,11 @@ export function buildDeps(args: CliArgs, env: NodeJS.ProcessEnv = process.env, n
   else log('claude_lane', { lane: choice.lane, reason: choice.reason, ...(choice.unknown ? { unknown_value: true } : {}) })
   // A retry is a fresh process with a fresh free-tier count, so it asks no Gemini (resolveEngines).
   if (env.GEMINI_API_KEY && attemptOf(env) > 1) log('gemini_skipped', { reason: 'retry_attempt', attempt: attemptOf(env) })
+  // Nor does it read a page: a fresh process has a fresh per-host count, and
+  // the first attempt may already have read its pages cited first. Its own
+  // hosts come from the run's site audit (--site-in) either way.
+  const retry = attemptOf(env) > 1
+  if (retry) log('site_reader_skipped', { reason: 'retry_attempt', attempt: attemptOf(env) })
   const live = liveEngines(env, usage, choice.lane, overrides)
   return {
     cc: new ControlCenterHttp(env.CONTROL_CENTER_URL ?? '', env.AEO_ENGINE_SECRET ?? ''),
@@ -168,6 +182,8 @@ export function buildDeps(args: CliArgs, env: NodeJS.ProcessEnv = process.env, n
     ...(live.shadow ? { shadow: live.shadow } : {}),
     claudeLane: choice.lane,
     model,
+    // Fetch only: GET, no script run, an honest User-Agent, a budget per host (src/clients/site.ts).
+    site: retry ? null : new LiveSite(),
     ledger,
     usage,
     mintId: () => randomUUID(),
@@ -223,6 +239,7 @@ export async function main(argv: readonly string[] = process.argv.slice(2)): Pro
   // Offline runs stay offline: fixtures carry no directive, so taste is unknown and no request is open.
   if (!args.offline) deps.taste = await readTaste(process.env)
   if (!args.offline) deps.requests = await readAnswerRequests(process.env)
+  if (args.siteIn) deps.sharedAudit = readSharedAudit(args.siteIn, process.env)
   const opts: RunOpts = { subject: args.subject, weekStart: args.week, dry: args.dry, outPath: args.out, commandId: args.commandId }
   log('run_start', { subject: args.subject, week_start: args.week, dry: args.dry, offline: args.offline, engines: deps.engines.map(e => e.engine), claude_lane: deps.claudeLane ?? null, cap_usd: args.capUsd, command_id: args.commandId })
 
@@ -281,8 +298,9 @@ export async function main(argv: readonly string[] = process.argv.slice(2)): Pro
 }
 
 /**
- * Counts only, sealed (src/lib/seal.ts), because the file crosses jobs as an
- * artifact of a public repository. Never fails the run: the packets have
+ * Counts, and each venture's top win kit (the one field that is not a count,
+ * bound for Control Center only), sealed (src/lib/seal.ts), because the file
+ * crosses jobs as an artifact of a public repository. Never fails the run: the packets have
  * shipped by now, and the report job reads a missing summary as a failed
  * subject rather than as a quiet one.
  */

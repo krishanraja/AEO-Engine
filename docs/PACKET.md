@@ -48,7 +48,7 @@ An evidence item is `call_ref` (the first eight hex characters of a sha256 of th
 | `call_evidence` | Up to ten evidence items from the themes that overlap this query. |
 | `gap` | `we_cited_engines`: the engines whose probe says `we_cited` (below). `competitor_domains`: the hosts cited in this query's answers that are not ours, most frequent first, up to twelve. |
 | `trend` | `new` with no prior row; else `up` or `down` when the score moved by ten or more; else `flat`. |
-| `status` | `recommend`: the top three to five by score that are absent on at least two probed engines (or on every probed engine when fewer than two were probed). `watch`: the rest with a score of 30 or more. `drop`: below. |
+| `status` | For a venture or a prospect, since 2026-11-13, by the diagnosis (below, "Why a question is not won"). `recommend`: of the questions we are not cited on at all, the top three by kit priority, and up to five while they score 30 or more. `watch`: every question we are cited on (won, and cited not first), and the rest with a score of 30 or more. `drop`: below. For an aspiration, whose "ours" is another company's site, the rule it had: `recommend` the top three to five by score that are absent on at least two probed engines (or on every probed engine when fewer than two were probed), `watch` the rest at 30 or more. |
 | `touchpoint_id` | The Growth map touchpoint this question came from, when it did. |
 | `probes` | One per engine asked, up to eight: `engine`, `model`, `question`, `answer_snapshot` (cleaned, up to 1800 characters), `we_cited`, `citations` (up to eight URLs, in the order the answer cites them; see below), `cost_usd` (the estimate charged). A query beyond the subject's probe limit carries an empty list: the limit is 20 questions, raised to hold every question a venture's engine requested plus five more, and never above 30. Requested questions are probed first. |
 
@@ -92,7 +92,28 @@ When Control Center adds `gemini` to its engine enum and lists `engine_gemini`, 
 
 ## A recommendation
 
-`n` (1 to 5), `title` (the piece or page), `target_query` and `query_id` (one of the packet's recommended queries), `angle` (what it argues and why it would be cited), `why_you_can_win` (see below), `evidence` (two to six lines, each citing something measured: a score, an engine we are absent on, a competitor host, a call theme), `engines` (where we are absent), `demand` (the query's score). The model writes the prose; the numbers, the ids and the engines come from the score table, and a recommendation the model invents for a query that was not recommended is dropped.
+`n` (1 to 5), `title` (the piece or page), `target_query` and `query_id` (one of the packet's recommended queries), `angle` (what it argues and why it would be cited), `why_you_can_win` (see below), `evidence` (two to six lines, each citing something measured: a score, an engine we are absent on, a competitor host, a call theme, the gap class), `engines` (where we are absent), `demand` (the query's score). The model writes the prose; the numbers, the ids and the engines come from the score table, and a recommendation the model invents for a query that was not recommended is dropped. For a venture or a prospect the recommendations come highest kit priority first.
+
+## Why a question is not won (since 2026-11-13)
+
+A miss used to reach Krish and the venture engines as a title. Now each probed question of a venture or a prospect gets a cause, the **gap class**, read from every answer's measurement (`src/pipeline/52-diagnose.ts`), checked in this order:
+
+| Class | When | The fix it names |
+|---|---|---|
+| `won` | an engine's first inline citation is ours | keep it |
+| `cited_not_first` | an engine cites us, not first | move the cited page up: lead with the answer |
+| `retrieved_not_cited` | an engine's search returned a page of ours and its answer cited others | make the page worth citing |
+| `not_retrieved` | a page of ours answers the question (our best page, below) and no search returned it | make the page findable |
+| `no_page` | no page of ours answers it | write the page, in the buyer's words |
+| `unknown` | no engine answered | none |
+
+Our best page comes from the site reader (README, "The site reader"): each audited page of ours scored by the share of the question's distinctive words in its title and H1. A word is not distinctive when it is filler (much, own, need, best and the like), "ai", or in more than half of the subject's questions, since a word every question shares matches every page; under 0.35, or with fewer than two distinctive words matched (one, when the question has only one), no page of ours answers it. When none matches but an engine already cited a page of ours (`cited_not_first`) or its search returned one (`retrieved_not_cited`), that page is the one to fix. The page cited first is each engine's first inline citation that is not ours, the first engine's first; a first citation whose URL carries an email or a handle stays the first, by its host alone and never read, and one that is a grounding redirect leaves that engine with none, so a later source is never promoted. It is typed (listicle, forum, video, review, news, directory, reference, vendor, unknown) and, unless it is a video or a forum thread, read fetch only for what it does: words, the words of its first paragraph under the H1, H2s, a date, and whether it is served without a script. General platforms owning most of the first citations, one vote per engine (the winnability gate's list), halve a question's priority.
+
+**Kit priority** is class weight (cited not first 4, retrieved not cited 3, not retrieved 2, no page 1) times (1 + demand / 100), halved when platforms own the first citation; ties break on `query_id`. It is distance to first, demand and winnability in one number.
+
+**How a recommendation reads now.** The packet's shape is unchanged. Each recommendation's last evidence line is its diagnosis: `gap: retrieved_not_cited (retrieved, not cited); our page: <url>; first cited: <host>, <type>, <words> words, answer first in <n> words, <n> H2s, dated`. When the matcher found no page but an engine named one of ours, the middle part reads `our page retrieved: <url>` (or `our page cited: <url>`); with neither, `no page of ours matches`. The deterministic fallback opens its `angle` with the fix the class names. So Control Center's existing moves and content ideas carry the cause with no schema change. The model reads the same fields in its evidence (`gap_class`, `priority`, `our_best_url`, `our_cited_url`, `first_cited` with its features) and is asked to name the fix in each angle. A recommendation is never made for a question the same packet lists in `not_worth_chasing`, and neither is a win kit.
+
+An aspiration is not diagnosed: its "ours" is another company's site, so its status and recommendations keep the rule they had.
 
 ## The winnability gate
 
@@ -112,4 +133,4 @@ A venture names its `product_slug` and only a venture does; `week_start` is a Mo
 
 ## Where the packet goes
 
-`POST /api/aeo/ingest` answers 200 `{ ok, deduped, replaced }`, 400 with `errors`, 401, or 429 with `Retry-After` (retried once). The probes land in the probe table, the queries in the query corpus, the digest in the digest table, and the recommendations become content ideas under a governor. The engine never writes anywhere else.
+`POST /api/aeo/ingest` answers 200 `{ ok, deduped, replaced }`, 400 with `errors`, 401, or 429 with `Retry-After` (retried once). The probes land in the probe table, the queries in the query corpus, the digest in the digest table, and the recommendations become content ideas under a governor. The engine never writes anywhere else. A win kit is never in a packet: it goes to Control Center in the protocol report (README, "Win kits").

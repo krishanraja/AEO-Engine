@@ -4,6 +4,7 @@ import { existsSync, readFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
 import { validatePacket, type AeoPacket } from '../src/schema/packet.js'
+import { readSharedAudit } from '../src/site.js'
 import { ROOT, readJson } from './helpers.js'
 
 const TSX = join(ROOT, 'node_modules', '.bin', 'tsx')
@@ -52,6 +53,9 @@ test('offline dry run writes packets that validate and ctrl matches the expected
   assert.ok(!Number.isNaN(Date.parse(ctrl.generated_at)))
 
   const prospect = packets.find(p => p.subject.slug === 'sample-media')!
+  // A second pinned packet, for a prospect: the diagnosis reads Mindmake's pages
+  // for it, and its digest is the deterministic fallback.
+  assert.deepEqual(strip(prospect), strip(readJson('expected/packet.sample-media.json') as AeoPacket))
   const aspiration = packets.find(p => p.subject.slug === 'sample-studio')!
   assert.equal(ctrl.stats.digest_writer, 'claude')
   assert.equal(prospect.stats.digest_writer, 'fallback')
@@ -103,4 +107,32 @@ test('a subject can be named by uuid, as repository_dispatch does', () => {
   assert.equal(r.status, 0, r.stderr)
   const p = JSON.parse(readFileSync(join(ROOT, 'out', 'test-uuid.json'), 'utf8')) as AeoPacket
   assert.equal(p.subject.slug, 'sample-studio')
+})
+
+test('site job: our hosts are read once for the run, sealed to it, and a subject job given the file makes the same packet with no request of its own', () => {
+  const env = { ...process.env, XAI_API_KEY: '', AEO_MAX_USD_PER_RUN: '', AEO_ENGINE_SECRET: 'synthetic-secret-for-the-seal', GITHUB_RUN_ID: '4242' }
+  const audit = join(ROOT, 'out', 'site-test.json')
+  rmSync(audit, { force: true })
+  const site = spawnSync(TSX, ['src/site.ts', '--offline', '--subjects', '["ctrl","sample-media","sample-studio"]', '--out', 'out/site-test.json'], { cwd: ROOT, encoding: 'utf8', env })
+  assert.equal(site.status, 0, site.stderr)
+  assert.match(site.stderr, /"event":"site_run_audit","hosts":4,/)
+  assert.ok(!/https?:\/\//.test(site.stderr), 'counts only in the log')
+  const sealed = readFileSync(audit, 'utf8')
+  assert.ok(!sealed.includes('mindmake.co'), 'sealed')
+  assert.equal(readSharedAudit(audit, { ...env, GITHUB_RUN_ID: '9999' }).size, 0, 'another run cannot open it')
+
+  const out = join(ROOT, 'out', 'test-shared.json')
+  rmSync(out, { force: true })
+  const r = spawnSync(TSX, ['src/index.ts', '--offline', '--dry', '--subject', 'ctrl', '--week', EXPECTED_WEEK, '--out', 'out/test-shared.json', '--site-in', 'out/site-test.json'], { cwd: ROOT, encoding: 'utf8', env })
+  assert.equal(r.status, 0, r.stderr)
+  assert.match(r.stderr, /"event":"shared_site_audit","state":"read","hosts":4/)
+  assert.match(r.stderr, /"event":"site_audit","subject":"ctrl","hosts":2,"pages":\d+,"requests":0,"errors":0,"shared":true/)
+  const ctrl = JSON.parse(readFileSync(out, 'utf8')) as AeoPacket
+  assert.deepEqual(strip(ctrl), strip(readJson('expected/packet.ctrl.json') as AeoPacket))
+
+  // No file (the site job failed): no audit, and no page of ours is read in its place.
+  const none = spawnSync(TSX, ['src/index.ts', '--offline', '--dry', '--subject', 'ctrl', '--week', EXPECTED_WEEK, '--out', 'out/test-shared.json', '--site-in', 'out/no-such-audit.json'], { cwd: ROOT, encoding: 'utf8', env })
+  assert.equal(none.status, 0, none.stderr)
+  assert.match(none.stderr, /"event":"shared_site_audit","state":"missing"/)
+  assert.match(none.stderr, /"event":"site_audit","subject":"ctrl","hosts":0,"pages":0,"requests":0/)
 })

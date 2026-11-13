@@ -15,10 +15,19 @@
 # Control Center dedupes a repeated run_id and replaces an earlier attempt's
 # week, so a retry after a partial POST is safe.
 #
+# Our own sites are read once a run, by the site job, before the subject
+# jobs start: many subjects share a host (every prospect's "ours" is
+# Mindmake's and Krish's sites), and a per-job audit would give one host each
+# job's budget, four jobs at once. The site job reads every subject's hosts in
+# one process, fetch only, at most 40 requests a host a second apart, and
+# seals the result to this workflow run; each subject job reads its hosts from
+# that file and never requests one of our pages itself (src/site.ts).
+#
 # The growth engine protocol (docs/control-center/ENGINE-PROTOCOL.md) rides
 # beside the packet ingest, which it does not change: the plan job journals a
 # started attempt and reads the directive before the subject list is read,
-# each research job leaves a sealed counts-only summary, and the report job
+# each research job leaves a sealed summary (counts, and a venture's top win
+# kit), and the report job
 # sends one protocol report, reads it back, reads his decisions and closes the
 # attempt. A dry run POSTs nothing, so it reports nothing either. The daily
 # directive wake-up is its own workflow (cc-growth-directive.yml) and never
@@ -180,9 +189,44 @@ jobs:
           echo "total=$total" >> "$GITHUB_OUTPUT"
           echo "Subjects: $list ($count), $cap USD each of $total"
 
-  research:
+  # Our own hosts, read once for the whole run (src/site.ts). Fetch only: GET,
+  # no script run, robots.txt asked first, an honest User-Agent, a budget and a
+  # throttle per host. Its sealed file is the only way a subject job sees our
+  # pages; if this job fails, the run has no site audit, and no subject job
+  # reads our hosts in its place.
+  site:
     needs: plan
     if: ${{ needs.plan.outputs.skip != 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - name: Read our own sites, once for the run
+        continue-on-error: true
+        env:
+          CONTROL_CENTER_URL: ${{ secrets.CONTROL_CENTER_URL }}
+          AEO_ENGINE_SECRET: ${{ secrets.AEO_ENGINE_SECRET }}
+          SUBJECTS: ${{ needs.plan.outputs.subjects }}
+        run: npm run --silent site -- --subjects "$SUBJECTS" --out site/audit.json
+      # Sealed to this workflow run, like the summary: our own pages' records
+      # and gates by host, never a subject. Kept one day.
+      - name: Keep the sealed site audit for the subject jobs
+        uses: actions/upload-artifact@v4
+        with:
+          name: aeo-site
+          path: site/
+          retention-days: 1
+          if-no-files-found: ignore
+
+  research:
+    needs: [plan, site]
+    # The site job may fail; the research still runs, with no audit.
+    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.skip != 'true' }}
     runs-on: ubuntu-latest
     # One subject measured at 26 minutes for twenty questions on the first
     # live run, about 1.3 minutes a question (a question's assistants run
@@ -218,6 +262,13 @@ jobs:
       # version is a change to the measurement: bump it here with the tests.
       - name: Install the Claude Code CLI
         run: npm i -g @anthropic-ai/claude-code@2.1.323
+      # The run's site audit. Missing (the site job failed) means no audit:
+      # the run reads site/audit.json, finds none, and reads none of our pages.
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: aeo-site
+          path: site
       # Two attempts in the one step, five minutes apart. GitHub Actions
       # rejects YAML anchors, so a second step would mean naming every
       # secret twice; a loop names them once and still ends in exit 1, which
@@ -261,11 +312,14 @@ jobs:
           JOB_INDEX: ${{ strategy.job-index }}
         run: |
           set -uo pipefail
-          args=(--subject "$SUBJECT" --cap-usd "$CAP")
+          # Our own pages come only from the site job's sealed audit. A retry
+          # reads no page at all: a fresh process would have a fresh budget.
+          args=(--subject "$SUBJECT" --cap-usd "$CAP" --site-in site/audit.json)
           if [ -n "$COMMAND_ID" ]; then args+=(--command-id "$COMMAND_ID"); fi
           if [ "$DRY" = "true" ]; then args+=(--dry --out "out/packet.$SUBJECT.json"); fi
-          # Counts only, sealed to this workflow run (src/lib/seal.ts), named
-          # by job index so no subject reaches an artifact name.
+          # Counts, and a venture's top win kit, sealed to this workflow run
+          # (src/lib/seal.ts), named by job index so no subject reaches an
+          # artifact name.
           if [ "$PROTOCOL" = "true" ]; then args+=(--summary-out "summary/summary-$JOB_INDEX.json"); fi
           # AEO_ATTEMPT tells the run which attempt it is: only the first asks
           # Gemini, because each attempt is a fresh process with a fresh
@@ -287,7 +341,9 @@ jobs:
       # on the runner and the log carries only the counts the CLI prints. To read a whole
       # packet, run --dry --out on his own machine (README).
       # This repository is public, and so are its artifacts. The summary is
-      # sealed and holds counts only; it lives one day.
+      # sealed and holds counts, plus one prepared win kit per venture (a
+      # question and the pages involved, for Control Center only,
+      # docs/NEVER-PUBLISH.md); it lives one day.
       - name: Keep the sealed summary for the report job
         if: ${{ always() && needs.plan.outputs.protocol == 'true' }}
         uses: actions/upload-artifact@v4

@@ -1,7 +1,14 @@
 /**
  * Stage 50: the demand score, out of 100, from three proxies that are each
- * measured this run. There is no prompt-volume corpus for AI assistants; the
- * labels on every row say so.
+ * measured this run, and each question's status. There is no prompt-volume
+ * corpus for AI assistants; the labels on every row say so.
+ *
+ * Status, since 2026-11-13, by the diagnosis (52-diagnose.ts) rather than by
+ * "absent on two or more engines": recommend goes to the questions where we
+ * are not cited at all (retrieved but not cited, a page not retrieved, no
+ * page), ranked by kit priority (distance to first, demand, winnability);
+ * watch takes every question we are cited on (won, and cited not first) and
+ * the rest at WATCH_MIN_SCORE or above; drop the remainder.
  *
  *   llm_demand          0 to 40   10 per engine that gave a substantive, cited answer
  *   transcript_evidence 0 to 30   10 per call evidence item whose theme overlaps the query
@@ -10,11 +17,13 @@
  */
 import { CAPS } from '../config/run.js'
 import { citedHosts, hostMatches } from '../lib/domains.js'
+import { ownedByPlatforms } from '../lib/platforms.js'
 import { normaliseQuery, overlap } from '../lib/text.js'
 import type { ContextSubject } from '../schema/context.js'
 import type { DemandBasis, Engine, Evidence, PacketQuery, Probe, QueryStatus, Theme, Trend } from '../schema/packet.js'
 import type { ProposedQuery } from './30-propose.js'
 import type { ProbeOutcome } from './40-probe.js'
+import { kitPriority, RECOMMEND_CLASSES, type Diagnosis, type GapClass } from './52-diagnose.js'
 
 export const LABEL_PROXIES = 'no prompt-volume corpus; proxies only'
 export const LABEL_VOLUME = 'Google volume via DataForSEO'
@@ -74,7 +83,7 @@ function trendOf(score: number, q: ProposedQuery): Trend {
   return 'flat'
 }
 
-export function scoreQueries(proposed: readonly ProposedQuery[], outcome: ProbeOutcome, themes: readonly Theme[], subject: ContextSubject, krishHitsDomains: readonly string[]): PacketQuery[] {
+export function scoreQueries(proposed: readonly ProposedQuery[], outcome: ProbeOutcome, themes: readonly Theme[], subject: ContextSubject, krishHitsDomains: readonly string[], diagnoses?: ReadonlyMap<string, Diagnosis>): PacketQuery[] {
   const rows: PacketQuery[] = proposed.map(q => {
     const probes = outcome.probesByQuery.get(q.query_id) ?? []
     const call_evidence = callEvidenceFor(q.query, themes)
@@ -104,12 +113,59 @@ export function scoreQueries(proposed: readonly ProposedQuery[], outcome: ProbeO
     }
   })
   rows.sort((a, b) => b.demand_score - a.demand_score || a.query.localeCompare(b.query))
-  assignStatus(rows)
+  assignStatus(rows, diagnoses)
   return rows
 }
 
-/** recommend: the top 3 to 5 that are absent on at least two probed engines (or on all when fewer than two). watch: score >= 30. drop: the rest. */
-export function assignStatus(rows: PacketQuery[]): void {
+/**
+ * A row's class and platform ownership when the diagnosis kept none for it:
+ * unknown with no probe; cited (not first, as far as the packet can tell)
+ * when any answer cited us; else no page, owned when general platforms are
+ * most of the hosts cited.
+ */
+export function classFromProbes(r: PacketQuery): { gap_class: GapClass; owned_by_platform: boolean } {
+  if (!r.probes.length) return { gap_class: 'unknown', owned_by_platform: false }
+  if (r.probes.some(p => p.we_cited)) return { gap_class: 'cited_not_first', owned_by_platform: false }
+  return { gap_class: 'no_page', owned_by_platform: ownedByPlatforms(r.gap.competitor_domains).length > 0 }
+}
+
+/** A row's kit priority, from its diagnosis when there is one. */
+export function rowPriority(r: PacketQuery, diagnoses?: ReadonlyMap<string, Diagnosis>): { gap_class: GapClass; priority: number } {
+  const d = diagnoses?.get(r.query_id) ?? classFromProbes(r)
+  return { gap_class: d.gap_class, priority: kitPriority(d.gap_class, r.demand_score, d.owned_by_platform) }
+}
+
+/**
+ * With a diagnosis (a venture or a prospect): recommend takes, of the
+ * questions we are not cited on at all, the top 3 by kit priority (ties on
+ * query_id), and up to 5 while they score WATCH_MIN_SCORE or more; watch takes
+ * every question we are cited on (won, cited not first) and the rest at
+ * WATCH_MIN_SCORE or more; drop the remainder.
+ *
+ * Without one (an aspiration, whose "ours" is another company's site, or a
+ * caller that ran no diagnosis) the rule it had: recommend the top 3 to 5
+ * that are absent on at least two probed engines (or on all when fewer than
+ * two); watch from WATCH_MIN_SCORE. Row order (demand) is unchanged either way.
+ */
+export function assignStatus(rows: PacketQuery[], diagnoses?: ReadonlyMap<string, Diagnosis>): void {
+  if (!diagnoses) { assignStatusByAbsence(rows); return }
+  const ranked = rows
+    .map(r => ({ r, ...rowPriority(r, diagnoses) }))
+    .filter(x => RECOMMEND_CLASSES.includes(x.gap_class) && x.r.probes.length > 0)
+    .sort((a, b) => b.priority - a.priority || a.r.query_id.localeCompare(b.r.query_id))
+  const recommend = new Set<string>()
+  ranked.forEach((x, i) => {
+    if (recommend.size >= 5) return
+    if (i < 3 || x.r.demand_score >= CAPS.WATCH_MIN_SCORE) recommend.add(x.r.query_id)
+  })
+  for (const r of rows) {
+    const cls = rowPriority(r, diagnoses).gap_class
+    r.status = recommend.has(r.query_id) ? 'recommend' : cls === 'won' || cls === 'cited_not_first' || r.demand_score >= CAPS.WATCH_MIN_SCORE ? 'watch' : 'drop'
+  }
+}
+
+/** The rule before the diagnosis: absent on at least two probed engines (or on all when fewer than two), demand order. */
+export function assignStatusByAbsence(rows: PacketQuery[]): void {
   const absentOn = (r: PacketQuery) => r.probes.filter(p => !p.we_cited).length
   const eligible = rows.filter(r => {
     const probed = new Set(r.probes.map(p => p.engine)).size

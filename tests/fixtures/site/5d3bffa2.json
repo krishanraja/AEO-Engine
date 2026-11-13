@@ -1,0 +1,8 @@
+{
+  "_url": "https://docs.example-assistant.com/custom-instructions/",
+  "status": 200,
+  "headers": {
+    "content-type": "text/html; charset=utf-8"
+  },
+  "text": "<!doctype html><html><head><meta charset=\"utf-8\"><title>Custom instructions | Example Assistant docs</title><script type=\"application/ld+json\">{\"@context\":\"https://schema.org\",\"@type\":\"TechArticle\",\"dateModified\":\"2026-07-20\"}</script></head><body><div id=\"root\"></div><main><h1>Custom instructions</h1><p>graded edit check voice pattern case operator reader week judgement output standard review tone draft rule choice example sentence brief graded edit check voice pattern.</p><h2>Set a style</h2><p>voice pattern case operator reader week judgement output standard review tone draft rule choice example sentence brief graded edit check voice pattern case operator reader week judgement output standard review tone draft rule choice example sentence brief graded edit check.</p><h2>Limits</h2><p>operator reader week judgement output standard review tone draft rule choice example sentence brief graded edit check voice pattern case operator reader week judgement output standard review tone draft rule.</p></main></body></html>"
+}

@@ -31,7 +31,7 @@ import {
   type TranscriptSummary,
 } from './types.js'
 
-function readFixture(dir: string, rel: string, hint: string): unknown {
+export function readFixture(dir: string, rel: string, hint: string): unknown {
   const path = join(dir, rel)
   if (!existsSync(path)) throw new MissingFixture(path, hint)
   return JSON.parse(readFileSync(path, 'utf8'))

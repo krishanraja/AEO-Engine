@@ -228,7 +228,11 @@ test('runAll: a share too small for the request leaves it unserved, says so by c
   assert.ok(report.activity.some(a => a.line === said))
   assert.ok(report.holds.some(h => h.reason === 'answer_request_not_served' && h.detail === said))
   assert.equal(report.answers_served, undefined, 'an unserved request is not claimed')
-  assert.ok(!JSON.stringify(report).includes('owner kind'), 'never a question in the report')
+  // A question reaches the report only inside the one win kit proposal, which
+  // goes to Control Center alone (docs/NEVER-PUBLISH.md); never in a line or a hold.
+  const kits = report.proposals.filter(p => p.proposal_id.startsWith('aeo:kit:heartside:'))
+  assert.equal(kits.length, 1, 'one win kit for the venture')
+  assert.ok(!JSON.stringify({ ...report, proposals: report.proposals.filter(p => !kits.includes(p)) }).includes('owner kind'), 'never a question in the report outside the kit')
 })
 
 test('proposeQueries: two requests of 25 questions reach the proposal whole, past the usual cap of 40 and inside the packet\'s 60', async () => {

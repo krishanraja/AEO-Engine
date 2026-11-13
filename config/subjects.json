@@ -1,0 +1,14 @@
+{
+  "_about": "Per venture, by product slug only (this file is public): which ventures are held, so AEO measures them and prepares no win kit or proposal (Ruling, Krish, 2026-11-13), and which repository ships each product's fixes. Control Center's subject.engine_held wins when it serves one (src/config/subjects.ts).",
+  "held": ["legibility", "full-time"],
+  "owner_repos": {
+    "mindmake": "krishanraja/mindmake",
+    "ctrl": "krishanraja/mindmake",
+    "heartside": "krishanraja/heartside",
+    "legibility": "krishanraja/legibility",
+    "full-time": "krishanraja/full-time",
+    "publication": "krishanraja/makeyourmindup",
+    "circle": null,
+    "pulse": null
+  }
+}

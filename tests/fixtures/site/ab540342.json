@@ -1,0 +1,9 @@
+{
+  "_url": "https://docs.example-assistant.com/custom-instructions",
+  "status": 301,
+  "headers": {
+    "location": "/custom-instructions/",
+    "content-type": "text/html"
+  },
+  "text": ""
+}

@@ -21,7 +21,7 @@
 import { GrowthEngineHttp, ProtocolError } from '../clients/growthEngine.js'
 import { errText, log } from '../lib/log.js'
 import { validateReport, type Attempt, type Decision, type Directive, type EngineReport } from '../schema/report.js'
-import { buildDirectiveReport, buildResearchReport, researchRunId, STALE_DAYS, type Envelope, type ResearchInput, type StateContext, type StoredResearch } from './reports.js'
+import { buildDirectiveReport, buildResearchReport, DECISIONS_LOOKBACK_DAYS, KIT_PROPOSAL_PREFIX, pendingKitOf, researchRunId, STALE_DAYS, type Envelope, type ResearchInput, type StateContext, type StoredResearch } from './reports.js'
 import { readRepoState } from './state.js'
 
 export type Client = Pick<GrowthEngineHttp, 'postAttempt' | 'getDirective' | 'postReport' | 'getReport' | 'getDecisions' | 'getRecentReports'>
@@ -90,7 +90,14 @@ export async function deliver(c: Client, report: EngineReport): Promise<{ replay
   return { replayed }
 }
 
-/** Reads his decisions and logs how they meet what this report proposes. Never acts on one. */
+/**
+ * Reads his decisions and logs how they meet what this report proposes. Never
+ * acts on one. A win kit has no go-live here: the product's build session or
+ * its growth engine ships it, so an approved kit is counted and nothing more
+ * (Phase 3 gives its question the panel tier "kit in flight"). This is the
+ * protocol's step five, after the report; a run also reads them before its
+ * report (decisionsSince) so the report never asks again what he decided.
+ */
 async function readDecisions(c: Client, report: EngineReport, now: Date): Promise<Decision[]> {
   const decisions = await c.getDecisions(new Date(now.getTime() - STALE_DAYS * DAY_MS).toISOString())
   const ours = new Map(report.proposals.map(p => [p.proposal_id, p.payload_sha256]))
@@ -99,6 +106,7 @@ async function readDecisions(c: Client, report: EngineReport, now: Date): Promis
     decisions: decisions.length,
     on_this_report: decisions.filter(d => ours.has(d.proposal_id)).length,
     approved_on_this_payload: matched.filter(d => d.decision === 'approved').length,
+    kits_approved: decisions.filter(d => d.proposal_id.startsWith(KIT_PROPOSAL_PREFIX) && d.decision === 'approved').length,
     acted_on: 0,
   })
   return decisions
@@ -112,6 +120,44 @@ async function terminal(c: Client, a: Attempt, status: 'succeeded' | 'failed', p
   } catch (e) {
     log('protocol_attempt_not_recorded', { attempt_id: a.attempt_id, status, code: codeOf(e, 'attempt_unrecorded') })
   }
+}
+
+/**
+ * His decisions since `days` ago, read before a report is built (a free GET).
+ * Null when they could not be read; a bearer that is refused is thrown, as
+ * everywhere else here. Counts only in the log.
+ */
+async function decisionsSince(c: Client, now: Date, days: number): Promise<Decision[] | null> {
+  try {
+    return await c.getDecisions(new Date(now.getTime() - days * DAY_MS).toISOString())
+  } catch (e) {
+    const code = codeOf(e, 'decisions_unavailable')
+    if (code === 'unauthorized' || code === 'forbidden') throw e
+    log('protocol_decisions_unavailable', { code })
+    return null
+  }
+}
+
+/**
+ * The newest full research report, read back from Control Center: a free GET
+ * per day, newest first, back to the stale line. `skipRunId` passes over a
+ * run's own report (a re-run of its report job), so a rebuild reads what the
+ * first build read.
+ */
+async function lastResearch(c: Client, mode: 'live' | 'synthetic', from: Date, skipRunId?: string): Promise<{ last: StoredResearch | null; error: string | null }> {
+  for (let back = 0; back <= STALE_DAYS; back++) {
+    const id = researchRunId(ymd(new Date(from.getTime() - back * DAY_MS)))
+    if (id === skipRunId) continue
+    try {
+      const r = await c.getReport(id)
+      if (r && r.mode === mode) return { last: { run_id: id, accepted_at: r.accepted_at, report: r.report }, error: null }
+    } catch (e) {
+      const error = codeOf(e, 'readback_unavailable')
+      if (error === 'unauthorized' || error === 'forbidden') throw e
+      return { last: null, error }
+    }
+  }
+  return { last: null, error: null }
 }
 
 export interface DirectiveOpts extends StateOpts {
@@ -161,29 +207,21 @@ export async function runDirective(c: Client, o: DirectiveOpts): Promise<LoopOut
       log('protocol_directive_unavailable', { code: directiveError })
     }
 
-    // The newest full research report, read back from Control Center: a free
-    // GET per day, newest first, back to the stale line.
+    // The newest full research report, read back from Control Center.
     phase = 'capture'
-    let last: StoredResearch | null = null
-    let lastError: string | null = null
-    for (let back = 0; back <= STALE_DAYS && !last; back++) {
-      const id = researchRunId(ymd(new Date(started.getTime() - back * DAY_MS)))
-      try {
-        const r = await c.getReport(id)
-        if (r && r.mode === o.mode) last = { run_id: id, accepted_at: r.accepted_at, report: r.report }
-      } catch (e) {
-        lastError = codeOf(e, 'readback_unavailable')
-        if (lastError === 'unauthorized' || lastError === 'forbidden') throw e
-        break
-      }
-    }
+    const { last, error: lastError } = await lastResearch(c, o.mode, started)
+
+    // His decisions back past that report (a free GET): the directive's
+    // decisions_since covers seven days, and a kit lives about fourteen.
+    phase = 'decisions_read'
+    const decisions = await decisionsSince(c, started, STALE_DAYS + 1)
 
     phase = 'state'
     const state = await stateContext(c, served, o)
 
     phase = 'report'
     const env: Envelope = { runId, mode: o.mode, observedAt: now(), revision: o.revision, capturedAt: started, state }
-    const report = buildDirectiveReport({ ...env, directive, directiveError, last, lastError })
+    const report = buildDirectiveReport({ ...env, directive, directiveError, last, lastError, decisions })
     const { replayed } = await deliver(c, report)
 
     phase = 'decisions'
@@ -244,8 +282,20 @@ export async function finishResearch(c: Client, ids: ResearchIds, input: Omit<Re
     }
     phase = 'state'
     const state = await stateContext(c, served, o)
+    // His decisions before the kit is chosen (a free GET): a kit he declined,
+    // or approved and is shipping, never comes back as a fresh ask. And the
+    // kit still waiting from the last full run, so a full run started by hand
+    // keeps that one slot rather than adding a second kit beside it.
+    phase = 'decisions_read'
+    const decisions = await decisionsSince(c, now(), DECISIONS_LOOKBACK_DAYS)
+    let pendingKit = null
+    if (input.scope === 'all') {
+      const { last } = await lastResearch(c, input.mode, input.observedAt, ids.runId)
+      pendingKit = last ? pendingKitOf(last.report, decisions ?? [], input.observedAt) : null
+    }
+    log('protocol_kit_inputs', { decisions: decisions ? decisions.length : null, kit_decisions: decisions ? decisions.filter(d => d.proposal_id.startsWith(KIT_PROPOSAL_PREFIX)).length : null, kit_waiting: !!pendingKit })
     phase = 'report'
-    const report = buildResearchReport({ ...input, runId: ids.runId, state, answers: served?.features?.answer_requests === true })
+    const report = buildResearchReport({ ...input, runId: ids.runId, state, answers: served?.features?.answer_requests === true, decisions, pendingKit })
     const { replayed } = await deliver(c, report)
     phase = 'decisions'
     await readDecisions(c, report, now())
