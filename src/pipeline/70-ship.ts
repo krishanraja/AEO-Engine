@@ -6,7 +6,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import type { ControlCenterClient, IngestResult } from '../clients/types.js'
 import { log } from '../lib/log.js'
-import { validatePacket, type AeoPacket } from '../schema/packet.js'
+import { validatePacket, type AeoPacket, type GatedEngine } from '../schema/packet.js'
 
 export interface ShipResult { mode: 'posted' | 'written' | 'held'; path?: string; ingest?: IngestResult }
 
@@ -15,8 +15,9 @@ export function writePacket(path: string, body: unknown): void {
   writeFileSync(path, JSON.stringify(body, null, 2) + '\n')
 }
 
-export async function ship(cc: ControlCenterClient, packet: AeoPacket, opts: { dry: boolean; outPath: string | null }): Promise<ShipResult> {
-  const v = validatePacket(packet)
+/** `open`: the gated engines the context's packet_features let into the packet (validatePacket). */
+export async function ship(cc: ControlCenterClient, packet: AeoPacket, opts: { dry: boolean; outPath: string | null; open?: readonly GatedEngine[] }): Promise<ShipResult> {
+  const v = validatePacket(packet, opts.open ?? [])
   if (!v.ok) throw new Error(`packet invalid for ${packet.subject.slug}: ${v.errors.slice(0, 12).join('; ')}`)
   if (opts.dry) {
     if (!opts.outPath) return { mode: 'held' }

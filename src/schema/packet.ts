@@ -15,6 +15,35 @@ export const MAX_PROBES_PER_PACKET = 600
 export const ENGINES_ALL = ['perplexity', 'chatgpt', 'claude', 'grok'] as const
 export type Engine = (typeof ENGINES_ALL)[number]
 
+/**
+ * Engines this engine can ask that the packet's engine enum does not carry.
+ * That enum is joint with Control Center and closed, so a gated engine's
+ * probes stay out of the packet (and out of queries_cited_first) until the
+ * context lists the engine's feature in `packet_features`. Until then its
+ * answers are counted only in the sealed run summary (docs/PACKET.md).
+ */
+export const GATED_ENGINES = ['gemini'] as const
+export type GatedEngine = (typeof GATED_ENGINES)[number]
+/** Any engine a probe can be put to: the packet's own, and the gated ones. */
+export type ProbeEngine = Engine | GatedEngine
+/** The context feature that opens each gated engine's way into the packet. */
+export const GATE_FEATURE: Record<GatedEngine, string> = { gemini: 'engine_gemini' }
+
+export function isGatedEngine(e: string): e is GatedEngine {
+  return (GATED_ENGINES as readonly string[]).includes(e)
+}
+
+/** The gated engines a context's packet_features have opened. Absent or misshapen features open none. */
+export function openGatedEngines(packetFeatures: unknown): GatedEngine[] {
+  const features = Array.isArray(packetFeatures) ? packetFeatures.filter((f): f is string => typeof f === 'string') : []
+  return GATED_ENGINES.filter(e => features.includes(GATE_FEATURE[e]))
+}
+
+/** Whether an engine's probes go into the packet: always for the enum's own, for a gated one only once its feature is open. */
+export function inPacket(e: ProbeEngine, open: readonly GatedEngine[] = []): boolean {
+  return (ENGINES_ALL as readonly string[]).includes(e) || (isGatedEngine(e) && open.includes(e))
+}
+
 export const SUBJECT_KINDS = ['venture', 'prospect', 'aspiration'] as const
 export type SubjectKind = (typeof SUBJECT_KINDS)[number]
 
@@ -196,6 +225,9 @@ type Rec = Record<string, unknown>
 class Checker {
   errors: string[] = []
 
+  /** The engines a probe, a gap or a recommendation may name: the enum, plus any gated engine whose feature is open. */
+  constructor(readonly engines: readonly string[] = ENGINES_ALL) {}
+
   fail(path: string, msg: string): void {
     this.errors.push(`${path}: ${msg}`)
   }
@@ -264,7 +296,7 @@ function checkEvidence(c: Checker, path: string, v: unknown): void {
 
 function checkProbe(c: Checker, path: string, v: unknown): void {
   if (!c.obj(path, v, ['engine', 'model', 'question', 'answer_snapshot', 'we_cited', 'citations', 'cost_usd'])) return
-  c.oneOf(`${path}.engine`, v.engine, ENGINES_ALL)
+  c.oneOf(`${path}.engine`, v.engine, c.engines)
   c.str(`${path}.model`, v.model, { max: 80 })
   c.str(`${path}.question`, v.question, { min: 1, max: 400 })
   c.str(`${path}.answer_snapshot`, v.answer_snapshot, { max: 1800 })
@@ -291,7 +323,7 @@ function checkQuery(c: Checker, path: string, v: unknown): void {
   if (c.arr(`${path}.call_evidence`, v.call_evidence, { max: 10 })) v.call_evidence.forEach((x, i) => checkEvidence(c, `${path}.call_evidence[${i}]`, x))
   const g = v.gap
   if (c.obj(`${path}.gap`, g, ['we_cited_engines', 'competitor_domains'])) {
-    if (c.arr(`${path}.gap.we_cited_engines`, g.we_cited_engines)) g.we_cited_engines.forEach((x, i) => c.oneOf(`${path}.gap.we_cited_engines[${i}]`, x, ENGINES_ALL))
+    if (c.arr(`${path}.gap.we_cited_engines`, g.we_cited_engines)) g.we_cited_engines.forEach((x, i) => c.oneOf(`${path}.gap.we_cited_engines[${i}]`, x, c.engines))
     if (c.arr(`${path}.gap.competitor_domains`, g.competitor_domains, { max: 12 })) g.competitor_domains.forEach((x, i) => c.str(`${path}.gap.competitor_domains[${i}]`, x, { max: 120 }))
   }
   c.oneOf(`${path}.trend`, v.trend, TRENDS)
@@ -307,8 +339,13 @@ function walkStrings(v: unknown, path: string, out: Array<[string, string]>): vo
   else if (v && typeof v === 'object') for (const [k, x] of Object.entries(v as Rec)) walkStrings(x, path ? `${path}.${k}` : k, out)
 }
 
-export function validatePacket(value: unknown): ValidationResult {
-  const c = new Checker()
+/**
+ * `open` names the gated engines whose feature the context lists
+ * (openGatedEngines): only then may the packet carry them, because only then
+ * does Control Center's enum. Default: none, the enum alone.
+ */
+export function validatePacket(value: unknown, open: readonly GatedEngine[] = []): ValidationResult {
+  const c = new Checker([...ENGINES_ALL, ...open])
   const top = [
     'schema_version', 'run_id', 'command_id', 'subject', 'week_start', 'generated_at', 'engines', 'themes_status', 'themes',
     'calls', 'queries', 'strongest_signal', 'recommendations', 'watch_list', 'competitor_gap', 'playbook', 'approach_hook', 'stats',
@@ -340,7 +377,7 @@ export function validatePacket(value: unknown): ValidationResult {
     if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/.test(p.generated_at) || Number.isNaN(Date.parse(p.generated_at))) c.fail('generated_at', 'must be an ISO date-time')
   }
 
-  if (c.arr('engines', p.engines, { min: 1, unique: true })) p.engines.forEach((x, i) => c.oneOf(`engines[${i}]`, x, ENGINES_ALL))
+  if (c.arr('engines', p.engines, { min: 1, unique: true })) p.engines.forEach((x, i) => c.oneOf(`engines[${i}]`, x, c.engines))
   c.oneOf('themes_status', p.themes_status, THEMES_STATUSES)
 
   if (c.arr('themes', p.themes, { max: 10 })) {
@@ -387,7 +424,7 @@ export function validatePacket(value: unknown): ValidationResult {
       if (c.str(`${path}.query_id`, r.query_id, { re: UUID_RE }) && !queryIds.has(r.query_id)) c.fail(`${path}.query_id`, 'not one of the packet\'s queries')
       c.str(`${path}.angle`, r.angle, { min: 1, max: 600 })
       if (c.arr(`${path}.evidence`, r.evidence, { max: 6 })) r.evidence.forEach((x, j) => c.str(`${path}.evidence[${j}]`, x, { max: 300 }))
-      if (c.arr(`${path}.engines`, r.engines)) r.engines.forEach((x, j) => c.oneOf(`${path}.engines[${j}]`, x, ENGINES_ALL))
+      if (c.arr(`${path}.engines`, r.engines)) r.engines.forEach((x, j) => c.oneOf(`${path}.engines[${j}]`, x, c.engines))
       c.int(`${path}.demand`, r.demand, { min: 0, max: 100 })
       // Null is allowed and means the digest could not justify the recommendation.
       // Absent means the packet predates the winnability gate.

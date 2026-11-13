@@ -197,19 +197,27 @@ jobs:
     timeout-minutes: 120
     strategy:
       fail-fast: false
-      # Three at a time: gentle enough that the assistants are not asked
-      # fifteen questions at once. Subjects beyond three wait for a slot, so
-      # the whole run takes longer than one subject.
-      max-parallel: 3
+      # Four at a time since 2026-11-13, when the per-subject limit rose from
+      # twenty questions to twenty-five: gentle enough that the assistants are
+      # not asked twenty questions at once, and one more slot so the longer
+      # subjects do not stretch the whole run. Subjects beyond four wait.
+      max-parallel: 4
       matrix:
         subject: ${{ fromJson(needs.plan.outputs.subjects) }}
     steps:
       - uses: actions/checkout@v4
+      # Node 22, not the 20 the other jobs use: the pinned Claude Code CLI
+      # declares engines node >=22.0.0 (check:config holds this job to it).
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
       - run: npm ci
+      # The Claude Code CLI for the Claude probes (src/clients/claudeCode.ts),
+      # pinned to the version its stream-json shape was recorded from. A new
+      # version is a change to the measurement: bump it here with the tests.
+      - name: Install the Claude Code CLI
+        run: npm i -g @anthropic-ai/claude-code@2.1.323
       # Two attempts in the one step, five minutes apart. GitHub Actions
       # rejects YAML anchors, so a second step would mean naming every
       # secret twice; a loop names them once and still ends in exit 1, which
@@ -226,6 +234,20 @@ jobs:
           PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
           XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
           EXA_API_KEY: ${{ secrets.EXA_API_KEY }}
+          # The Claude probes run on the Claude Code subscription (Ruling,
+          # Krish, 2026-11-13), the same secret the docs steward uses. This
+          # step also holds ANTHROPIC_API_KEY, for the writing stages and the
+          # API lane; the CLI child is given only an allowlisted environment
+          # with no API key, and its first event is checked to have none
+          # (docs/STATE.md says why this stays one step). Unset: the Claude
+          # probes use the API lane, with one log line saying so.
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Optional: Gemini as a fourth engine inside its free tier, measured
+          # beside the packets until Control Center opens it. Unset: no Gemini.
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # code, api, compare or code_then_api (README). Empty: compare for the
+          # run of 22 November, code from the research week of 23 November.
+          AEO_CLAUDE_LANE: ${{ vars.AEO_CLAUDE_LANE }}
           # Read-only: the digest reads Krish's approved voice rules (directive
           # taste, protocol 1.5.0) through the growth engine door. Unset means
           # unknown, and the digest is written without them.
@@ -245,9 +267,12 @@ jobs:
           # Counts only, sealed to this workflow run (src/lib/seal.ts), named
           # by job index so no subject reaches an artifact name.
           if [ "$PROTOCOL" = "true" ]; then args+=(--summary-out "summary/summary-$JOB_INDEX.json"); fi
+          # AEO_ATTEMPT tells the run which attempt it is: only the first asks
+          # Gemini, because each attempt is a fresh process with a fresh
+          # free-tier count (resolveEngines in src/config/run.ts).
           for attempt in 1 2; do
             echo "::group::$SUBJECT attempt $attempt"
-            npm run --silent run -- "${args[@]}" && { echo "::endgroup::"; exit 0; }
+            AEO_ATTEMPT="$attempt" npm run --silent run -- "${args[@]}" && { echo "::endgroup::"; exit 0; }
             echo "::endgroup::"
             if [ "$attempt" = "1" ]; then
               echo "$SUBJECT failed, waiting five minutes before the retry"

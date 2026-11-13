@@ -64,7 +64,9 @@ test('offline dry run writes packets that validate and ctrl matches the expected
   // category term and recommended four questions it could name a reason for.
   assert.equal(ctrl.recommendations.length, 4)
   assert.ok(ctrl.recommendations.every(r => typeof r.why_you_can_win === 'string' && r.why_you_can_win.length > 0))
-  assert.equal(ctrl.not_worth_chasing.length, 2)
+  // Three walls since the limit rose to 25 (2026-11-13): the newly probed
+  // executive question is owned by a business title and a consultancy.
+  assert.equal(ctrl.not_worth_chasing.length, 3)
   // The prospect fell back, so it named no reason to win anything and walled
   // off only what it could see: the question the big platforms are cited on.
   assert.ok(prospect.recommendations.every(r => r.why_you_can_win === null))
@@ -85,7 +87,8 @@ test('the usd cap stops probing and counts every unprobed pair', () => {
   const p = JSON.parse(readFileSync(out, 'utf8')) as AeoPacket
   assert.equal(validatePacket(p).ok, true)
   assert.ok(p.stats.probes_skipped_cap > 0)
-  assert.ok(p.stats.probes + p.stats.probes_failed + p.stats.probes_skipped_cap === 60)
+  // Every probed question times every engine: 24 questions (all of ctrl's, within the limit of 25) on 3 assistants.
+  assert.ok(p.stats.probes + p.stats.probes_failed + p.stats.probes_skipped_cap === 72)
   assert.ok(p.stats.cost_usd <= 0.5)
 })
 

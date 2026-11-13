@@ -228,6 +228,80 @@
       ]
     },
     {
+      "query_id": "2f820352-9bc1-4e69-8df7-982710d29ed8",
+      "query": "How do executives use AI to draft in their own voice?",
+      "source": "seed",
+      "demand_score": 50,
+      "demand_basis": {
+        "llm_demand": 30,
+        "transcript_evidence": 20,
+        "rising_volume": 0,
+        "labels": [
+          "no prompt-volume corpus; proxies only"
+        ]
+      },
+      "call_evidence": [
+        {
+          "call_ref": "5941637d",
+          "date": "2026-09-03",
+          "paraphrase": "Everything the assistant produces reads like a press release and the team can tell it was not written by them."
+        },
+        {
+          "call_ref": "5941637d",
+          "date": "2026-09-03",
+          "paraphrase": "They want the same voice in a short email, a post and a board deck without rewriting every draft."
+        }
+      ],
+      "gap": {
+        "we_cited_engines": [],
+        "competitor_domains": [
+          "example-business-review.com",
+          "example-consultancy.com"
+        ]
+      },
+      "trend": "new",
+      "status": "recommend",
+      "touchpoint_id": null,
+      "probes": [
+        {
+          "engine": "perplexity",
+          "model": "sonar",
+          "question": "How do executives use AI to draft in their own voice?",
+          "answer_snapshot": "Summary: Executives drafting in their own voice with AI comes down to a few decisions. First, collect a handful of pieces you are happy with and treat them as the standard. Second, write down what makes them yours as short, checkable rules rather than adjectives. Third, review a week of drafts against those rules and fix the cases that still miss one at a time. Teams that skip the examples step tend to keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-business-review.com/2026/ai-drafting",
+            "https://www.example-consultancy.com/insights/executive-ai"
+          ],
+          "cost_usd": 0.01
+        },
+        {
+          "engine": "chatgpt",
+          "model": "gpt-5",
+          "question": "How do executives use AI to draft in their own voice?",
+          "answer_snapshot": "In short: Executives drafting in their own voice with AI comes down to a few decisions. First, collect a handful of pieces you are happy with and treat them as the standard. Second, write down what makes them yours as short, checkable rules rather than adjectives. Third, review a week of drafts against those rules and fix the cases that still miss one at a time. Teams that skip the examples step tend to keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-consultancy.com/insights/executive-ai",
+            "https://www.example-business-review.com/2026/ai-drafting"
+          ],
+          "cost_usd": 0.05
+        },
+        {
+          "engine": "claude",
+          "model": "claude-sonnet-5",
+          "question": "How do executives use AI to draft in their own voice?",
+          "answer_snapshot": "Here is the practical answer: Executives drafting in their own voice with AI comes down to a few decisions. First, collect a handful of pieces you are happy with and treat them as the standard. Second, write down what makes them yours as short, checkable rules rather than adjectives. Third, review a week of drafts against those rules and fix the cases that still miss one at a time. Teams that skip the examples step tend to keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-business-review.com/2026/ai-drafting",
+            "https://www.example-consultancy.com/insights/executive-ai"
+          ],
+          "cost_usd": 0.07
+        }
+      ]
+    },
+    {
       "query_id": "c9a49dfa-381d-4749-8060-619711ed1435",
       "query": "How do I brief an AI assistant on my voice for LinkedIn posts?",
       "source": "seed",
@@ -401,7 +475,7 @@
         ]
       },
       "trend": "new",
-      "status": "recommend",
+      "status": "watch",
       "touchpoint_id": null,
       "probes": [
         {
@@ -730,6 +804,69 @@
       ]
     },
     {
+      "query_id": "7d6d5319-c58a-449f-8e4e-328b7a528010",
+      "query": "How do I keep an AI assistant from drifting back to generic writing?",
+      "source": "seed",
+      "demand_score": 30,
+      "demand_basis": {
+        "llm_demand": 30,
+        "transcript_evidence": 0,
+        "rising_volume": 0,
+        "labels": [
+          "no prompt-volume corpus; proxies only"
+        ]
+      },
+      "call_evidence": [],
+      "gap": {
+        "we_cited_engines": [],
+        "competitor_domains": [
+          "example-productivity.com",
+          "example-writer-tools.com"
+        ]
+      },
+      "trend": "new",
+      "status": "watch",
+      "touchpoint_id": null,
+      "probes": [
+        {
+          "engine": "perplexity",
+          "model": "sonar",
+          "question": "How do I keep an AI assistant from drifting back to generic writing?",
+          "answer_snapshot": "Summary: Keeping an AI assistant from drifting back to generic writing comes down to a few decisions. First, collect a handful of pieces you are happy with and treat them as the standard. Second, write down what makes them yours as short, checkable rules rather than adjectives. Third, review a week of drafts against those rules and fix the cases that still miss one at a time. Teams that skip the examples step tend to keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-writer-tools.com/guides/style-drift",
+            "https://www.example-productivity.com/ai/consistent-voice"
+          ],
+          "cost_usd": 0.01
+        },
+        {
+          "engine": "chatgpt",
+          "model": "gpt-5",
+          "question": "How do I keep an AI assistant from drifting back to generic writing?",
+          "answer_snapshot": "In short: Keeping an AI assistant from drifting back to generic writing comes down to a few decisions. First, collect a handful of pieces you are happy with and treat them as the standard. Second, write down what makes them yours as short, checkable rules rather than adjectives. Third, review a week of drafts against those rules and fix the cases that still miss one at a time. Teams that skip the examples step tend to keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-productivity.com/ai/consistent-voice",
+            "https://www.example-writer-tools.com/guides/style-drift"
+          ],
+          "cost_usd": 0.05
+        },
+        {
+          "engine": "claude",
+          "model": "claude-sonnet-5",
+          "question": "How do I keep an AI assistant from drifting back to generic writing?",
+          "answer_snapshot": "Here is the practical answer: Keeping an AI assistant from drifting back to generic writing comes down to a few decisions. First, collect a handful of pieces you are happy with and treat them as the standard. Second, write down what makes them yours as short, checkable rules rather than adjectives. Third, review a week of drafts against those rules and fix the cases that still miss one at a time. Teams that skip the examples step tend to keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-writer-tools.com/guides/style-drift",
+            "https://www.example-productivity.com/ai/consistent-voice"
+          ],
+          "cost_usd": 0.07
+        }
+      ]
+    },
+    {
       "query_id": "348835ee-7d27-47a4-8874-3f4a3275a7dc",
       "query": "How do I stop ChatGPT from sounding like ChatGPT?",
       "source": "seed",
@@ -854,6 +991,132 @@
           "citations": [
             "https://www.example-writer-tools.com/guide/voice",
             "https://docs.example-assistant.com/custom-instructions"
+          ],
+          "cost_usd": 0.07
+        }
+      ]
+    },
+    {
+      "query_id": "7432508e-e052-458a-88b7-8c38af042e16",
+      "query": "How do I turn my past writing into rules an AI can follow?",
+      "source": "seed",
+      "demand_score": 30,
+      "demand_basis": {
+        "llm_demand": 30,
+        "transcript_evidence": 0,
+        "rising_volume": 0,
+        "labels": [
+          "no prompt-volume corpus; proxies only"
+        ]
+      },
+      "call_evidence": [],
+      "gap": {
+        "we_cited_engines": [],
+        "competitor_domains": [
+          "docs.example-ai-vendor.com",
+          "example-writer-tools.com"
+        ]
+      },
+      "trend": "new",
+      "status": "watch",
+      "touchpoint_id": null,
+      "probes": [
+        {
+          "engine": "perplexity",
+          "model": "sonar",
+          "question": "How do I turn my past writing into rules an AI can follow?",
+          "answer_snapshot": "Summary: Turning past writing into rules an AI can follow comes down to a few decisions. First, collect a handful of pieces you are happy with and treat them as the standard. Second, write down what makes them yours as short, checkable rules rather than adjectives. Third, review a week of drafts against those rules and fix the cases that still miss one at a time. Teams that skip the examples step tend to keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-writer-tools.com/blog/style-rules",
+            "https://docs.example-ai-vendor.com/custom-instructions"
+          ],
+          "cost_usd": 0.01
+        },
+        {
+          "engine": "chatgpt",
+          "model": "gpt-5",
+          "question": "How do I turn my past writing into rules an AI can follow?",
+          "answer_snapshot": "In short: Turning past writing into rules an AI can follow comes down to a few decisions. First, collect a handful of pieces you are happy with and treat them as the standard. Second, write down what makes them yours as short, checkable rules rather than adjectives. Third, review a week of drafts against those rules and fix the cases that still miss one at a time. Teams that skip the examples step tend to keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://docs.example-ai-vendor.com/custom-instructions",
+            "https://www.example-writer-tools.com/blog/style-rules"
+          ],
+          "cost_usd": 0.05
+        },
+        {
+          "engine": "claude",
+          "model": "claude-sonnet-5",
+          "question": "How do I turn my past writing into rules an AI can follow?",
+          "answer_snapshot": "Here is the practical answer: Turning past writing into rules an AI can follow comes down to a few decisions. First, collect a handful of pieces you are happy with and treat them as the standard. Second, write down what makes them yours as short, checkable rules rather than adjectives. Third, review a week of drafts against those rules and fix the cases that still miss one at a time. Teams that skip the examples step tend to keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-writer-tools.com/blog/style-rules",
+            "https://docs.example-ai-vendor.com/custom-instructions"
+          ],
+          "cost_usd": 0.07
+        }
+      ]
+    },
+    {
+      "query_id": "dcf6570b-1170-4ebb-8a32-ce8f9675330f",
+      "query": "Is it worth paying for a tool that writes in my voice?",
+      "source": "seed",
+      "demand_score": 30,
+      "demand_basis": {
+        "llm_demand": 30,
+        "transcript_evidence": 0,
+        "rising_volume": 0,
+        "labels": [
+          "no prompt-volume corpus; proxies only"
+        ]
+      },
+      "call_evidence": [],
+      "gap": {
+        "we_cited_engines": [],
+        "competitor_domains": [
+          "example-productivity.com",
+          "example-reviews.com"
+        ]
+      },
+      "trend": "new",
+      "status": "watch",
+      "touchpoint_id": null,
+      "probes": [
+        {
+          "engine": "perplexity",
+          "model": "sonar",
+          "question": "Is it worth paying for a tool that writes in my voice?",
+          "answer_snapshot": "Summary: Whether a tool that writes in your voice is worth paying for comes down to a few decisions. First, collect a handful of pieces you are happy with and treat them as the standard. Second, write down what makes them yours as short, checkable rules rather than adjectives. Third, review a week of drafts against those rules and fix the cases that still miss one at a time. Teams that skip the examples step tend to keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-reviews.com/ai-writing-tools-2026",
+            "https://www.example-productivity.com/ai/paid-vs-free"
+          ],
+          "cost_usd": 0.01
+        },
+        {
+          "engine": "chatgpt",
+          "model": "gpt-5",
+          "question": "Is it worth paying for a tool that writes in my voice?",
+          "answer_snapshot": "In short: Whether a tool that writes in your voice is worth paying for comes down to a few decisions. First, collect a handful of pieces you are happy with and treat them as the standard. Second, write down what makes them yours as short, checkable rules rather than adjectives. Third, review a week of drafts against those rules and fix the cases that still miss one at a time. Teams that skip the examples step tend to keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-productivity.com/ai/paid-vs-free",
+            "https://www.example-reviews.com/ai-writing-tools-2026"
+          ],
+          "cost_usd": 0.05
+        },
+        {
+          "engine": "claude",
+          "model": "claude-sonnet-5",
+          "question": "Is it worth paying for a tool that writes in my voice?",
+          "answer_snapshot": "Here is the practical answer: Whether a tool that writes in your voice is worth paying for comes down to a few decisions. First, collect a handful of pieces you are happy with and treat them as the standard. Second, write down what makes them yours as short, checkable rules rather than adjectives. Third, review a week of drafts against those rules and fix the cases that still miss one at a time. Teams that skip the examples step tend to keep editing every draft by hand.",
+          "we_cited": false,
+          "citations": [
+            "https://www.example-reviews.com/ai-writing-tools-2026",
+            "https://www.example-productivity.com/ai/paid-vs-free"
           ],
           "cost_usd": 0.07
         }
@@ -1059,40 +1322,6 @@
           "cost_usd": 0.07
         }
       ]
-    },
-    {
-      "query_id": "2f820352-9bc1-4e69-8df7-982710d29ed8",
-      "query": "How do executives use AI to draft in their own voice?",
-      "source": "seed",
-      "demand_score": 20,
-      "demand_basis": {
-        "llm_demand": 0,
-        "transcript_evidence": 20,
-        "rising_volume": 0,
-        "labels": [
-          "no prompt-volume corpus; proxies only"
-        ]
-      },
-      "call_evidence": [
-        {
-          "call_ref": "5941637d",
-          "date": "2026-09-03",
-          "paraphrase": "Everything the assistant produces reads like a press release and the team can tell it was not written by them."
-        },
-        {
-          "call_ref": "5941637d",
-          "date": "2026-09-03",
-          "paraphrase": "They want the same voice in a short email, a post and a board deck without rewriting every draft."
-        }
-      ],
-      "gap": {
-        "we_cited_engines": [],
-        "competitor_domains": []
-      },
-      "trend": "new",
-      "status": "drop",
-      "touchpoint_id": null,
-      "probes": []
     },
     {
       "query_id": "3f3cfb35-1ff2-492f-8fda-fdad76351c40",
@@ -1337,52 +1566,6 @@
       ]
     },
     {
-      "query_id": "7d6d5319-c58a-449f-8e4e-328b7a528010",
-      "query": "How do I keep an AI assistant from drifting back to generic writing?",
-      "source": "seed",
-      "demand_score": 0,
-      "demand_basis": {
-        "llm_demand": 0,
-        "transcript_evidence": 0,
-        "rising_volume": 0,
-        "labels": [
-          "no prompt-volume corpus; proxies only"
-        ]
-      },
-      "call_evidence": [],
-      "gap": {
-        "we_cited_engines": [],
-        "competitor_domains": []
-      },
-      "trend": "new",
-      "status": "drop",
-      "touchpoint_id": null,
-      "probes": []
-    },
-    {
-      "query_id": "7432508e-e052-458a-88b7-8c38af042e16",
-      "query": "How do I turn my past writing into rules an AI can follow?",
-      "source": "seed",
-      "demand_score": 0,
-      "demand_basis": {
-        "llm_demand": 0,
-        "transcript_evidence": 0,
-        "rising_volume": 0,
-        "labels": [
-          "no prompt-volume corpus; proxies only"
-        ]
-      },
-      "call_evidence": [],
-      "gap": {
-        "we_cited_engines": [],
-        "competitor_domains": []
-      },
-      "trend": "new",
-      "status": "drop",
-      "touchpoint_id": null,
-      "probes": []
-    },
-    {
       "query_id": "9f3d18b7-a64d-4009-856c-5bff1b5df3e4",
       "query": "Is a custom GPT for my voice worth it?",
       "source": "striking_distance",
@@ -1442,29 +1625,6 @@
           "cost_usd": 0.07
         }
       ]
-    },
-    {
-      "query_id": "dcf6570b-1170-4ebb-8a32-ce8f9675330f",
-      "query": "Is it worth paying for a tool that writes in my voice?",
-      "source": "seed",
-      "demand_score": 0,
-      "demand_basis": {
-        "llm_demand": 0,
-        "transcript_evidence": 0,
-        "rising_volume": 0,
-        "labels": [
-          "no prompt-volume corpus; proxies only"
-        ]
-      },
-      "call_evidence": [],
-      "gap": {
-        "we_cited_engines": [],
-        "competitor_domains": []
-      },
-      "trend": "new",
-      "status": "drop",
-      "touchpoint_id": null,
-      "probes": []
     },
     {
       "query_id": "47e27e1d-51de-4ff7-81ea-f62575e6106c",
@@ -1625,9 +1785,23 @@
         "example-prompting.com"
       ],
       "why_not": "A tool complaint asked by anyone with a free account, not by a leader who can move a decision. Winning it would bring readers who cannot buy."
+    },
+    {
+      "query_id": "2f820352-9bc1-4e69-8df7-982710d29ed8",
+      "query": "How do executives use AI to draft in their own voice?",
+      "owned_by": [
+        "example-business-review.com",
+        "example-consultancy.com"
+      ],
+      "why_not": "A business title and a consultancy own the executive framing of this answer, and a product page will not displace either this month."
     }
   ],
   "watch_list": [
+    {
+      "query_id": "88664d5f-7b82-42ef-8d80-94935372af4d",
+      "query": "How do I train an AI on my writing?",
+      "why": "demand 45, new; cited on 0 of 3 probed engines"
+    },
     {
       "query_id": "f9fb72b1-10ec-4834-850c-b49b3bc19bad",
       "query": "How do I keep a consistent voice across email, posts and decks with AI?",
@@ -1649,6 +1823,11 @@
       "why": "demand 40, new; cited on 0 of 3 engines"
     },
     {
+      "query_id": "7d6d5319-c58a-449f-8e4e-328b7a528010",
+      "query": "How do I keep an AI assistant from drifting back to generic writing?",
+      "why": "demand 30, new; cited on 0 of 3 probed engines"
+    },
+    {
       "query_id": "348835ee-7d27-47a4-8874-3f4a3275a7dc",
       "query": "How do I stop ChatGPT from sounding like ChatGPT?",
       "why": "demand 30, new; cited on 0 of 3 engines"
@@ -1657,6 +1836,16 @@
       "query_id": "39050ec9-fc5b-4c5e-8a66-70b971486d0b",
       "query": "How do I test whether an AI sounds like me?",
       "why": "demand 30, new; cited on 0 of 3 engines"
+    },
+    {
+      "query_id": "7432508e-e052-458a-88b7-8c38af042e16",
+      "query": "How do I turn my past writing into rules an AI can follow?",
+      "why": "demand 30, new; cited on 0 of 3 probed engines"
+    },
+    {
+      "query_id": "dcf6570b-1170-4ebb-8a32-ce8f9675330f",
+      "query": "Is it worth paying for a tool that writes in my voice?",
+      "why": "demand 30, new; cited on 0 of 3 probed engines"
     },
     {
       "query_id": "b1000000-0000-4000-8000-000000000002",
@@ -1676,7 +1865,7 @@
   ],
   "competitor_gap": {
     "domain": "example-writer-tools.com",
-    "times_cited": 33,
+    "times_cited": 39,
     "questions": [
       "How do I get an AI assistant to write like me?",
       "What is a personal AI writing style?",
@@ -1687,17 +1876,17 @@
       "How do I stop AI output sounding generic?",
       "How much of my own writing does an AI need to learn my style?",
       "Should I build my own AI skill or buy one?",
-      "How do I stop ChatGPT from sounding like ChatGPT?"
+      "How do I keep an AI assistant from drifting back to generic writing?"
     ]
   },
   "playbook": null,
   "approach_hook": null,
   "stats": {
     "queries": 24,
-    "probes": 59,
+    "probes": 71,
     "probes_failed": 1,
     "probes_skipped_cap": 0,
-    "cost_usd": 2.59,
+    "cost_usd": 3.11,
     "engines": 3,
     "transcripts": 2,
     "digest_writer": "claude"

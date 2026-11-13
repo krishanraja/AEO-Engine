@@ -88,7 +88,7 @@ test('cited first: the probe details decide, not the cleaned packet list', () =>
   assert.equal(countCitedFirst(packet, CTRL_DOMAINS).cited_first, 2, 'no details: the packet, as before')
   const counts = countDetails([...details, detail(probed[1].query_id, false, { engine: 'claude', cited_any: true, searched: false, zero_citation: true })])
   assert.equal(counts?.cited_any, 2)
-  assert.deepEqual(counts?.engines, { chatgpt: { probes: probed.length, searched: probed.length, zero_citation: 0 }, claude: { probes: 1, searched: 0, zero_citation: 1 } })
+  assert.deepEqual(counts?.engines, { chatgpt: { probes: probed.length, searched: probed.length, zero_citation: 0, first_host_ours: 1, cited_any: 1 }, claude: { probes: 1, searched: 0, zero_citation: 1, first_host_ours: 0, cited_any: 1 } })
   assert.equal(countDetails([]), null)
   const sum = summariseSubject(packet, CTRL_DOMAINS, [], details)
   assert.equal(sum.cited_first, 1)
@@ -412,7 +412,8 @@ test('end to end: an offline research run leaves a sealed summary the report job
   assert.equal(typeof bySlug.ctrl.cited_any, 'number')
   assert.ok((bySlug.ctrl.cited_any ?? 0) >= (bySlug.ctrl.cited_first ?? 0))
   assert.deepEqual(Object.keys(bySlug.ctrl.engines ?? {}).sort(), ['chatgpt', 'claude', 'perplexity'])
-  assert.equal(Object.values(bySlug.ctrl.engines ?? {}).reduce((n, e) => n + e.probes, 0), 59)
+  // 24 questions on 3 assistants, less the one fixture that answers with a 429.
+  assert.equal(Object.values(bySlug.ctrl.engines ?? {}).reduce((n, e) => n + e.probes, 0), 71)
   assert.equal(opened.search_requests, 0, 'the offline twin reports no search usage')
   assert.equal(bySlug['sample-studio'].kind, 'aspiration')
   assert.equal(opened.subjects.length, 3)
@@ -459,13 +460,19 @@ test('buildRunSummary: a run that failed before any subject says so', () => {
 // ---------- the cost wall, statically ----------
 
 test('cost wall: the protocol code never imports the pipeline or a paid client', () => {
-  const files = ['src/protocol/cli.ts', 'src/protocol/loop.ts', 'src/protocol/reports.ts', 'src/protocol/measure.ts', 'src/clients/growthEngine.ts']
+  // Every protocol file, read from the directory so a new one is scanned too, and the protocol client.
+  const files = [...readdirSync(join(ROOT, 'src/protocol')).filter(f => f.endsWith('.ts')).map(f => `src/protocol/${f}`), 'src/clients/growthEngine.ts']
+  for (const f of ['src/protocol/cli.ts', 'src/protocol/loop.ts', 'src/protocol/reports.ts', 'src/protocol/measure.ts', 'src/protocol/state.ts']) assert.ok(files.includes(f), `${f} is scanned`)
   for (const f of files) {
     const src = readFileSync(join(ROOT, f), 'utf8')
-    for (const banned of ['pipeline/', 'anthropic', 'openai', 'perplexity', 'xai', 'fireflies', 'controlCenter.js']) {
+    for (const banned of ['pipeline/', 'anthropic', 'openai', 'perplexity', 'xai', 'fireflies', 'controlCenter.js', 'claudeCode', 'gemini']) {
       assert.ok(!new RegExp(`from '[^']*${banned}`).test(src), `${f} imports ${banned}`)
     }
   }
+  // The lanes the research run pays for (or spends a subscription on) are
+  // never reachable from the daily directive's code, not even through a lib.
+  const imports = (f: string) => [...readFileSync(join(ROOT, f), 'utf8').matchAll(/from '([^']+)'/g)].map(m => m[1])
+  for (const f of files) for (const i of imports(f)) assert.ok(!/claudeCode|gemini|anthropic|openai/.test(i), `${f} imports ${i}`)
   assert.ok(existsSync(join(ROOT, '.github/workflows/cc-growth-directive.yml')))
   assert.ok(readdirSync(join(ROOT, 'src/protocol')).length >= 4)
 })

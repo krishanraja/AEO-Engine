@@ -248,10 +248,25 @@ export function buildResearchReport(input: ResearchInput): EngineReport {
     }
   }
   const engineOrder = [...engines, ...[...byEngine.keys()].filter(e => !engines.includes(e)).sort()]
+  // A gated engine (gemini) is measured beside the packets and never counted
+  // toward questions cited first until Control Center opens it (docs/PACKET.md).
+  const gated = new Set(placed.flatMap(p => (p.s.ok ? p.s.gated_engines ?? [] : [])))
   for (const engine of engineOrder) {
     const e = byEngine.get(engine)
-    if (e) activity.push(line(`${engine}: searched on ${e.searched} of ${plural(e.probes, 'ask')}.`))
+    if (e) activity.push(line(`${engine}: searched on ${e.searched} of ${plural(e.probes, 'ask')}${gated.has(engine) ? '; measured beside the packets, not counted toward questions cited first' : ''}.`))
   }
+  // The Claude Code lane runs on a subscription with a rolling limit, and
+  // Gemini on a free tier this engine keeps a share of: say what each stopped.
+  const sum = (k: 'probes_skipped_limit' | 'probes_limit_warning' | 'probes_fallback' | 'probes_skipped_free_tier') => placed.reduce((n, p) => n + (p.s.ok ? p.s[k] ?? 0 : 0), 0)
+  const limited = sum('probes_skipped_limit')
+  const fellBack = sum('probes_fallback')
+  if (limited || fellBack) activity.push(line(`The Claude Code subscription's limit stopped ${plural(limited + fellBack, 'Claude ask')}${fellBack ? `; the paid API answered ${fellBack} of them` : ''}.`))
+  // Past a warning threshold the subscription still serves, so these asks
+  // were answered; said so the shared subscription's headroom is visible.
+  const warned = sum('probes_limit_warning')
+  if (warned) activity.push(line(`The Claude Code subscription was past its warning threshold on ${plural(warned, 'Claude ask')}, still answered.`))
+  const freeTier = sum('probes_skipped_free_tier')
+  if (freeTier) activity.push(line(`Gemini's free-tier share for this run was used up, so ${plural(freeTier, 'Gemini ask')} ${freeTier === 1 ? 'was' : 'were'} skipped.`))
   if (weekStart && weekStart < METHOD_NOTE_BEFORE_WEEK) activity.push(line(METHOD_NOTE))
 
   const skipped = placed.reduce((n, p) => n + (p.s.probes_skipped_cap ?? 0), 0)

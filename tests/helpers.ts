@@ -1,9 +1,10 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import type { EngineAnswer, EngineClient, ModelClient, ModelRequest } from '../src/clients/types.js'
+import type { AskContext, EngineAnswer, EngineClient, ModelClient, ModelRequest } from '../src/clients/types.js'
+import type { CostKind } from '../src/config/run.js'
 import type { AeoContext, ContextSubject } from '../src/schema/context.js'
-import type { Engine } from '../src/schema/packet.js'
+import type { ProbeEngine } from '../src/schema/packet.js'
 
 export const ROOT = fileURLToPath(new URL('..', import.meta.url))
 export const FIXTURES = join(ROOT, 'tests', 'fixtures')
@@ -38,9 +39,16 @@ export class StubModel implements ModelClient {
 
 export class StubEngine implements EngineClient {
   asked: string[] = []
-  constructor(readonly engine: Engine, private readonly answer: (q: string) => EngineAnswer, readonly model = `${engine}-stub`) {}
-  async ask(question: string): Promise<EngineAnswer> {
+  contexts: Array<AskContext | undefined> = []
+  costKind?: CostKind
+  fallback?: EngineClient
+  constructor(readonly engine: ProbeEngine, private readonly answer: (q: string) => EngineAnswer, readonly model = `${engine}-stub`, extra: { costKind?: CostKind; fallback?: EngineClient } = {}) {
+    if (extra.costKind) this.costKind = extra.costKind
+    if (extra.fallback) this.fallback = extra.fallback
+  }
+  async ask(question: string, ctx?: AskContext): Promise<EngineAnswer> {
     this.asked.push(question)
+    this.contexts.push(ctx)
     return this.answer(question)
   }
 }

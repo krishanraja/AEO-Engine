@@ -13,12 +13,13 @@
  *
  * Counts and flags only. No URL, no answer text, no question.
  */
-import type { Engine } from '../schema/packet.js'
+import type { ProbeEngine } from '../schema/packet.js'
 import { ourHits, ourPosition } from './domains.js'
 
 export interface ProbeDetail {
   query_id: string
-  engine: Engine
+  /** A gated engine's detail (gemini) is kept and counted in the summary, and never counted toward queries_cited_first while gated. */
+  engine: ProbeEngine
   /** The answer's first inline citation is on one of our domains. */
   first_host_ours: boolean
   /** 1-based position of our first inline citation, or null when none is ours. */
@@ -38,7 +39,7 @@ export interface RawAnswer { text: string; citations: readonly string[]; searche
  * engine does not say whether it searched, a cited source is taken as the
  * sign that it did.
  */
-export function probeDetail(queryId: string, engine: Engine, a: RawAnswer, domains: readonly string[]): ProbeDetail {
+export function probeDetail(queryId: string, engine: ProbeEngine, a: RawAnswer, domains: readonly string[]): ProbeDetail {
   const citations = a.citations.filter(c => typeof c === 'string' && c.trim().length > 0)
   const position = ourPosition(citations, domains)
   return {

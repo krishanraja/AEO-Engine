@@ -31,7 +31,15 @@ export interface ObjectiveReading {
 
 export interface ActivityLine { line: string; evidence_url: string | null }
 
+/** 1.1.0: an autonomous engine's steps. A plan sits behind a wall; a go-live is a send, post or spend naming its plan; a check-in is a strategy call naming its plan. */
+export type ProposalStage = 'plan' | 'go_live' | 'check_in'
+export const PROPOSAL_STAGES: readonly ProposalStage[] = ['plan', 'go_live', 'check_in']
+
 export interface Proposal {
+  /** 1.1.0, optional. Absent or null: not an autonomous step. */
+  stage?: ProposalStage | null
+  /** 1.1.0: the plan a go-live carries out or a check-in reports on. Required on both. */
+  parent_proposal_id?: string | null
   proposal_id: string
   title: string
   why: string
@@ -50,8 +58,13 @@ export interface Proposal {
 export interface ReportEvent { event: string; proposal_id: string | null; at: string; evidence_url: string | null }
 export interface Hold { reason: string; detail: string | null }
 
-/** The versions this engine sends: 1.0.0, 1.20.0 when a report carries the engine's state, 1.22.0 when it also says which venture requests it asked. */
-export type SchemaVersion = '1.0.0' | '1.20.0' | '1.22.0'
+/**
+ * The versions this engine sends: 1.0.0; 1.1.0 when a proposal carries a
+ * stage (plan, go-live, check-in); 1.20.0 when a report carries the
+ * engine's state; 1.22.0 when it also says which venture requests it asked.
+ */
+export type SchemaVersion = '1.0.0' | '1.1.0' | '1.20.0' | '1.22.0'
+export const STAGES_VERSION = '1.1.0'
 export const STATE_VERSION = '1.20.0'
 /** 1.22.0: AEO-Engine is the one AI-answers specialist every venture's engine calls (Ruling, Krish, 2026-11-12). */
 export const ANSWERS_VERSION = '1.22.0'
@@ -118,7 +131,22 @@ export interface DirectiveFeatures { engine_state: boolean; krish_instruction: b
  * `answer_requests`): its own product's buyer questions, asked verbatim
  * under that product's subject at the next research run.
  */
-export interface AnswerRequest { request_id: string; engine_id: string; product_slug: string; subject_slug: string; questions: string[]; requested_at: string }
+export interface AnswerRequest {
+  request_id: string
+  engine_id: string
+  product_slug: string
+  subject_slug: string
+  questions: string[]
+  requested_at: string
+  /** The venture engine's note on the request, at most 400 characters. Kept, never logged. */
+  note?: string
+  /** How the venture asked it to be served, as it said; only when present. */
+  mode?: string
+  /** What the venture named as targets, as it said; only when present. */
+  targets?: string[]
+}
+
+export const REQUEST_NOTE_MAX = 400
 
 const REQUEST_ID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/
 
@@ -137,7 +165,16 @@ export function parseAnswerRequests(raw: unknown): AnswerRequest[] {
     if (typeof r.product_slug !== 'string' || typeof r.engine_id !== 'string') continue
     const questions = Array.isArray(r.questions) ? r.questions.filter((q): q is string => typeof q === 'string' && q.trim().length >= 8 && q.length <= 300).map(q => q.trim()) : []
     if (!questions.length) continue
-    out.push({ request_id: r.request_id.toLowerCase(), engine_id: r.engine_id, product_slug: r.product_slug, subject_slug: typeof r.subject_slug === 'string' ? r.subject_slug : r.product_slug, questions: questions.slice(0, 25), requested_at: typeof r.requested_at === 'string' ? r.requested_at : '' })
+    const req: AnswerRequest = { request_id: r.request_id.toLowerCase(), engine_id: r.engine_id, product_slug: r.product_slug, subject_slug: typeof r.subject_slug === 'string' ? r.subject_slug : r.product_slug, questions: questions.slice(0, 25), requested_at: typeof r.requested_at === 'string' ? r.requested_at : '' }
+    // Kept rather than dropped (protocol 1.22.0 as Control Center serves it):
+    // a note of at most 400 characters, and mode and targets only when present.
+    if (typeof r.note === 'string' && r.note.trim()) req.note = r.note.trim().slice(0, REQUEST_NOTE_MAX)
+    if (typeof r.mode === 'string' && r.mode.trim()) req.mode = r.mode.trim().slice(0, 40)
+    if (Array.isArray(r.targets)) {
+      const targets = r.targets.filter((t): t is string => typeof t === 'string' && t.trim().length > 0).map(t => t.trim().slice(0, 200)).slice(0, 25)
+      if (targets.length) req.targets = targets
+    }
+    out.push(req)
   }
   return out
 }
@@ -197,7 +234,61 @@ export interface Attempt {
   finished_at?: string
 }
 
-export interface Decision { proposal_id: string; decision: 'approved' | 'declined' | 'done'; decided_at: string; payload_sha256: string | null }
+export type CarriedOut = 'draft' | 'message' | 'submit' | 'tapped'
+const CARRIED_OUT: readonly CarriedOut[] = ['draft', 'message', 'submit', 'tapped']
+
+/**
+ * One of Krish's decisions, as GET decisions and the directive's
+ * decisions_since give it. 1.1.0 adds the stage it was made on and, when he
+ * amended it, his version (exact_payload, amount_usd) and its digest; 1.6.0
+ * adds how he carried it out and his reason code on a No. Each is optional:
+ * absent means not said, and an engine acting on an amended decision acts on
+ * his version, never its own.
+ */
+export interface Decision {
+  proposal_id: string
+  decision: 'approved' | 'declined' | 'done'
+  decided_at: string
+  payload_sha256: string | null
+  stage?: ProposalStage | null
+  amended?: boolean
+  amended_sha256?: string
+  exact_payload?: string | null
+  amount_usd?: number | null
+  carried_out?: CarriedOut
+  reason_code?: string
+}
+
+/**
+ * Reads one decision loosely: unknown fields are ignored and never fatal; a
+ * field of the wrong shape is left out rather than guessed at. Null when it
+ * names no proposal or no decision this engine knows.
+ */
+export function parseDecision(raw: unknown): Decision | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
+  const d = raw as Record<string, unknown>
+  if (typeof d.proposal_id !== 'string' || !d.proposal_id) return null
+  if (d.decision !== 'approved' && d.decision !== 'declined' && d.decision !== 'done') return null
+  const out: Decision = {
+    proposal_id: d.proposal_id,
+    decision: d.decision,
+    decided_at: typeof d.decided_at === 'string' ? d.decided_at : '',
+    payload_sha256: typeof d.payload_sha256 === 'string' ? d.payload_sha256 : null,
+  }
+  if (d.stage === null || PROPOSAL_STAGES.includes(d.stage as ProposalStage)) out.stage = d.stage as ProposalStage | null
+  if (typeof d.amended === 'boolean') out.amended = d.amended
+  if (typeof d.amended_sha256 === 'string' && /^[0-9a-f]{64}$/.test(d.amended_sha256)) out.amended_sha256 = d.amended_sha256
+  if (d.exact_payload === null || typeof d.exact_payload === 'string') out.exact_payload = d.exact_payload as string | null
+  if (d.amount_usd === null || (typeof d.amount_usd === 'number' && Number.isFinite(d.amount_usd) && d.amount_usd >= 0)) out.amount_usd = d.amount_usd as number | null
+  if (CARRIED_OUT.includes(d.carried_out as CarriedOut)) out.carried_out = d.carried_out as CarriedOut
+  if (typeof d.reason_code === 'string' && /^[a-z][a-z0-9_]{0,63}$/.test(d.reason_code)) out.reason_code = d.reason_code
+  return out
+}
+
+/** A list of decisions, each read loosely; anything that is not one is dropped. */
+export function parseDecisions(raw: unknown): Decision[] {
+  return Array.isArray(raw) ? raw.map(parseDecision).filter((d): d is Decision => d !== null) : []
+}
 
 export interface Directive {
   schema_version: string
@@ -207,7 +298,7 @@ export interface Directive {
   aim: string | null
   objectives: Array<{ key: string; target: number | null; latest: number | null; availability: string }>
   next_action: { proposal_id: string | null; instruction: string; why: string; close_condition: { event: string; reference?: string | null } | null }
-  decisions_since: Array<{ proposal_id: string; decision: 'approved' | 'declined'; decided_at: string; payload_sha256: string | null }>
+  decisions_since: Decision[]
   constraints: { walls: string; spend_cap_usd: number; max_actions: number }
   in_house?: unknown
   /** 1.5.0, optional. Undefined: unknown today. An empty list: none approved yet. See parseTaste. */
@@ -309,8 +400,9 @@ export function validateReport(r: unknown): { ok: true } | { ok: false; errors: 
   const top = ['schema_version', 'engine_id', 'product_slug', 'run_id', 'mode', 'observed_at', 'source', 'status', 'objectives', 'activity', 'proposals', 'events', 'holds', 'payload_sha256']
   const stateKeys = ['priorities', 'obsessions', 'next_steps', 'instruction_acks']
   if (!closed('report', r, [...top, ...stateKeys, 'answers_served'], top, errs)) return { ok: false, errors: errs }
-  if (r.schema_version !== '1.0.0' && r.schema_version !== STATE_VERSION && r.schema_version !== ANSWERS_VERSION) errs.push(`report.schema_version: 1.0.0, ${STATE_VERSION} or ${ANSWERS_VERSION}`)
-  if (r.schema_version === '1.0.0') for (const k of stateKeys) if (k in r) errs.push(`report.${k}: needs schema_version ${STATE_VERSION}`)
+  if (!SENT_VERSIONS.includes(r.schema_version as SchemaVersion)) errs.push(`report.schema_version: ${SENT_VERSIONS.join(', ')}`)
+  const v = typeof r.schema_version === 'string' ? r.schema_version : '1.0.0'
+  if (versionBefore(v, STATE_VERSION)) for (const k of stateKeys) if (k in r) errs.push(`report.${k}: needs schema_version ${STATE_VERSION}`)
   if ('answers_served' in r) {
     if (r.schema_version !== ANSWERS_VERSION) errs.push(`report.answers_served: needs schema_version ${ANSWERS_VERSION}`)
     list('report.answers_served', r.answers_served, ANSWERS_SERVED_MAX, errs).forEach((x, i) => { if (typeof x !== 'string' || !REQUEST_ID_RE.test(x)) errs.push(`report.answers_served[${i}]: a request id`) })
@@ -352,7 +444,7 @@ export function validateReport(r: unknown): { ok: true } | { ok: false; errors: 
 
   list('report.proposals', r.proposals, 10, errs).forEach((x, i) => {
     const p = `report.proposals[${i}]`
-    const keys = ['proposal_id', 'title', 'why', 'kind', 'wall', 'amount_usd', 'channel', 'objective_key', 'exact_payload', 'payload_sha256', 'evidence', 'close_condition', 'expires_at']
+    const keys = ['proposal_id', 'title', 'why', 'kind', 'wall', 'amount_usd', 'channel', 'objective_key', 'exact_payload', 'payload_sha256', 'evidence', 'close_condition', 'expires_at', 'stage', 'parent_proposal_id']
     if (!closed(p, x, keys, ['proposal_id', 'title', 'why', 'kind', 'wall', 'payload_sha256', 'close_condition'], errs)) return
     str(`${p}.proposal_id`, x.proposal_id, errs, { re: ID_RE })
     str(`${p}.title`, x.title, errs, { max: 160 })
@@ -378,6 +470,7 @@ export function validateReport(r: unknown): { ok: true } | { ok: false; errors: 
     if ((x.wall === 'send' || x.wall === 'post') && !(typeof x.exact_payload === 'string' && x.exact_payload && typeof x.channel === 'string' && x.channel)) errs.push(`${p}: send and post need exact_payload and channel`)
     if (x.kind === 'autonomous' && x.wall !== 'none') errs.push(`${p}: an autonomous proposal cannot sit behind a wall`)
     for (const k of Object.keys(x)) if (/^(send|post|publish|schedule|spend|pay)_/.test(k)) errs.push(`${p}.${k}: a proposal never asks Control Center to act`)
+    stageErrors(p, x, v, errs)
   })
 
   list('report.events', r.events, 40, errs).forEach((e, i) => {
@@ -401,6 +494,51 @@ export function validateReport(r: unknown): { ok: true } | { ok: false; errors: 
   str('report.payload_sha256', r.payload_sha256, errs, { re: SHA_RE })
   if (typeof r.payload_sha256 === 'string' && r.payload_sha256 !== reportDigest(r)) errs.push('report.payload_sha256: does not match the canonical digest')
   return errs.length ? { ok: false, errors: errs } : { ok: true }
+}
+
+/** Every version this engine may send. */
+export const SENT_VERSIONS: readonly SchemaVersion[] = ['1.0.0', STAGES_VERSION, STATE_VERSION, ANSWERS_VERSION]
+
+/** True when version a is older than b (both x.y.z). */
+export function versionBefore(a: string, b: string): boolean {
+  const pa = a.split('.').map(Number)
+  const pb = b.split('.').map(Number)
+  for (let i = 0; i < 3; i++) {
+    const x = pa[i] ?? 0
+    const y = pb[i] ?? 0
+    if (x !== y) return x < y
+  }
+  return false
+}
+
+/**
+ * 1.1.0's stage and parent_proposal_id on a proposal, as the protocol's
+ * Autonomy section says: refused before 1.1.0; a plan sits behind a wall; a
+ * go-live is a send, post or spend naming its plan; a check-in is a strategy
+ * call naming its plan.
+ */
+function stageErrors(p: string, x: Record<string, unknown>, version: string, errs: Errs): void {
+  const hasStage = 'stage' in x
+  const hasParent = 'parent_proposal_id' in x
+  if (!hasStage && !hasParent) return
+  if (versionBefore(version, STAGES_VERSION)) {
+    if (hasStage) errs.push(`${p}.stage: needs schema_version ${STAGES_VERSION}`)
+    if (hasParent) errs.push(`${p}.parent_proposal_id: needs schema_version ${STAGES_VERSION}`)
+    return
+  }
+  const stage = x.stage ?? null
+  if (stage !== null && !PROPOSAL_STAGES.includes(stage as ProposalStage)) { errs.push(`${p}.stage: plan, go_live, check_in or null`); return }
+  str(`${p}.parent_proposal_id`, x.parent_proposal_id ?? null, errs, { re: ID_RE, nullable: true })
+  const parent = typeof x.parent_proposal_id === 'string' && x.parent_proposal_id ? x.parent_proposal_id : null
+  if (stage === 'plan' && x.wall === 'none') errs.push(`${p}: a plan sits behind a wall`)
+  if (stage === 'go_live') {
+    if (!['send', 'post', 'spend'].includes(x.wall as string)) errs.push(`${p}: a go-live is a send, post or spend`)
+    if (!parent) errs.push(`${p}.parent_proposal_id: required on a go-live`)
+  }
+  if (stage === 'check_in') {
+    if (x.wall !== 'strategy') errs.push(`${p}: a check-in sits behind strategy`)
+    if (!parent) errs.push(`${p}.parent_proposal_id: required on a check-in`)
+  }
 }
 
 /** 1.20.0's four fields, each optional, each as Control Center's parseEngineState takes it. */

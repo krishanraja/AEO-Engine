@@ -18,7 +18,7 @@ Three rules hold for every string in the packet, whatever the field: no em dash,
 | `subject` | `id`, `kind` (venture, prospect, aspiration), `slug`, `product_slug`. A venture names its Growth product slug; the other kinds carry null. Never the name: a prospect's name stays in Control Center. |
 | `week_start` | See Timing. |
 | `generated_at` | ISO timestamp of the packet. |
-| `engines` | The engines this run asked: the default three plus grok when a key exists. Unique, at least one. |
+| `engines` | The engines whose answers the packet carries: the default three plus grok when a key exists. Unique, at least one. A gated engine (gemini, below) is asked but is not listed here until the context opens it. |
 | `themes_status` | `ok`: calls were attributed and themes written. `no_calls`: Fireflies answered and there were no calls in the window. `no_attributed_calls`: there were calls, none belonged to this subject at confidence 0.6 or above. `fireflies_unavailable`: any Fireflies error or a missing key; never reported as a quiet week. `not_applicable`: aspirations, which have no calls. Since 2026-11-13 Fireflies is a retired route (Control Center's tool catalog lists it so), the research workflow passes no Fireflies key, and every venture and prospect packet says `fireflies_unavailable`. |
 | `themes` | Five to ten buyer themes from this subject's calls, each with `calls` (distinct calls behind it) and up to six `evidence` items. Empty unless the status is ok. |
 | `calls` | `considered`: transcripts in the fourteen-day window (seven until 2026-11-12). `attributed`: how many the classifier gave to this subject. |
@@ -60,7 +60,7 @@ Since 2026-11-13 (first live in the research run of 22 November 2026), `probes[]
 
 | Engine | Where its citations come from |
 |---|---|
-| `claude` | The `web_search_result_location` citations attached to the answer's text blocks, across every turn of a paused search. Before, it was every URL in the response in block order, and the search result blocks come before the text, so the first citation was the first raw search hit, cited or not. Claude runs at most two web searches a probe (it was five). |
+| `claude` | Two lanes, one engine (`src/config/run.ts`, `AEO_CLAUDE_LANE`). The API lane: the `web_search_result_location` citations attached to the answer's text blocks, across every turn of a paused search, at most two web searches a probe (it was five); before 2026-11-13 it was every URL in the response in block order, so the first citation was the first raw search hit, cited or not. The Claude Code lane (the default from the research week of 23 November; `model` reads `claude-code/<model>`): the URLs the answer's text carries that its WebSearch calls returned, in order of first appearance, each once; a URL the model typed that no search returned is dropped and counted, never cited. Its `cost_usd` is 0: it runs on the Claude Code subscription. |
 | `chatgpt` | The `url_citation` annotations on the answer's text, ordered by where they sit in it. The web search is now required on every probe (`tool_choice: required`); before, it was only offered, and most ChatGPT answers since September cited nothing because the model answered from memory. |
 | `perplexity` | The sources the answer's `[n]` markers point to, in the order the markers first appear; when an answer carries no marker, its source list in its own order. Before, the whole source list in its own order. |
 | `grok` | Its citation list in its own order (Grok is not asked today). |
@@ -77,6 +77,18 @@ Two other readings take the same list, so they move with it from 22 November: `d
 `we_cited` is true when the answer names one of our domains in its text, or cites a URL on one of them in its inline citations. A page the search returned and the answer did not cite no longer makes it true (that was how Claude's probes read until 2026-11-13), a domain inside another URL's query string no longer counts, and a domain with a path counts only under that path.
 
 What the engines report about how they searched (whether they searched, the queries they ran, every source they read) is kept for the run's counts and is not in the packet: its shape is shared with Control Center and closed.
+
+## Gemini, the gated engine
+
+Gemini (`gemini-3.6-flash` with Google Search grounding, `src/clients/gemini.ts`) is asked when `GEMINI_API_KEY` is set, inside its free tier. `gemini` is not in the packet's engine enum: that enum is joint with Control Center and closed, and a packet naming an engine it does not know is refused. So Gemini is gated:
+
+- Its probes stay out of the packet (`engines`, `probes`, `gap.we_cited_engines`, recommendations and every stat) until the context Control Center serves lists `packet_features` containing `engine_gemini`. The context field is optional; absent means none.
+- Until then its answers are counted only in the run's sealed summary, per engine: probes, searched, zero citations, first citation ours, and ours cited anywhere; the subject's `gated_engines` names it, and the research report gives its searched line with "not counted toward questions cited first".
+- It never moves the North Star while gated: `countCitedFirst` (`src/protocol/measure.ts`) reads only the packet's engines, and a question only Gemini cited first counts for nothing.
+- Its citations: the grounding supports in order of where they start in the answer, each source once. A grounding source is a redirect that hides its host, so a cited source is represented as `https://<title>/` when its title is a hostname; the first cited source, and any titled with one of our domains, is resolved to its real URL by reading the redirect's Location header (at most three a probe, the page itself never fetched). A redirect neither resolved nor titled with a hostname names no source, so it is never a packet citation; the measurement beside the packet keeps its place, as a source that is not ours.
+- Its free tier is counted in grounding queries: a research job stops asking Gemini before an answer could carry it past 150 (`CAPS.GEMINI_MAX_QUERIES_PER_JOB`), only a job's first attempt asks it, and at ten subjects and three runs a month that stays inside the free 5000 (`check:config` holds it there). The skipped asks are counted and never charged.
+
+When Control Center adds `gemini` to its engine enum and lists `engine_gemini`, the same run carries Gemini's probes in the packet and `validatePacket` accepts them (it takes the opened engines from the context). `docs/packet.schema.json` takes `gemini` in its engine enums in that same change, as the schema's own rule says: here first, with the reason.
 
 ## A recommendation
 

@@ -33,9 +33,12 @@ export interface ProposedQuery {
   requested: boolean
 }
 
+// The ask's lower bound is the probe limit (CAPS.MAX_PROBED_QUERIES_PER_SUBJECT),
+// so the limit is used; MIN_PROPOSED_QUERIES is only where the deterministic
+// inputs pad a failed or short proposal.
 const PROPOSE_SYSTEM = [
   'You propose the questions a weekly answer-engine study will ask AI assistants for one subject. Each question is what a real person types into an assistant, in their words, about their own problem.',
-  'Respond with ONLY a JSON object: {"queries": [{"query": string, "source": "transcript" | "gap" | "seed" | "striking_distance" | "watch_carry" | "room_signal", "touchpoint_id": string or null}]}. Write 20 to 40 queries. source says where the query came from: transcript (a call theme), gap (a question a competitor is cited on), seed (a map touchpoint or seed topic; copy its touchpoint_id when there is one), striking_distance (a Google query we nearly rank for), watch_carry (carried from last week\'s watch list), room_signal (a prospect\'s trigger).',
+  `Respond with ONLY a JSON object: {"queries": [{"query": string, "source": "transcript" | "gap" | "seed" | "striking_distance" | "watch_carry" | "room_signal", "touchpoint_id": string or null}]}. Write ${CAPS.MAX_PROBED_QUERIES_PER_SUBJECT} to ${CAPS.MAX_PROPOSED_QUERIES} queries. source says where the query came from: transcript (a call theme), gap (a question a competitor is cited on), seed (a map touchpoint or seed topic; copy its touchpoint_id when there is one), striking_distance (a Google query we nearly rank for), watch_carry (carried from last week's watch list), room_signal (a prospect's trigger).`,
   'Cover every input at least once. Prefer questions that begin "how do I", "should I", "what is the best way to", "which". No brand names in a query unless the input already carries them. No two queries that mean the same thing.',
   'For a prospect subject: a query is what THAT company\'s senior leaders would ask an AI assistant about their own strategic problem, never a question about Mindmake or about buying advice.',
   'Never write a person\'s name, email address or handle. No em dashes anywhere, and no ASCII stand-ins for one: use a comma or a full stop.',

@@ -23,11 +23,11 @@ test('orderForProbing: requested first in request order, then prior demand, then
   assert.deepEqual(orderForProbing([first, ...list]).map(q => q.query), ['asked first?', 'asked second?', 'asked third?', 'prior high?', 'prior low?', 'gap one?', 'transcript one?', 'room one?', 'striking one?', 'carry one?', 'seed one?'])
 })
 
-test('the probe limit: the usual 20, raised to hold every request and five more, never above 30', () => {
+test('the probe limit: the usual 25, raised to hold every request and five more, never above 30', () => {
   assert.equal(probeLimitFor(0), CAPS.MAX_PROBED_QUERIES_PER_SUBJECT)
-  assert.equal(probeLimitFor(0), 20)
-  assert.equal(probeLimitFor(15), 20)
-  assert.equal(probeLimitFor(16), 21)
+  assert.equal(probeLimitFor(0), 25)
+  assert.equal(probeLimitFor(20), 25)
+  assert.equal(probeLimitFor(21), 26)
   assert.equal(probeLimitFor(25), 30)
   assert.equal(probeLimitFor(40), CAPS.MAX_PROBED_QUERIES_HARD)
 })
@@ -60,7 +60,7 @@ test('the usd cap stops calls and counts every unprobed pair; the per-subject ca
     new StubEngine('perplexity', () => ({ text: 'x', citations: [] })),
     new StubEngine('chatgpt', () => ({ text: 'x', citations: [] })),
   ]
-  const ledger = new Ledger(0.05, { perplexity: 0.02, chatgpt: 0.02, claude: 0.02, grok: 0.02, classify: 0, themes: 0, propose: 0, digest: 0, voice: 0 })
+  const ledger = new Ledger(0.05, { perplexity: 0.02, chatgpt: 0.02, claude: 0.02, grok: 0.02, gemini: 0.02, claude_code: 0, classify: 0, themes: 0, propose: 0, digest: 0, voice: 0 })
   const list = [pq('one?', 'seed'), pq('two?', 'seed'), pq('three?', 'seed')]
   const out = await probeQueries(engines, list, ['mindmake.co'], ledger, [], 2)
   assert.equal(out.probes, 2)
@@ -103,7 +103,7 @@ test('we_cited reads the inline citations and the text, never a path it does not
 
 test('the usd cap counts a question\'s engines together: none is charged past the cap', async () => {
   const engines = ['perplexity', 'chatgpt', 'claude'].map(e => new StubEngine(e as 'perplexity', () => ({ text: 'x', citations: [] })))
-  const ledger = new Ledger(0.05, { perplexity: 0.02, chatgpt: 0.02, claude: 0.02, grok: 0.02, classify: 0, themes: 0, propose: 0, digest: 0, voice: 0 })
+  const ledger = new Ledger(0.05, { perplexity: 0.02, chatgpt: 0.02, claude: 0.02, grok: 0.02, gemini: 0.02, claude_code: 0, classify: 0, themes: 0, propose: 0, digest: 0, voice: 0 })
   const out = await probeQueries(engines, [pq('one question here?', 'seed')], ['mindmake.co'], ledger)
   assert.equal(out.probes, 2, 'each alone fits; all three together would cross')
   assert.equal(out.probes_skipped_cap, 1)

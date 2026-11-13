@@ -9,7 +9,7 @@ import type { Ledger } from '../lib/cost.js'
 import { errText, log } from '../lib/log.js'
 import type { UsageMeter } from '../lib/usage.js'
 import type { AeoContext, ContextSubject } from '../schema/context.js'
-import type { AeoPacket } from '../schema/packet.js'
+import { inPacket, openGatedEngines, type AeoPacket, type Engine, type GatedEngine } from '../schema/packet.js'
 import type { AnswerRequest } from '../schema/report.js'
 import { normaliseQuery } from '../lib/text.js'
 import type { Taste } from '../schema/report.js'
@@ -17,7 +17,7 @@ import { krishHitsDomains, loadContext } from './00-context.js'
 import { classifyTranscripts, gatherTranscripts, themesForSubject, type Attribution, type Gathered } from './10-transcripts.js'
 import { gapFor } from './20-gap.js'
 import { proposeQueries } from './30-propose.js'
-import { probeLimitFor, probeQueries } from './40-probe.js'
+import { probeLimitFor, probeQueries, type ProbeOutcome } from './40-probe.js'
 import type { ProbeDetail } from '../lib/probeDetail.js'
 import { scoreQueries } from './50-score.js'
 import { writeDigest } from './60-digest.js'
@@ -55,6 +55,14 @@ export interface RunDeps {
    * verbatim, first (stage 30). Undefined or empty: none.
    */
   requests?: AnswerRequest[]
+  /**
+   * compare mode (src/config/run.ts, CLAUDE_LANES): the API lane, asked beside
+   * the Claude Code lane on each subject's first questions and tallied in the
+   * sealed summary. Its answers never enter the packet.
+   */
+  shadow?: EngineClient
+  /** The Claude lane this run resolved (src/config/run.ts). Undefined offline. */
+  claudeLane?: string
 }
 
 export interface RunOpts {
@@ -73,10 +81,20 @@ export interface RunOpts {
  * many of this subject's requests were not asked in full (the spend cap, a
  * failed call or the probe limit stopped a question), a count only.
  */
-export interface SubjectResult { slug: string; packet: AeoPacket; shipped: ShipResult; domains: string[]; details?: ProbeDetail[]; served?: string[]; unserved?: number }
+export interface SubjectResult { slug: string; packet: AeoPacket; shipped: ShipResult; domains: string[]; details?: ProbeDetail[]; served?: string[]; unserved?: number; extras?: ProbeExtras }
+
+/**
+ * What the probes counted beyond the packet's stats, for the sealed summary
+ * only: the subscription's limit, the API fallback, Gemini's free tier, a
+ * gated engine's failures, typed URLs dropped, and the compare tally.
+ */
+export type ProbeExtras = Pick<ProbeOutcome, 'probes_skipped_limit' | 'probes_limit_warning' | 'probes_fallback' | 'probes_skipped_free_tier' | 'gated_failed' | 'gated_skipped_cap' | 'typed_urls_dropped' | 'compare'> & {
+  /** The engines asked whose probes stayed out of the packet (gated). */
+  gated_engines?: string[]
+}
 
 /** One subject's packet and the measurement that travels beside it. */
-export interface SubjectRun { packet: AeoPacket; details: ProbeDetail[]; domains: string[] }
+export interface SubjectRun { packet: AeoPacket; details: ProbeDetail[]; domains: string[]; extras?: ProbeExtras; open?: GatedEngine[] }
 
 /** The venture requests a subject answers: a venture subject, its own product's requests only. Pure. */
 export function requestsFor(subject: Pick<ContextSubject, 'kind' | 'product_slug'>, requests: readonly AnswerRequest[] | undefined): AnswerRequest[] {
@@ -97,7 +115,11 @@ export interface Shared { ctx: AeoContext; gathered: Gathered; attribution: Map<
 export async function runSubject(subject: ContextSubject, shared: Shared, deps: RunDeps, opts: RunOpts): Promise<SubjectRun> {
   const { ctx } = shared
   const domains = krishHitsDomains(ctx, subject)
-  const engines = deps.engines.map(e => e.engine)
+  // A gated engine (gemini) is asked, and its probes stay out of the packet
+  // until the context's packet_features open it (src/schema/packet.ts).
+  const open = openGatedEngines(ctx.packet_features)
+  const engines = deps.engines.map(e => e.engine).filter(e => inPacket(e, open)) as Engine[]
+  const gated = deps.engines.map(e => e.engine).filter(e => !inPacket(e, open))
   log('subject_start', { subject: subject.slug, kind: subject.kind, hit_domains: domains.length })
 
   const themes = await themesForSubject(deps.model, subject, shared.gathered, shared.attribution, deps.ledger)
@@ -111,7 +133,8 @@ export async function runSubject(subject: ContextSubject, shared: Shared, deps: 
   // pass when a rule is approved, will be charged after the probes.
   const limit = probeLimitFor(proposed.filter(q => q.requested).length)
   const reserve = deps.ledger.priceOf('digest') + (deps.taste?.approved_voice_rules?.length ? deps.ledger.priceOf('voice') : 0)
-  const outcome = await probeQueries(deps.engines, proposed, domains, deps.ledger, subject.never_say ?? [], limit, reserve)
+  const shadow = deps.shadow ? { client: deps.shadow, questions: CAPS.COMPARE_API_QUESTIONS_PER_SUBJECT } : undefined
+  const outcome = await probeQueries(deps.engines, proposed, domains, deps.ledger, subject.never_say ?? [], limit, reserve, { open, shadow })
   const queries = scoreQueries(proposed, outcome, themes.themes, subject, domains)
   // The digest judges and drafts with no taste; the approved voice rules are
   // applied afterwards to its drafted words only (stage 65), never to a choice.
@@ -149,7 +172,18 @@ export async function runSubject(subject: ContextSubject, shared: Shared, deps: 
     },
   }
   const details = [...(outcome.detailsByQuery?.values() ?? [])].flat()
-  return { packet, details, domains }
+  const extras: ProbeExtras = {
+    probes_skipped_limit: outcome.probes_skipped_limit,
+    probes_limit_warning: outcome.probes_limit_warning,
+    probes_fallback: outcome.probes_fallback,
+    probes_skipped_free_tier: outcome.probes_skipped_free_tier,
+    gated_failed: outcome.gated_failed,
+    gated_skipped_cap: outcome.gated_skipped_cap,
+    typed_urls_dropped: outcome.typed_urls_dropped,
+    ...(outcome.compare ? { compare: outcome.compare } : {}),
+    ...(gated.length ? { gated_engines: gated } : {}),
+  }
+  return { packet, details, domains, extras, open }
 }
 
 function round4(n: number): number { return Math.round(n * 10000) / 10000 }
@@ -171,14 +205,14 @@ export async function runAll(deps: RunDeps, opts: RunOpts): Promise<RunResult> {
   const bundle = opts.dry && !!opts.outPath && selected.length > 1
   for (const subject of selected) {
     try {
-      const { packet, details, domains } = await runSubject(subject, shared, deps, opts)
+      const { packet, details, domains, extras, open } = await runSubject(subject, shared, deps, opts)
       const outPath = bundle ? null : opts.outPath ?? defaultOutPath(subject.slug, opts.weekStart)
-      const shipped = await ship(deps.cc, packet, { dry: opts.dry, outPath })
+      const shipped = await ship(deps.cc, packet, { dry: opts.dry, outPath, open })
       const asked = requestsFor(subject, deps.requests)
       const served = opts.dry ? [] : servedBy(packet, asked)
       const unserved = opts.dry ? 0 : asked.length - served.length
       if (unserved) log('answer_requests_unserved', { subject: subject.slug, requests: asked.length, unserved, skipped_cap: packet.stats.probes_skipped_cap })
-      results.push({ slug: subject.slug, packet, shipped, domains, details, served, unserved })
+      results.push({ slug: subject.slug, packet, shipped, domains, details, served, unserved, extras })
       log('subject_done', { subject: subject.slug, queries: packet.stats.queries, probes: packet.stats.probes, cost_usd: packet.stats.cost_usd, ledger_usd: deps.ledger.total })
     } catch (e) {
       failures.push({ slug: subject.slug, kind: subject.kind, error: errText(e) })

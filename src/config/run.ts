@@ -2,18 +2,86 @@
  * Run configuration: which engines answer, how much we probe, what it costs.
  * Read once at start; nothing else in the pipeline reads process.env.
  */
-import type { Engine } from '../schema/packet.js'
+import type { Engine, ProbeEngine } from '../schema/packet.js'
 
 export const DEFAULT_ENGINES: readonly Engine[] = ['perplexity', 'chatgpt', 'claude']
 
-/** The default three, plus grok when an xAI key is present. */
-export function resolveEngines(env: NodeJS.ProcessEnv = process.env): Engine[] {
-  const out: Engine[] = [...DEFAULT_ENGINES]
+/**
+ * Which attempt of its research job this run is: AEO_ATTEMPT, which the
+ * research workflow's retry loop sets (1, then 2). 1 when unset or not a
+ * whole number above zero, so a run by hand is a first attempt.
+ */
+export function attemptOf(env: NodeJS.ProcessEnv = process.env): number {
+  const n = Number(String(env.AEO_ATTEMPT ?? '').trim())
+  return Number.isInteger(n) && n >= 1 ? n : 1
+}
+
+/**
+ * The default three, plus grok when an xAI key is present, plus gemini when a
+ * Gemini key is present and this is the job's first attempt. Gemini is a
+ * gated engine (src/schema/packet.ts): it is asked and counted in the sealed
+ * summary, and stays out of the packet until the context opens it. Its
+ * free-tier share is counted in the process, and a retry is a fresh process,
+ * so a retry asks no Gemini rather than start a second share (check:config
+ * proves the month inside the free tier on that basis).
+ */
+export function resolveEngines(env: NodeJS.ProcessEnv = process.env): ProbeEngine[] {
+  const out: ProbeEngine[] = [...DEFAULT_ENGINES]
   if (env.XAI_API_KEY) out.push('grok')
+  if (env.GEMINI_API_KEY && attemptOf(env) === 1) out.push('gemini')
   return out
 }
 
-export const ENGINES: Engine[] = resolveEngines()
+/** For the config guard and logs only; a run resolves its engines in buildDeps (src/index.ts). */
+export const ENGINES: ProbeEngine[] = resolveEngines()
+
+/**
+ * Which way the Claude probes reach Claude (Ruling, Krish, 2026-11-13: Claude
+ * probes run on the Claude Code subscription token, with the paid API as a
+ * switch-on fallback).
+ *
+ *   code           the Claude Code CLI on the subscription token (src/clients/claudeCode.ts)
+ *   api            the Messages API with its hosted web search (src/clients/anthropic.ts)
+ *   compare        the code lane for every question, and the API lane beside it on
+ *                  the first COMPARE_API_QUESTIONS_PER_SUBJECT questions of each
+ *                  subject, tallied in the sealed summary and never in the packet
+ *   code_then_api  the code lane, falling back to the API only when the
+ *                  subscription's limit stops a probe
+ */
+export const CLAUDE_LANES = ['code', 'api', 'compare', 'code_then_api'] as const
+export type ClaudeLane = (typeof CLAUDE_LANES)[number]
+
+/**
+ * Runs whose week_start is on or before this date compare the two lanes by
+ * default: the run of 22 November (week_start 2026-11-16) is the first on the
+ * code lane, and it is read against the API lane before the API is switched
+ * off. From the research week of 23 November the default is `code`.
+ */
+export const COMPARE_FIRST_RUN_UNTIL = '2026-11-16'
+
+export interface LaneChoice {
+  lane: ClaudeLane
+  /** Why: set (AEO_CLAUDE_LANE), dated_default, or no_token (a code lane asked for without the subscription token). */
+  reason: 'set' | 'dated_default' | 'no_token'
+  /** What AEO_CLAUDE_LANE said, when it said something this engine does not know. */
+  unknown?: string
+}
+
+/**
+ * The lane for a run, from AEO_CLAUDE_LANE and the run's week. Read in
+ * buildDeps, never at module load. Empty or unknown means the dated default.
+ * A lane that needs the subscription token falls back to `api` when
+ * CLAUDE_CODE_OAUTH_TOKEN is absent, so a missing secret never zeroes Claude.
+ */
+export function resolveClaudeLane(env: NodeJS.ProcessEnv, weekStart: string): LaneChoice {
+  const raw = String(env.AEO_CLAUDE_LANE ?? '').trim().toLowerCase()
+  const known = (CLAUDE_LANES as readonly string[]).includes(raw)
+  const fallback: ClaudeLane = weekStart <= COMPARE_FIRST_RUN_UNTIL ? 'compare' : 'code'
+  const lane = known ? (raw as ClaudeLane) : fallback
+  const choice: LaneChoice = { lane, reason: known ? 'set' : 'dated_default', ...(raw && !known ? { unknown: raw.slice(0, 40) } : {}) }
+  if (lane !== 'api' && !env.CLAUDE_CODE_OAUTH_TOKEN) return { ...choice, lane: 'api', reason: 'no_token' }
+  return choice
+}
 
 export const CAPS = {
   MAX_PROPOSED_QUERIES: 40,
@@ -23,11 +91,33 @@ export const CAPS = {
    * with requested questions probes max(this, requested + MIN_EXPLORATION_QUERIES),
    * never above MAX_PROBED_QUERIES_HARD (probeLimitFor in 40-probe.ts).
    */
-  MAX_PROBED_QUERIES_PER_SUBJECT: 20,
+  MAX_PROBED_QUERIES_PER_SUBJECT: 25,
   /** The ceiling on one subject's probed questions, requests included. */
   MAX_PROBED_QUERIES_HARD: 30,
   /** Questions of the engine's own choosing still probed after a venture's requested ones. */
   MIN_EXPLORATION_QUERIES: 5,
+  /**
+   * The Claude Code lane's turn limit for one probe (--max-turns): a search or
+   * two, the answer, and room for a search that comes back empty.
+   */
+  CLAUDE_CODE_MAX_TURNS: 8,
+  /**
+   * Questions per subject the API lane is asked beside the code lane in
+   * `compare` mode (src/config/run.ts, CLAUDE_LANES). Paid, charged to the
+   * ledger, and never in the packet.
+   */
+  COMPARE_API_QUESTIONS_PER_SUBJECT: 5,
+  /**
+   * Gemini grounding queries one research job may run (the sum of each
+   * answer's webSearchQueries). The free tier allows 5000 a month; this, plus
+   * one answer's overrun, times ten subjects times three runs a month stays
+   * inside it (check:config), because only a job's first attempt asks Gemini.
+   * Gemini stops before an answer could pass it, and its skipped probes are
+   * counted and never charged.
+   */
+  GEMINI_MAX_QUERIES_PER_JOB: 150,
+  /** Grounding redirects resolved to their real URL per Gemini probe (one GET each, never the page). */
+  GEMINI_MAX_RESOLUTIONS_PER_PROBE: 3,
   /**
    * Hosted web searches one Claude probe may run (the tool's max_uses). It was
    * five until 2026-11-13, when the usage meter read Claude probes costing
@@ -61,13 +151,29 @@ export const CAPS = {
  * out (the job logs on GitHub Actions).
  */
 export const MODELS = {
+  // Both Claude lanes ask this model: the API lane by id, the Claude Code
+  // lane through --model, so a compare run compares the lane and not the model.
   anthropic: 'claude-sonnet-5',
   openai: 'gpt-5',
   perplexity: 'sonar',
   xai: 'grok-4',
+  // Gemini API generateContent with google_search grounding (src/clients/gemini.ts).
+  gemini: 'gemini-3.6-flash',
 } as const
 
-export type CostKind = Engine | 'classify' | 'themes' | 'propose' | 'digest' | 'voice'
+/**
+ * What the ledger counts. An engine's probe, the Claude Code lane's probe
+ * (claude_code: on the subscription, counted and never charged), and the
+ * writing stages.
+ */
+export type CostKind = ProbeEngine | 'claude_code' | 'classify' | 'themes' | 'propose' | 'digest' | 'voice'
+
+/**
+ * Cost kinds billed to a subscription, not per call. The ledger counts their
+ * calls at a price of exactly 0 and never stops one at the cap: the cap is a
+ * ceiling on dollars, and these spend none (check:config holds them at 0).
+ */
+export const SUBSCRIPTION_KINDS: readonly CostKind[] = ['claude_code']
 
 /**
  * Estimated USD per call. These are estimates: a probe answer with a hosted
@@ -90,6 +196,13 @@ export const PRICE_USD_PER_CALL: Record<CostKind, number> = {
   // to cost 0.06 to 0.07, so the cap estimate takes the top of that range.
   claude: 0.07,
   grok: 0.05,
+  // A Gemini probe's tokens; its grounding searches are inside the free tier
+  // (CAPS.GEMINI_MAX_QUERIES_PER_JOB keeps them there). A small estimate, so
+  // the cap still counts the calls.
+  gemini: 0.005,
+  // The Claude Code lane runs on the subscription token: no dollar is
+  // charged, and the CLI's own cost figure is never read into the ledger.
+  claude_code: 0,
   classify: 0.01,
   themes: 0.03,
   propose: 0.04,

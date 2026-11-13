@@ -13,7 +13,7 @@
  * body: a code is what an attempt records.
  */
 import { asArray, asRecord, asString, requestJson, type HttpResult } from './http.js'
-import { ENGINE, parseAnswerRequests, parseFeatures, parseInstruction, parseTaste, type Attempt, type Decision, type Directive, type EngineReport } from '../schema/report.js'
+import { ENGINE, parseAnswerRequests, parseDecisions, parseFeatures, parseInstruction, parseTaste, type Attempt, type Decision, type Directive, type EngineReport } from '../schema/report.js'
 
 export class ProtocolError extends Error {
   constructor(public readonly code: string, public readonly status: number) {
@@ -107,6 +107,9 @@ export class GrowthEngineHttp {
     const features = parseFeatures(d.features)
     if (features) directive.features = features
     else delete directive.features
+    // His decisions, each read loosely (1.1.0 stage and amendment, 1.6.0 how he
+    // carried it out); one that is not a decision is dropped, never fatal.
+    directive.decisions_since = parseDecisions(d.decisions_since)
     // 1.22.0: the venture engines' requests to this specialist, read loosely; a misshapen one is dropped.
     const requests = parseAnswerRequests(d.answer_requests)
     if (requests.length) directive.answer_requests = requests
@@ -152,11 +155,6 @@ export class GrowthEngineHttp {
     if (!r.ok) throw new ProtocolError(codeFor('decisions', r), r.status)
     const j = asRecord(r.json)
     if (j.ok !== true) throw new ProtocolError('decisions_invalid', r.status)
-    return asArray(j.decisions).map(asRecord).filter(d => typeof d.proposal_id === 'string').map(d => ({
-      proposal_id: d.proposal_id as string,
-      decision: d.decision as Decision['decision'],
-      decided_at: asString(d.decided_at),
-      payload_sha256: typeof d.payload_sha256 === 'string' ? d.payload_sha256 : null,
-    }))
+    return parseDecisions(asArray(j.decisions))
   }
 }

@@ -6,7 +6,7 @@ import { UsageMeter } from '../src/lib/usage.js'
 // call BEFORE the call is made. Its own comment says those are estimates to be
 // tuned from real ledgers. So the only cost figure leaving this repo was a
 // guess, and posting it to the usage meter would have dressed a guess as a
-// measurement — in the one table built to be believed about money.
+// measurement, in the one table built to be believed about money.
 //
 // These pin the other half: what the responses actually said.
 
@@ -30,8 +30,8 @@ test('calls to one stage and model add up into one row', () => {
   assert.equal(rows[0].calls, 2)
 })
 
-// The four writing stages have very different appetites — the digest is the
-// expensive one — and a single aeo-engine row could never have said which.
+// The four writing stages have very different appetites (the digest is the
+// expensive one), and a single aeo-engine row could never have said which.
 test('stages and models stay separate rows', () => {
   const m = new UsageMeter()
   m.record('aeo-probe', 'claude-sonnet-5', usage(1000, 100))
@@ -104,4 +104,20 @@ test('web search requests are counted by unit and kept out of the posted row', (
   assert.equal(m.searchesBy('aeo-probe'), 3)
   assert.equal(m.searchesBy('aeo-digest'), 0)
   for (const row of m.rows()) assert.ok(!('server_tool_use' in row.usage) && !('searches' in row))
+})
+
+// The Claude Code lane runs on the subscription: its tokens are recorded and
+// counted, and never posted as a row Control Center would price at API rates.
+test('subscription billing: recorded and counted, never in the posted rows, never a billed search', () => {
+  const m = new UsageMeter()
+  m.record('aeo-probe', 'claude-sonnet-5', usage(1000, 100, { server_tool_use: { web_search_requests: 2 } }))
+  m.record('aeo-probe', 'claude-code/claude-sonnet-5', usage(5000, 400, { server_tool_use: { web_search_requests: 3 } }), false, 'subscription')
+  m.record('aeo-probe', 'claude-code/claude-sonnet-5', usage(100, 0), true, 'subscription')
+  assert.deepEqual(m.rows().map(r => r.model), ['claude-sonnet-5'])
+  assert.equal(m.calls, 1)
+  assert.equal(m.tokens, 1100)
+  assert.equal(m.subscriptionCalls, 2)
+  assert.equal(m.subscriptionTokens, 5500)
+  assert.equal(m.subscriptionRows()[0].failed, 1)
+  assert.equal(m.searchesBy('aeo-probe'), 2, 'only the API lane\'s searches are billed per request')
 })

@@ -99,4 +99,11 @@ export interface AeoContext {
   }
   icp: { room_face: { who: string; who_not: string } }
   subjects: ContextSubject[]
+  /**
+   * What Control Center's packet ingest accepts beyond the closed v1 shape,
+   * read as optional: absent means none. `engine_gemini` lets Gemini's probes
+   * into the packet (src/schema/packet.ts, GATED_ENGINES); until it is listed
+   * they are counted only in the sealed run summary.
+   */
+  packet_features?: string[]
 }
