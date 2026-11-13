@@ -19,7 +19,11 @@
  *              payload in --verify-payload, written by the research
  *              workflow's plan job from Krish's approved go-live
  *              (src/protocol/verify.ts): no model call, no site read, and a
- *              packet only when Control Center lists run_kind.
+ *              packet only when Control Center lists run_kind. It asks
+ *              nothing on a workflow re-run (GITHUB_RUN_ATTEMPT past 1), on a
+ *              payload for another day than today (UTC), or when Control
+ *              Center already stores a verify report for that day
+ *              (verifyGuard).
  */
 import { createHash, randomUUID } from 'node:crypto'
 import { attemptOf, CAPS, MODELS, PRICE_USD_PER_CALL, resolveClaudeLane, resolveEngines, type ClaudeLane } from './config/run.js'
@@ -50,6 +54,7 @@ import type { AnswerRequest, Taste } from './schema/report.js'
 import { kitPlans, PLAN_OPEN_DAYS, type KitPlan, type PlanDecision } from './schema/kit.js'
 import { parseVerifyPayload, type VerifyPayload } from './schema/verify.js'
 import { runVerifyAll } from './pipeline/verify.js'
+import { verifyRunId } from './protocol/verify.js'
 import { readFileSync } from 'node:fs'
 
 export interface CliArgs {
@@ -383,15 +388,68 @@ export async function main(argv: readonly string[] = process.argv.slice(2)): Pro
   return failed ? 1 : 0
 }
 
+/** What verifyMain may be given in place of the clock and the protocol door (tests). */
+export interface VerifyOverrides extends DepsOverrides {
+  now?: Date
+  /** The protocol door for the stored-report read; null means none. Unset: built from the environment (never offline). */
+  protocol?: Pick<GrowthEngineHttp, 'getReport'> | null
+}
+
+export type VerifyGuard = { ok: true } | { ok: false; reason: string }
+
+/**
+ * "Once", checked in the job that spends, before anything is asked. The plan
+ * job checks it too, but GitHub's "Re-run failed jobs" reuses the plan job's
+ * outputs and runs only the failed jobs, so the research job cannot take the
+ * plan job's word for it:
+ *
+ * - GITHUB_RUN_ATTEMPT must be "1" or unset: a re-run of the workflow is
+ *   never a verify run's first try;
+ * - the payload's date must be today (UTC): a payload is that Sunday's only;
+ * - where the protocol door is available (the bearer is set, and the run is
+ *   not offline), Control Center must hold no verify report for that date,
+ *   read back first; a read that fails refuses too, since once must be proven.
+ *
+ * Refused with a reason code; the log line carries the code and counts, never
+ * a query id.
+ */
+export async function verifyGuard(payload: VerifyPayload, env: NodeJS.ProcessEnv, now: Date, protocol: Pick<GrowthEngineHttp, 'getReport'> | null): Promise<VerifyGuard> {
+  const attempt = String(env.GITHUB_RUN_ATTEMPT ?? '').trim()
+  if (attempt !== '' && attempt !== '1') return { ok: false, reason: 'rerun_attempt' }
+  if (payload.date !== now.toISOString().slice(0, 10)) return { ok: false, reason: 'not_today' }
+  if (!protocol) return { ok: true }
+  try {
+    if (await protocol.getReport(verifyRunId(payload.date))) return { ok: false, reason: 'already_ran' }
+  } catch (e) {
+    return { ok: false, reason: e instanceof ProtocolError ? e.code : 'readback_unavailable' }
+  }
+  return { ok: true }
+}
+
+/** The protocol door for the guard's read: the bearer and its URL from the environment, or null (never offline). */
+function protocolDoor(args: CliArgs, env: NodeJS.ProcessEnv): Pick<GrowthEngineHttp, 'getReport'> | null {
+  if (args.offline || !String(env.CONTROL_CENTER_ENGINE_TOKEN ?? '').trim()) return null
+  try { return new GrowthEngineHttp(env.CONTROL_CENTER_PROTOCOL_URL || env.CONTROL_CENTER_URL, env.CONTROL_CENTER_ENGINE_TOKEN) } catch (e) {
+    // A bearer with no usable URL: the read cannot be made, so once cannot be proven.
+    return { getReport: async () => { throw e } }
+  }
+}
+
 /**
  * The verify run (`--mode verify`): only the payload's questions, no model
- * call, no directive read, no site read. Its summary says it is a verify
- * run, for the report job's verify report.
+ * call, no directive read, no site read, and only past verifyGuard. Its
+ * summary says it is a verify run, for the report job's verify report.
  */
-export async function verifyMain(args: CliArgs, env: NodeJS.ProcessEnv = process.env, overrides: DepsOverrides = {}): Promise<number> {
+export async function verifyMain(args: CliArgs, env: NodeJS.ProcessEnv = process.env, overrides: VerifyOverrides = {}): Promise<number> {
   const payload = args.verifyPayload ? readVerifyPayload(args.verifyPayload) : null
   if (!payload) return 1
-  const deps = buildDeps(args, env, new Date(), overrides)
+  const now = overrides.now ?? new Date()
+  const guard = await verifyGuard(payload, env, now, overrides.protocol !== undefined ? overrides.protocol : protocolDoor(args, env))
+  if (!guard.ok) {
+    log('verify_refused', { reason: guard.reason, questions: payload.query_ids.length })
+    return 1
+  }
+  const deps = buildDeps(args, env, now, overrides)
   // A verify run reads no page: no site audit, no page cited first.
   deps.site = null
   const opts: RunOpts = { subject: args.subject, weekStart: args.week, dry: args.dry, outPath: args.out, commandId: null }

@@ -27,13 +27,19 @@
  *     site reader (src/clients/site.ts, every rule of it: GET only, no script,
  *     public hosts, an honest User-Agent, size, time and type caps, a budget
  *     and a throttle per host), robots.txt asked first as the reader's own
- *     token; a page the pages-cited-first read already fetched this run is
- *     reused, never fetched again. A page links to us (an <a href> to one of
- *     the venture's domains, path-aware), else names us (a distinctive name,
- *     whole word, any case, in its visible text), else neither. mention_ok is
- *     false when one of the venture's brand checks' must_not phrases is on
- *     the page (refresh needed), true when it mentions us and none is, null
- *     otherwise. No page text is kept: only these flags.
+ *     token and again for a same-domain redirect hop (src/pipeline/45-pages.ts,
+ *     robotsAllows and getPolitely); a page the pages-cited-first read already
+ *     fetched this run (itself asked of robots.txt first) is reused, never
+ *     fetched again. Fresh fetches on one host come out of the subject's share
+ *     of the run's per-host budget (45-pages.ts, mentionFetchesPerHost). A page
+ *     links to us (an <a href> to one of the venture's domains, path-aware),
+ *     else names us (a distinctive name, whole word on both sides and any case,
+ *     its letters and digits compared so "Make Your Mind Up" meets
+ *     makeyourmindup, or one of the venture's domains written as text), else
+ *     neither. mention_ok is null when it does not mention us (a must_not
+ *     phrase only matters on a page that does); else false when one of the
+ *     venture's brand checks' must_not phrases is on the page (refresh
+ *     needed), true when none is. No page text is kept: only these flags.
  *
  * (c) transitions: with the sheet Control Center served (`prior.cited_pages`),
  *     a page that went from none to a mention is acquired, and one whose
@@ -41,14 +47,13 @@
  *
  * Logs carry counts only, never a URL or a page's words.
  */
-import type { CachedSite, SiteFetcher } from '../clients/site.js'
+import type { CachedSite } from '../clients/site.js'
 import { CAPS } from '../config/run.js'
-import { hostOf, urlMatchesDomain } from '../lib/domains.js'
+import { hostOf, mentionsDomain, urlMatchesDomain } from '../lib/domains.js'
 import { linksOf, visibleTextOf } from '../lib/html.js'
 import { log } from '../lib/log.js'
-import { nameMentioned } from '../lib/names.js'
+import { brandNamesOf } from '../lib/names.js'
 import { isGeneralPlatform } from '../lib/platforms.js'
-import { EMPTY_ROBOTS, isAllowed, parseRobots, type Robots } from '../lib/robots.js'
 import { classifySource, type SourceType } from '../lib/sourceType.js'
 import { normaliseQuery } from '../lib/text.js'
 import { normaliseUrl } from '../lib/urls.js'
@@ -56,12 +61,13 @@ import { isOutreachTarget, mentioned, MENTIONS, type CitedPageRow, type CitedPag
 import type { PriorProbe, PriorWeek } from '../schema/context.js'
 import type { Kit } from '../schema/kit.js'
 import { ENGINES_ALL, GATED_ENGINES, type Engine } from '../schema/packet.js'
-import { READER_TOKEN } from './15-site.js'
 import { isGroundingRedirect, type ProbeEvidence } from './40-probe.js'
 import { hasPhrase, withoutUrls } from './42-brand.js'
-import { carryable } from './45-pages.js'
+import { carryable, getPolitely, robotsAllows, robotsFor } from './45-pages.js'
 
 export type { CitedPageRow, CitedPagesCounts, Mention }
+/** robots.txt per origin, shared with the pages-cited-first read (src/pipeline/45-pages.ts). */
+export { robotsFor }
 
 const ENGINE_ORDER: readonly string[] = [...ENGINES_ALL, ...GATED_ENGINES]
 
@@ -152,10 +158,34 @@ export function buildSheet(i: SheetInput): Sheet {
   return { rows: kept, fetchUrl, questionsOf }
 }
 
+/** The most characters that are not letters or digits a name's letters may be split by on a page ("Make Your Mind Up", "Heart-side"). */
+const NAME_GAP_MAX = 3
+const escapeChar = (c: string) => c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+/**
+ * Whether the text names one of `names`: a name's letters and digits, in
+ * order, as a whole word on both sides, any case, each pair of them split by
+ * at most NAME_GAP_MAX characters that are neither. So "Make Your Mind Up"
+ * meets makeyourmindup and the other way round, and "Heartsides" is not
+ * "Heartside". URLs and bare domains are taken out first: one of the
+ * venture's domains written as text counts on its own (mentionOf). Pure.
+ */
+export function namedOnPage(text: string, names: readonly string[]): boolean {
+  const stripped = withoutUrls(text)
+  return brandNamesOf(names).some(n => {
+    const chars = [...n.toLowerCase()].filter(c => /[\p{L}\p{N}]/u.test(c))
+    if (chars.length < 2) return false
+    const body = chars.map(escapeChar).join(`[^\\p{L}\\p{N}]{0,${NAME_GAP_MAX}}`)
+    return new RegExp(`(?<![\\p{L}\\p{N}])${body}(?![\\p{L}\\p{N}])`, 'iu').test(stripped)
+  })
+}
+
 /**
  * Whether a page mentions the venture: an <a href> to one of its domains
- * (path-aware), else a distinctive name as a whole word in its visible text,
- * else none. Pure; the page's words are read here and never kept.
+ * (path-aware), else a distinctive name (namedOnPage) or one of its domains
+ * written as text ("heartside.io" with no link, path-aware too) in its
+ * visible words, else none. Pure; the page's words are read here and never
+ * kept.
  */
 export function mentionOf(html: string, pageUrl: string, domains: readonly string[], names: readonly string[]): Exclude<Mention, 'unchecked'> {
   for (const href of linksOf(html)) {
@@ -164,7 +194,9 @@ export function mentionOf(html: string, pageUrl: string, domains: readonly strin
     if (!/^https?:/i.test(abs)) continue
     if (domains.some(d => urlMatchesDomain(abs, d))) return 'link'
   }
-  return nameMentioned(visibleTextOf(html), names) === true ? 'name' : 'none'
+  const text = visibleTextOf(html)
+  if (namedOnPage(text, names)) return 'name'
+  return domains.some(d => mentionsDomain(text, d)) ? 'name' : 'none'
 }
 
 /** Whether one of the phrases is in the page's visible words, URLs and bare domains taken out. Pure. */
@@ -172,24 +204,6 @@ export function mustNotOn(html: string, mustNot: readonly string[]): boolean {
   if (!mustNot.length) return false
   const text = withoutUrls(visibleTextOf(html))
   return mustNot.some(p => hasPhrase(text, p))
-}
-
-/** robots.txt per host, read once a process per reader: its rules, open on a 4xx, closed (null) when unreadable. */
-const ROBOTS = new WeakMap<SiteFetcher, Map<string, Promise<Robots | null>>>()
-
-export function robotsFor(origin: string, fetcher: SiteFetcher): Promise<Robots | null> {
-  let byHost = ROBOTS.get(fetcher)
-  if (!byHost) { byHost = new Map(); ROBOTS.set(fetcher, byHost) }
-  let p = byHost.get(origin)
-  if (!p) {
-    p = fetcher.get(`${origin}/robots.txt`).then(r => {
-      if (r && r.status >= 200 && r.status < 300) return parseRobots(r.text)
-      if (r && r.status >= 400 && r.status < 500) return EMPTY_ROBOTS
-      return null
-    }, () => null)
-    byHost.set(origin, p)
-  }
-  return p
 }
 
 export interface MentionOptions {
@@ -201,11 +215,18 @@ export interface MentionOptions {
   /** The check's day, YYYY-MM-DD. */
   today: string
   max?: number
+  /** Pages checked on one host, reused or fetched: at most CAPS.MENTION_CHECKS_PER_HOST. */
   perHost?: number
+  /**
+   * Pages fetched fresh on one host: the subject's share of the run's
+   * per-host budget (45-pages.ts, mentionFetchesPerHost), at most perHost.
+   * A page already read this run is reused whatever this says.
+   */
+  fetchPerHost?: number
   subject?: string
 }
 
-export interface MentionCounts { attempted: number; checked: number; reused: number; fetched: number; refused_robots: number; unread: number }
+export interface MentionCounts { attempted: number; checked: number; reused: number; fetched: number; refused_robots: number; unread: number; skipped_host_budget: number }
 
 /**
  * Reads the top outreach targets for a mention and fills their mention,
@@ -214,34 +235,38 @@ export interface MentionCounts { attempted: number; checked: number; reused: num
  * leaves it open to this reader. With no reader, nothing is read.
  */
 export async function checkMentions(sheet: Sheet, site: CachedSite | null, o: MentionOptions): Promise<MentionCounts> {
-  const out: MentionCounts = { attempted: 0, checked: 0, reused: 0, fetched: 0, refused_robots: 0, unread: 0 }
+  const out: MentionCounts = { attempted: 0, checked: 0, reused: 0, fetched: 0, refused_robots: 0, unread: 0, skipped_host_budget: 0 }
   if (!site) return out
   const max = o.max ?? CAPS.MENTION_CHECKS_PER_SUBJECT
   const perHostMax = o.perHost ?? CAPS.MENTION_CHECKS_PER_HOST
+  const fetchMax = Math.min(perHostMax, o.fetchPerHost ?? perHostMax)
   const perHost = new Map<string, number>()
+  const fetchedOn = new Map<string, number>()
   for (const row of sheet.rows) {
     if (out.attempted >= max) break
     if (!isOutreachTarget(row)) continue
     if ((perHost.get(row.host) ?? 0) >= perHostMax) continue
+    const url = sheet.fetchUrl.get(row.url) ?? row.url
+    const reuse = site.has(url)
+    // A fresh fetch only inside the subject's share of the host's budget.
+    if (!reuse && (fetchedOn.get(row.host) ?? 0) >= fetchMax) { out.skipped_host_budget++; continue }
     perHost.set(row.host, (perHost.get(row.host) ?? 0) + 1)
     out.attempted++
-    const url = sheet.fetchUrl.get(row.url) ?? row.url
     let page
-    if (site.has(url)) {
+    if (reuse) {
       page = await site.get(url)
       out.reused++
     } else {
-      let parsed: URL
-      try { parsed = new URL(url) } catch { out.unread++; continue }
-      const robots = await robotsFor(parsed.origin, site.inner)
-      if (!robots || !isAllowed(robots, READER_TOKEN, parsed.pathname + parsed.search)) { out.refused_robots++; continue }
-      page = await site.get(url)
+      if (!(await robotsAllows(site, url))) { out.refused_robots++; continue }
+      fetchedOn.set(row.host, (fetchedOn.get(row.host) ?? 0) + 1)
+      page = await getPolitely(site, url)
       out.fetched++
     }
     if (!page || page.status < 200 || page.status >= 300 || !page.text) { out.unread++; continue }
     const m = mentionOf(page.text, page.url, o.domains, o.names)
     row.mention = m
-    row.mention_ok = mustNotOn(page.text, o.mustNot) ? false : mentioned(m) ? true : null
+    // A must_not phrase only matters on a page that mentions us.
+    row.mention_ok = mentioned(m) ? !mustNotOn(page.text, o.mustNot) : null
     row.checked_at = o.today
     out.checked++
   }
@@ -281,8 +306,13 @@ const byType = (list: Transitions['acquired']): Partial<Record<SourceType, numbe
   return out
 }
 
-/** The sheet in counts, for the sealed summary and the report. */
-export function sheetCounts(rows: readonly CitedPageRow[], checks: Pick<MentionCounts, 'reused'> | null, moved: Transitions | null): CitedPagesCounts {
+/**
+ * The sheet in counts, for the sealed summary and the report. `since` is the
+ * research week of the sheet Control Center served (`prior.week_start`), so
+ * the report says which sheet a mention moved against; kept only beside a
+ * transition and only as YYYY-MM-DD.
+ */
+export function sheetCounts(rows: readonly CitedPageRow[], checks: Pick<MentionCounts, 'reused'> | null, moved: Transitions | null, since: string | null = null): CitedPagesCounts {
   const targets = rows.filter(isOutreachTarget)
   return {
     rows: rows.length,
@@ -297,6 +327,7 @@ export function sheetCounts(rows: readonly CitedPageRow[], checks: Pick<MentionC
     mention_ok_false: rows.filter(r => r.mention_ok === false).length,
     to_check: targets.filter(r => !mentioned(r.mention)).length,
     ...(moved ? { acquired: byType(moved.acquired), lost: byType(moved.lost) } : {}),
+    ...(moved && typeof since === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(since) ? { since } : {}),
   }
 }
 

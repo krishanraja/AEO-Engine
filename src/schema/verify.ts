@@ -55,3 +55,33 @@ export function parseVerifyPayload(raw: unknown, expect: { date?: string } = {})
   if (typeof o.amount_usd !== 'number' || !Number.isFinite(o.amount_usd) || o.amount_usd <= 0 || o.amount_usd > VERIFY_HARD_MAX_USD) return { ok: false, reason: 'payload_amount' }
   return { ok: true, payload: { date: o.date, query_ids: [...ids].sort(), samples: o.samples as number, amount_usd: o.amount_usd } }
 }
+
+/** A subject as the verify assignment reads it: its slug, kind and last research packet's questions. */
+export interface VerifyHolder { slug: string; kind?: string | null; prior?: { queries?: ReadonlyArray<{ query_id?: unknown; query?: unknown } | null> | null } | null }
+
+const KIND_RANK: Record<string, number> = { venture: 0, prospect: 1, aspiration: 2 }
+
+/**
+ * Which subject re-asks each of the payload's questions: the first that
+ * holds it in its last research packet (a query_id with its words), ventures
+ * first, then by slug. Each query id goes to exactly one subject, so the
+ * subjects' shares of the approved amount (src/pipeline/verify.ts,
+ * verifyShare) never add up to more than the amount, and the verify matrix
+ * (src/protocol/verify-cli.ts) runs only subjects that own one. Lower-cased
+ * query id to slug. Pure.
+ */
+export function verifyOwners(subjects: ReadonlyArray<VerifyHolder> | null | undefined, ids: readonly string[]): Map<string, string> {
+  const wanted = new Set(ids.map(q => q.toLowerCase()))
+  const ordered = [...(Array.isArray(subjects) ? subjects : [])]
+    .filter(s => s && typeof s.slug === 'string')
+    .sort((a, b) => (KIND_RANK[String(a.kind)] ?? 3) - (KIND_RANK[String(b.kind)] ?? 3) || (a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0))
+  const out = new Map<string, string>()
+  for (const s of ordered) {
+    for (const q of s.prior?.queries ?? []) {
+      if (!q || typeof q.query_id !== 'string' || typeof q.query !== 'string') continue
+      const id = q.query_id.toLowerCase()
+      if (wanted.has(id) && !out.has(id)) out.set(id, s.slug)
+    }
+  }
+  return out
+}

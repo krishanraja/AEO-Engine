@@ -136,3 +136,29 @@ test('report: "Brand checks: X of Y passed", and a failed check becomes one sugg
   const daily = buildDirectiveReport({ runId: 'aeo:2026-11-23:directive', mode: 'synthetic', observedAt: day, revision: 'abc', capturedAt: day, directive: { directive_id: 'aeo:2026-11-23', chosen_by: 'rule', decisions_since: [] }, directiveError: null, last, lastError: null, decisions: [] })
   assert.deepEqual(daily.proposals, [p])
 })
+
+test('brand_check_passed: closes the brand proposal he approved, or one the last report carried, once that check passes on every engine that answered; never one he declined, never twice in a row', () => {
+  const plain = buildResearchReport(research([sub('heartside', { brand_checks: failed })]))
+  const p = plain.proposals[0]
+  assert.deepEqual(plain.events, [], 'a check that passes with no proposal made for it closes nothing')
+  const passing = { ...failed, passed: 2, results: [{ ...failed.results[0], pass: true, engines: failed.results[0].engines.map(e => ({ ...e, pass: true, must_not: [], must: [] })) }, failed.results[1]] }
+  const later = { observedAt: new Date('2026-12-06T10:30:00Z'), runId: 'aeo:2026-12-06:research', runPage: 'https://github.com/synthetic/aeo/actions/runs/2' }
+  const yes = { proposal_id: p.proposal_id, decision: 'approved', decided_at: '2026-11-23T09:00:00Z', payload_sha256: p.payload_sha256 }
+  // He approved it, and the check passes now: closed, with the run as evidence.
+  const closed = buildResearchReport(research([sub('heartside', { brand_checks: passing })], { ...later, decisions: [yes] }))
+  assert.deepEqual(schemaErrors(SCHEMA, closed), [])
+  assert.deepEqual(validateReport(closed), { ok: true })
+  assert.deepEqual(closed.events.map(e => [e.event, e.proposal_id, e.evidence_url]), [['brand_check_passed', p.proposal_id, later.runPage]])
+  assert.equal(p.close_condition.event, 'brand_check_passed')
+  assert.equal(p.close_condition.reference, p.proposal_id, 'the event names the proposal its close_condition names')
+  assert.ok(closed.activity.some(a => a.line === '1 brand check proposal closed with brand_check_passed, its check passing on every assistant that answered this run: heartside (1).'))
+  assert.ok(!JSON.stringify(closed).includes(SECRET_ANSWER))
+  // Not yet decided, carried by the last full report: closed too.
+  const carried = buildResearchReport(research([sub('heartside', { brand_checks: passing })], { ...later, lastReport: plain as unknown as Record<string, unknown> }))
+  assert.deepEqual(carried.events.map(e => e.proposal_id), [p.proposal_id])
+  // Declined or done, still failing, or sent by the last report: nothing.
+  for (const decision of ['declined', 'done']) assert.deepEqual(buildResearchReport(research([sub('heartside', { brand_checks: passing })], { ...later, decisions: [{ ...yes, decision }] })).events, [], decision)
+  assert.deepEqual(buildResearchReport(research([sub('heartside', { brand_checks: failed })], { ...later, decisions: [yes] })).events, [], 'still failing')
+  assert.deepEqual(buildResearchReport(research([sub('heartside', { brand_checks: passing })], { ...later, decisions: [yes], lastReport: closed as unknown as Record<string, unknown> })).events, [], 'not twice in a row')
+  assert.deepEqual(buildResearchReport(research([sub('heartside', { brand_checks: passing })], { ...later, decisions: null })).events, [], 'his decisions unread')
+})

@@ -22,7 +22,8 @@ import { GrowthEngineHttp, ProtocolError } from '../clients/growthEngine.js'
 import { errText, log } from '../lib/log.js'
 import { validateReport, type Attempt, type Decision, type Directive, type EngineReport } from '../schema/report.js'
 import { buildDirectiveReport, buildResearchReport, buildVerifyReport, CHECKIN_PREFIX, DECISIONS_LOOKBACK_DAYS, KIT_PROPOSAL_PREFIX, pendingKitOf, researchRunId, STALE_DAYS, type Envelope, type ResearchInput, type StateContext, type StoredResearch, type VerifyReportInput } from './reports.js'
-import { VERIFY_EPOCH, VERIFY_PLAN_ID, VERIFY_PREFIX } from './verify.js'
+import { isVerifyDecisionId, VERIFY_EPOCH, VERIFY_PREFIX, verifyRunId, verifySundaysToRead, type VerifyRunRead } from './verify.js'
+import type { PlanDecision } from '../schema/kit.js'
 import { readRepoState } from './state.js'
 
 export type Client = Pick<GrowthEngineHttp, 'postAttempt' | 'getDirective' | 'postReport' | 'getReport' | 'getDecisions' | 'getRecentReports'>
@@ -164,6 +165,27 @@ export async function lastResearch(c: Pick<Client, 'getReport'>, mode: 'live' | 
   return { last: null, error: null }
 }
 
+/**
+ * The stored verify reports of the off-week Sundays the daily report speaks
+ * of (src/protocol/verify.ts, verifySundaysToRead): the report, null when
+ * none is stored, or the read's error code. A refused bearer is thrown, as
+ * everywhere here. Counts only in the log.
+ */
+export async function readVerifyRuns(c: Pick<Client, 'getReport'>, decisions: readonly PlanDecision[], at: Date): Promise<VerifyRunRead[]> {
+  const out: VerifyRunRead[] = []
+  for (const date of verifySundaysToRead(decisions, at)) {
+    try {
+      out.push({ date, report: (await c.getReport(verifyRunId(date)))?.report ?? null, error: null })
+    } catch (e) {
+      const code = codeOf(e, 'readback_unavailable')
+      if (code === 'unauthorized' || code === 'forbidden') throw e
+      out.push({ date, report: null, error: code })
+    }
+  }
+  if (out.length) log('protocol_verify_runs', { sundays: out.length, stored: out.filter(r => r.report).length, unread: out.filter(r => r.error).length })
+  return out
+}
+
 export interface DirectiveOpts extends StateOpts {
   mode: 'live' | 'synthetic'
   revision: string
@@ -228,14 +250,19 @@ export async function runDirective(c: Client, o: DirectiveOpts): Promise<LoopOut
     const all = await decisionsSince(c, started, Math.max(window, sinceEpoch))
     const cutoff = started.getTime() - window * DAY_MS
     const decisions = all ? all.filter(d => !(Date.parse(d.decided_at) < cutoff)) : null
-    const verifyDecisions = all ? all.filter(d => d.proposal_id === VERIFY_PLAN_ID || d.proposal_id.startsWith(VERIFY_PREFIX)) : null
+    const verifyDecisions = all ? all.filter(d => isVerifyDecisionId(d.proposal_id)) : null
+
+    // The verify reports of the recent off-week Sundays the report speaks of
+    // (free GETs, at most two): one stored means that Sunday's run ran.
+    phase = 'verify_read'
+    const verifyRuns = verifyDecisions ? await readVerifyRuns(c, [...(served?.decisions_since ?? []), ...verifyDecisions] as PlanDecision[], started) : null
 
     phase = 'state'
     const state = await stateContext(c, served, o)
 
     phase = 'report'
     const env: Envelope = { runId, mode: o.mode, observedAt: now(), revision: o.revision, capturedAt: started, state }
-    const report = buildDirectiveReport({ ...env, directive, directiveError, last, lastError, decisions, verifyDecisions, kitsDelivered: served?.features?.aeo_kits_delivered === true })
+    const report = buildDirectiveReport({ ...env, directive, directiveError, last, lastError, decisions, verifyDecisions, verifyRuns, kitsDelivered: served?.features?.aeo_kits_delivered === true })
     const { replayed } = await deliver(c, report)
 
     phase = 'decisions'

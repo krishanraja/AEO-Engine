@@ -15,8 +15,9 @@ import type { Engine } from './packet.js'
 
 /**
  * Whether a page mentions the venture: `link` (an <a href> to one of its
- * domains), `name` (a distinctive name as a whole word in its visible text),
- * `none` (read, and neither), `unchecked` (not read this run).
+ * domains), `name` (a distinctive name as a whole word in its visible text,
+ * or one of its domains written as text with no link), `none` (read, and
+ * neither), `unchecked` (not read this run).
  */
 export const MENTIONS = ['link', 'name', 'none', 'unchecked'] as const
 export type Mention = (typeof MENTIONS)[number]
@@ -34,7 +35,7 @@ export interface CitedPageRow {
   /** Answers whose first citation it was. */
   times_first: number
   mention: Mention
-  /** False when a brand check's must_not phrase is on the page (refresh needed); true when mentioned and none is; null otherwise. */
+  /** Null when the page does not mention the venture (a must_not phrase only matters on one that does); else false when a brand check's must_not phrase is on it (refresh needed), true when none is. */
   mention_ok: boolean | null
   /** The day it was read for a mention (YYYY-MM-DD), or null when not read this run. */
   checked_at: string | null
@@ -63,11 +64,13 @@ export interface CitedPagesCounts {
   link: number
   name: number
   none: number
-  /** Rows a brand check's must_not phrase was found on. */
+  /** Rows that mention the venture and carry a brand check's must_not phrase. */
   mention_ok_false: number
   /** Outreach targets not shown to mention the venture (none or unchecked): the rows the venture's engine has to check. */
   to_check: number
   /** Mentions acquired and lost since the sheet Control Center served, by page type; absent when none was served. */
   acquired?: Partial<Record<SourceType, number>>
   lost?: Partial<Record<SourceType, number>>
+  /** The research week (YYYY-MM-DD) of the sheet Control Center served, which acquired and lost are against; absent when unknown. */
+  since?: string
 }

@@ -14,6 +14,7 @@ import { CAPS } from '../src/config/run.js'
 import { brandNamesFor, parseSubjectsConfig, subjectsConfig } from '../src/config/subjects.js'
 import { normaliseUrl, pageKey } from '../src/lib/urls.js'
 import { annotateOffSite, buildSheet, checkMentions, mentionOf, mustNotOn, sheetCounts, transitions, type Sheet } from '../src/pipeline/48-cited-pages.js'
+import { hostShare, mentionFetchesPerHost, thirdPartyPerHost } from '../src/pipeline/45-pages.js'
 import { renderKit } from '../src/pipeline/62-kits.js'
 import { attachFeatures } from '../src/pipeline/68-features.js'
 import { buildResearchReport, type ResearchInput } from '../src/protocol/reports.js'
@@ -104,7 +105,19 @@ test('mention: a link to one of our domains (path-aware), else the name as a who
   assert.equal(mentionOf(page('<p>We loved HEARTSIDE for this.</p>'), at, DOMAINS, ['Heartside']), 'name')
   assert.equal(mentionOf(page('<p>Heartsides and hearts.</p>'), at, DOMAINS, ['Heartside']), 'none', 'no substring match')
   assert.equal(mentionOf(page('<script>var x = "Heartside"</script><p>Nothing here.</p>'), at, DOMAINS, ['Heartside']), 'none', 'only visible words')
-  assert.equal(mentionOf(page('<p>Heartside</p>'), at, DOMAINS, []), 'none', 'with no distinctive name, links only')
+  assert.equal(mentionOf(page('<p>Heartside</p>'), at, DOMAINS, []), 'none', 'with no distinctive name, links and domains only')
+  // A domain written as text with no link is a mention by name, path-aware too.
+  assert.equal(mentionOf(page('<p>Order one at heartside.io today.</p>'), at, DOMAINS, []), 'name')
+  assert.equal(mentionOf(page('<p>See www.heartside.io/mug.</p>'), at, DOMAINS, []), 'name')
+  assert.equal(mentionOf(page('<p>Not notheartside.io, nor heartside.com.</p>'), at, DOMAINS, []), 'none')
+  assert.equal(mentionOf(page('<p>linkedin.com/in/someone-synthetic says hello.</p>'), at, DOMAINS, []), 'name')
+  assert.equal(mentionOf(page('<p>linkedin.com/in/someone-else says hello.</p>'), at, DOMAINS, []), 'none')
+  // Names compare letters and digits, whole word on both sides.
+  assert.equal(mentionOf(page('<p>We read Make Your Mind Up every week.</p>'), at, DOMAINS, ['makeyourmindup']), 'name')
+  assert.equal(mentionOf(page('<p>We read makeyourmindup every week.</p>'), at, DOMAINS, ['Make Your Mind Up']), 'name')
+  assert.equal(mentionOf(page('<p>Heart-Side gifts.</p>'), at, DOMAINS, ['Heartside']), 'name')
+  assert.equal(mentionOf(page('<p>remakeyourmindup and makeyourmindups.</p>'), at, DOMAINS, ['makeyourmindup']), 'none', 'whole word on both sides')
+  assert.equal(mentionOf(page('<p>Heartsides and hearts.</p>'), at, DOMAINS, ['Heartside']), 'none', 'still no substring match')
   assert.equal(mustNotOn(page('<p>Full Time betting tips here.</p>'), ['betting tips']), true)
   assert.equal(mustNotOn(page('<p>Full Time, the football show.</p>'), ['betting tips']), false)
   assert.equal(mustNotOn(page('<a href="https://example.com/betting-tips">x</a>'), ['betting tips']), false, 'a URL is not a phrase')
@@ -143,7 +156,7 @@ test('mention check: robots.txt first, GET only, at most three pages a host and 
   const byUrl = new Map(sheet.rows.map(r => [r.url, r]))
   assert.deepEqual([byUrl.get('https://a.example/p0')?.mention, byUrl.get('https://a.example/p0')?.mention_ok, byUrl.get('https://a.example/p0')?.checked_at], ['link', true, TODAY])
   assert.deepEqual([byUrl.get('https://a.example/p1')?.mention, byUrl.get('https://a.example/p1')?.mention_ok], ['name', false], 'a must_not phrase on the page: refresh needed')
-  assert.deepEqual([byUrl.get('https://a.example/p2')?.mention, byUrl.get('https://a.example/p2')?.mention_ok], ['none', null])
+  assert.deepEqual([byUrl.get('https://a.example/p2')?.mention, byUrl.get('https://a.example/p2')?.mention_ok], ['none', null], 'betting tips on a page that does not mention us: null, not false')
   assert.deepEqual([byUrl.get('https://a.example/p3')?.mention, byUrl.get('https://a.example/p3')?.checked_at], ['unchecked', null], 'past the host cap')
   assert.equal(byUrl.get('https://closed.example/private/page')?.mention, 'unchecked')
   assert.equal(byUrl.get('https://www.reddit.com/r/dogs/x'.replace('www.', ''))?.mention, 'unchecked')
@@ -192,6 +205,48 @@ test('mention check: the reader\'s rules hold through the fake fetch: no private
   assert.equal(out.checked, 1)
 })
 
+test('mention check: fresh fetches on one host stay inside the subject\'s share of the run\'s per-host budget; pages already read are still checked', async () => {
+  const urls = Array.from({ length: 4 }, (_, i) => `https://a.example/p${i}`)
+  const table: Record<string, { status?: number; type?: string; body?: string }> = { 'https://a.example/robots.txt': { type: 'text/plain', body: '' } }
+  for (const u of urls) table[u] = { body: page('<p>Heartside, the dog gift.</p>') }
+  const { fn, seen } = fakeFetch(table)
+  const site = new CachedSite(new LiveSite({ fetchImpl: fn, clock: fakeClock() }))
+  await site.get('https://a.example/p0')
+  const sheet = sheetOf(urls)
+  const out = await checkMentions(sheet, site, { domains: DOMAINS, names: ['Heartside'], mustNot: [], today: TODAY, fetchPerHost: 1 })
+  assert.deepEqual([out.reused, out.fetched, out.skipped_host_budget], [1, 1, 2], 'the page already read, and one fresh fetch')
+  assert.equal(seen.filter(u => u.startsWith('https://a.example/p')).length, 2)
+  const zero = await checkMentions(sheetOf(urls), new CachedSite(new LiveSite({ fetchImpl: fakeFetch(table).fn, clock: fakeClock() })), { domains: DOMAINS, names: ['Heartside'], mustNot: [], today: TODAY, fetchPerHost: 0 })
+  assert.deepEqual([zero.fetched, zero.checked], [0, 0], 'no share left: nothing fresh is read')
+  // The share: robots.txt, the pages cited first and the mention check's fresh fetches, times the subjects, never past the budget.
+  for (let n = 1; n <= 20; n++) {
+    const each = 1 + thirdPartyPerHost(n) + mentionFetchesPerHost(n)
+    assert.ok(each <= hostShare(n) && each * n <= CAPS.SITE_MAX_REQUESTS_PER_HOST, `subjects ${n}`)
+  }
+  assert.deepEqual([thirdPartyPerHost(1), mentionFetchesPerHost(1)], [CAPS.THIRD_PARTY_MAX_PAGES_PER_HOST, CAPS.MENTION_CHECKS_PER_HOST])
+})
+
+test('mention check: a same-domain redirect is asked of robots.txt again; one it closes is not followed', async () => {
+  const table: Record<string, { status?: number; type?: string; body?: string; location?: string }> = {
+    'https://r.example/robots.txt': { type: 'text/plain', body: 'User-agent: *\nDisallow: /members/' },
+    'https://r.example/open': { status: 301, location: '/members/page' },
+    'https://r.example/members/page': { body: page('<a href="https://heartside.io">x</a>') },
+  }
+  const seen: string[] = []
+  const fn = (async (input: string | URL | Request) => {
+    const url = String(input)
+    seen.push(url)
+    const row = table[url]
+    if (!row) return new Response('nothing', { status: 404, headers: { 'content-type': 'text/plain' } })
+    return new Response(row.body ?? '', { status: row.status ?? 200, headers: { 'content-type': row.type ?? 'text/html', ...(row.location ? { location: row.location } : {}) } })
+  }) as typeof fetch
+  const site = new CachedSite(new LiveSite({ fetchImpl: fn, clock: fakeClock() }))
+  const sheet = sheetOf(['https://r.example/open'])
+  const out = await checkMentions(sheet, site, { domains: DOMAINS, names: [], mustNot: [], today: TODAY })
+  assert.ok(!seen.includes('https://r.example/members/page'), 'the hop robots.txt closes is never requested')
+  assert.deepEqual([out.fetched, out.unread, sheet.rows[0].mention], [1, 1, 'unchecked'])
+})
+
 test('transitions: acquired and lost only against the sheet Control Center served; with none, never guessed', () => {
   const sheet = sheetOf(['https://a.example/1', 'https://b.example/2', 'https://c.example/3', 'https://d.example/4'])
   const set = (url: string, mention: 'link' | 'name' | 'none' | 'unchecked') => { const r = sheet.rows.find(x => x.url === url)!; r.mention = mention }
@@ -215,10 +270,10 @@ test('kits: an off-site place says whether its pages for that question already m
   const lists = sheet.rows.find(r => r.host === 'lists.example')!
   const forum = sheet.rows.find(r => r.host === 'forum.example')!
   lists.mention = 'link'; lists.mention_ok = true; lists.checked_at = TODAY
-  forum.mention = 'none'; forum.mention_ok = false; forum.checked_at = TODAY
+  forum.mention = 'name'; forum.mention_ok = false; forum.checked_at = TODAY
   const kit = { query_id: qid(1), question: 'What gift says my dog loves me?', off_site: [{ host: 'lists.example', source_type: 'listicle', engines: ['perplexity'] }, { host: 'forum.example', source_type: 'forum', engines: ['perplexity'] }, { host: 'other.example', source_type: 'unknown', engines: ['chatgpt'] }] } as unknown as Kit
   const [k] = annotateOffSite([kit], sheet, new Map([[qid(1), 'gift says dog loves']]))
-  assert.deepEqual(k.off_site.map(o => [o.mention, o.mention_ok]), [['link', true], ['none', false], [undefined, undefined]])
+  assert.deepEqual(k.off_site.map(o => [o.mention, o.mention_ok]), [['link', true], ['name', false], [undefined, undefined]])
   // Another question's kit takes nothing from these rows.
   const [other] = annotateOffSite([{ ...kit, query_id: qid(2), question: 'Something else entirely?' }], sheet, new Map())
   assert.ok(other.off_site.every(o => !('mention' in o)))
@@ -260,14 +315,21 @@ const runSummary = (subjects: SubjectSummary[]): RunSummary => ({ v: 1, subject_
 const research = (subjects: SubjectSummary[], over: Partial<ResearchInput> = {}): ResearchInput => ({ runId: 'aeo:2026-11-22:research', mode: 'synthetic', observedAt: new Date('2026-11-22T10:30:00Z'), revision: 'abc', capturedAt: new Date('2026-11-22T04:00:00Z'), scope: 'all', expected: subjects.map(s => s.slug), summaries: [runSummary(subjects)], totalCapUsd: 25, planError: null, decisions: [], runPage: 'https://github.com/synthetic/aeo/actions/runs/1', ...over })
 
 test('report: one count line a venture, never a URL; acquired and lost mentions as events and one count line', () => {
-  const counts = { rows: 50, own: 2, platform: 6, targets: 42, checked: 20, reused: 7, link: 2, name: 1, none: 17, mention_ok_false: 1, to_check: 39, acquired: { listicle: 1 }, lost: { forum: 1 } }
+  const counts = { rows: 50, own: 2, platform: 6, targets: 42, checked: 20, reused: 7, link: 2, name: 1, none: 17, mention_ok_false: 1, to_check: 39, acquired: { listicle: 1 }, lost: { forum: 1 }, since: '2026-11-02' }
   const r = buildResearchReport(research([sub('heartside', { cited_pages: counts }), sub('legibility', { held: true, cited_pages: { ...counts, acquired: undefined, lost: undefined } })]))
   assert.deepEqual(validateReport(r), { ok: true })
   const lines = r.activity.map(a => a.line)
   assert.ok(lines.some(l => l.includes('Cited pages: 50 tracked, 3 mention heartside, 39 to check, 1 carrying a phrase a brand check forbids.')))
   assert.ok(lines.some(l => l.startsWith('Why legibility\'s questions are not won:') && l.includes('Cited pages: 50 tracked, 3 mention legibility')), 'a held venture is measured too')
   assert.deepEqual(r.events.map(e => [e.event, e.proposal_id, e.evidence_url]), [['mention_acquired', null, 'https://github.com/synthetic/aeo/actions/runs/1'], ['mention_lost', null, 'https://github.com/synthetic/aeo/actions/runs/1']])
-  assert.ok(lines.includes('Cited-page mentions since the sheet Control Center served (aeo:2026-11-22:research): 1 mention acquired, 1 lost. heartside: 1 acquired, 1 lost.'))
+  assert.ok(lines.includes('Cited-page mentions since the sheet Control Center served from the research week of 2026-11-02: 1 mention acquired, 1 lost. heartside: 1 acquired, 1 lost.'), 'named by the served sheet\'s week, never this run\'s id')
+  assert.ok(!lines.some(l => l.startsWith('Cited-page mentions') && l.includes('aeo:2026-11-22:research')))
+  const unnamed = buildResearchReport(research([sub('heartside', { cited_pages: { ...counts, since: undefined } })])).activity.map(a => a.line)
+  assert.ok(unnamed.includes('Cited-page mentions since the sheet Control Center served: 1 mention acquired, 1 lost. heartside: 1 acquired, 1 lost.'))
+  // The week is carried only beside a transition.
+  assert.equal(sheetCounts([], null, null, '2026-11-02').since, undefined)
+  assert.equal(sheetCounts([], null, { acquired: [], lost: [] }, '2026-11-02').since, '2026-11-02')
+  assert.equal(sheetCounts([], null, { acquired: [], lost: [] }, 'last week').since, undefined)
   assert.ok(!lines.some(l => /https?:\/\//.test(l)), 'no URL in a line')
   // A held venture gets a sheet and no proposal.
   assert.deepEqual(r.proposals, [])

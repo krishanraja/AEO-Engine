@@ -23,6 +23,8 @@ import { schemaErrors } from './schema-check.js'
 const SCHEMA = JSON.parse(readFileSync(join(ROOT, 'docs/packet.schema.json'), 'utf8')) as Record<string, unknown>
 const NOW = new Date('2026-11-22T10:00:00Z')
 const PAGE = 'https://heartside.io/answers/dog-gift'
+/** The venture's own domains: a referral row given as a bare path is read only against them. */
+const OWN = ['heartside.io', 'linkedin.com/in/someone-synthetic']
 
 const SIGNALS = {
   gsc_queries: [
@@ -45,7 +47,7 @@ const SIGNALS = {
 
 test('joins on the normalised URL: www, utm, a trailing slash and the scheme meet; a landing page given as a path meets it too', () => {
   const s = readSignals(SIGNALS)
-  const o = outcomeFor(PAGE, '2026-11-01', s, NOW)
+  const o = outcomeFor(PAGE, '2026-11-01', s, NOW, OWN)
   const w = windowEnding(NOW)
   assert.deepEqual(w, { from: '2026-10-26', to: '2026-11-22' })
   // In the window: 100 + 300 impressions, position weighted by impressions: (600 + 3000) / 400 = 9.
@@ -59,23 +61,64 @@ test('joins on the normalised URL: www, utm, a trailing slash and the scheme mee
 })
 
 test('missing is unknown, never zero: no signals, an empty list, a host the data does not cover, a URL Bing has no row for', () => {
-  const none = outcomeFor(PAGE, null, readSignals(undefined), NOW)
+  const none = outcomeFor(PAGE, null, readSignals(undefined), NOW, OWN)
   assert.deepEqual(none, { url: PAGE, gsc: null, bing: null, ai_referrals: null })
   assert.equal(known(none), false)
   assert.equal(outcomeLine(none), null)
-  const empty = outcomeFor(PAGE, null, readSignals({ gsc_queries: [], bing: { url_info: [] }, ai_referrals: [] }), NOW)
+  const empty = outcomeFor(PAGE, null, readSignals({ gsc_queries: [], bing: { url_info: [] }, ai_referrals: [] }), NOW, OWN)
   assert.deepEqual(empty, none, 'served empty is unknown too')
   const s = readSignals(SIGNALS)
-  const elsewhere = outcomeFor('https://other.example/page', null, s, NOW)
+  const elsewhere = outcomeFor('https://other.example/page', null, s, NOW, OWN)
   assert.equal(elsewhere.gsc, null, 'Search Console holds no row on that host: unknown for it')
   assert.equal(elsewhere.bing, null)
+  assert.equal(elsewhere.ai_referrals, null, 'no referral row on that host, and a bare path is never another host\'s: unknown, not zero')
   // A page the data covers with no row in the window is a measured zero; with no shipping day, no "before".
-  const quiet = outcomeFor('https://heartside.io/answers/quiet', null, s, NOW)
+  const quiet = outcomeFor('https://heartside.io/answers/quiet', null, s, NOW, OWN)
   assert.deepEqual(quiet.gsc, { impressions: 0, clicks: 0, position: null, from: '2026-10-26', to: '2026-11-22', before: null })
   assert.deepEqual(quiet.ai_referrals, { from: '2026-10-26', to: '2026-11-22', ga4: 0, clarity: 0 })
   // GA4 served under the brief's first name only: Clarity stays unknown.
-  const legacy = outcomeFor(PAGE, null, readSignals({ ga4_ai_referrals: [{ landing_page: '/answers/dog-gift', source: 'chatgpt.com', sessions: 4, date: '2026-11-21' }] }), NOW)
+  const legacy = outcomeFor(PAGE, null, readSignals({ ga4_ai_referrals: [{ landing_page: '/answers/dog-gift', source: 'chatgpt.com', sessions: 4, date: '2026-11-21' }] }), NOW, OWN)
   assert.deepEqual(legacy.ai_referrals, { from: '2026-10-26', to: '2026-11-22', ga4: 4, clarity: null })
+})
+
+test('the window before shipping: unknown unless the rows reach back to its first day; a row across the shipping day counts in neither window', () => {
+  const rows = (extra: object[]) => readSignals({ gsc_queries: [
+    { query: 'after', page: PAGE, impressions: 100, clicks: 5, position: 5, date_from: '2026-11-03', date_to: '2026-11-09' },
+    { query: 'before', page: PAGE, impressions: 40, clicks: 2, position: 8, date_from: '2026-10-12', date_to: '2026-10-18' },
+    ...extra,
+  ] })
+  // Shipped 1 November: the window before runs 4 to 31 October. Nothing on the host starts by 4 October, so it is unknown, never zero.
+  assert.equal(outcomeFor(PAGE, '2026-11-01', rows([]), NOW, OWN).gsc?.before, null)
+  // A row on the host from 1 October reaches back: the window before is measured (that row is outside it).
+  const reach = { query: 'old', page: 'https://heartside.io/mug', impressions: 9, clicks: 0, position: 4, date_from: '2026-10-01', date_to: '2026-10-02' }
+  assert.deepEqual(outcomeFor(PAGE, '2026-11-01', rows([reach]), NOW, OWN).gsc?.before, { impressions: 40, clicks: 2, position: 8, from: '2026-10-04', to: '2026-10-31' })
+  // A row from 28 October to 3 November runs across the shipping day: in neither window.
+  const across = { query: 'across', page: PAGE, impressions: 500, clicks: 50, position: 2, date_from: '2026-10-28', date_to: '2026-11-03' }
+  const o = outcomeFor(PAGE, '2026-11-01', rows([reach, across]), NOW, OWN)
+  assert.deepEqual([o.gsc?.impressions, o.gsc?.before?.impressions], [100, 40])
+  // With no shipping day, a row counts by its last day as before.
+  assert.equal(outcomeFor(PAGE, null, rows([across]), NOW, OWN).gsc?.impressions, 600)
+})
+
+test('AI referrals: a bare path meets only our own hosts, once a page and once in the total; a list with no row on the page\'s host is unknown', () => {
+  const s = readSignals({ ai_referrals: [
+    { landing_page: '/answers/dog-gift', source: 'chatgpt.com', sessions: 5, date: '2026-11-20', via: 'ga4' },
+    { landing_page: 'https://shop.heartside.io/answers/other', source: 'chatgpt.com', sessions: 2, date: '2026-11-20', via: 'ga4' },
+  ] })
+  // A page someone else hosts with the same path: the bare path is not theirs, and GA4 covers no row on their host.
+  assert.equal(outcomeFor('https://medium.com/answers/dog-gift', null, s, NOW, OWN).ai_referrals, null)
+  // Two of our hosts with that path: each page reads it once, and the total counts it once.
+  const pages = new Map([['q1', { url: PAGE, shipped_at: null, from: 'shipped' as const }], ['q2', { url: 'https://shop.heartside.io/answers/dog-gift', shipped_at: null, from: 'kit' as const }]])
+  const outs = outcomesFor(pages, s, NOW, OWN)
+  assert.deepEqual([...outs.values()].map(o => o.ai_referrals?.ga4), [5, 5])
+  assert.deepEqual(outcomeCounts(outs, s, OWN).ga4, { sessions: 5, pages: 2 }, 'never doubled')
+  // A domain with a path is not one of our hosts: a bare path never lands on a profile.
+  assert.equal(outcomeFor('https://linkedin.com/in/someone-synthetic/answers/dog-gift', null, s, NOW, OWN).ai_referrals, null)
+  // Without our domains, a bare path meets nothing: heartside.io is then unknown; shop.heartside.io, covered by a full URL, reads a measured zero.
+  assert.equal(outcomeFor(PAGE, null, s, NOW).ai_referrals, null)
+  assert.deepEqual(outcomeCounts(outcomesFor(pages, s, NOW), s).ga4, { sessions: 0, pages: 0 })
+  // No tracked page covered at all: the total is unknown, never zero.
+  assert.equal(outcomeCounts(outcomesFor(new Map([['q1', { url: PAGE, shipped_at: null, from: 'shipped' as const }]]), s, NOW), s).ga4, null)
 })
 
 test('the tracked page: what the venture shipped wins over a kit\'s target; a kit with no URL tracks nothing', () => {
@@ -90,7 +133,7 @@ test('the tracked page: what the venture shipped wins over a kit\'s target; a ki
     [queries[0].query_id, { url: PAGE, shipped_at: '2026-11-01', from: 'shipped' }],
     [queries[1].query_id, { url: 'https://heartside.io/mug', shipped_at: null, from: 'kit' }],
   ])
-  const counts = outcomeCounts(outcomesFor(t, readSignals(SIGNALS), NOW), readSignals(SIGNALS))
+  const counts = outcomeCounts(outcomesFor(t, readSignals(SIGNALS), NOW, OWN), readSignals(SIGNALS), OWN)
   assert.deepEqual(counts, { served: { gsc: true, bing: true, ga4: true, clarity: true }, pages: 2, ga4: { sessions: 5, pages: 1 }, clarity: { sessions: 5, pages: 1 }, gsc: { impressions: 407, clicks: 11, pages: 2 }, days: 28 })
 })
 

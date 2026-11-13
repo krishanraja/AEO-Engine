@@ -290,15 +290,51 @@ test('first cited: at most fifteen pages a subject and three a host, never a vid
   }
   const queries = [...entries.keys()].map(k => ({ query_id: k, query: 'Question best' }))
   const { result } = await captureStderr(() => readFirstCited(queries, entries, f))
-  assert.equal(asked.length, 15)
+  const pages = asked.filter(u => !u.endsWith('/robots.txt'))
+  assert.equal(pages.length, 15)
   const perHost = new Map<string, number>()
-  for (const u of asked) perHost.set(new URL(u).host, (perHost.get(new URL(u).host) ?? 0) + 1)
+  for (const u of pages) perHost.set(new URL(u).host, (perHost.get(new URL(u).host) ?? 0) + 1)
   assert.ok([...perHost.values()].every(n => n <= 3))
+  // robots.txt is asked first, once a host, before any page on it.
+  for (const host of perHost.keys()) {
+    assert.equal(asked.filter(u => u === `https://${host}/robots.txt`).length, 1)
+    assert.ok(asked.indexOf(`https://${host}/robots.txt`) < asked.findIndex(u => u.startsWith(`https://${host}/page-`)))
+  }
   assert.ok(!asked.some(u => u.includes('youtube') || u.includes('next.example')))
   assert.equal(result.skipped_type, 1)
   const read = [...result.byQuery.values()].flat().filter(e => e.features.read)
   assert.equal(read.length, 15)
   assert.deepEqual({ ...read[0].features, url: '', host: '' }, { url: '', host: '', source_type: 'listicle', read: true, title_matches_question: true, answer_first_words: 40, words: read[0].features.words, h2_count: 1, dated: false, server_rendered: false })
+})
+
+test('first cited: robots.txt is asked before a page is fetched, a closed page is never fetched and takes no place, and a redirect hop is asked again', async () => {
+  const entry = (n: number, url: string): [string, CitedEntry[]] => { const host = new URL(url).hostname; return [qid(n), [{ engine: 'perplexity', position: 1, url, host, source_type: 'unknown', features: { url, host, source_type: 'unknown', read: false, title_matches_question: null, answer_first_words: null, words: null, h2_count: null, dated: null, server_rendered: null } }]] }
+  const entries = new Map<string, CitedEntry[]>([entry(1, 'https://shut.example/private/a'), entry(2, 'https://shut.example/open/b'), entry(3, 'https://hop.example/go'), entry(4, 'https://down.example/c')])
+  const asked: string[] = []
+  const body = (url: string): SitePage => ({ status: 200, headers: {}, text: `<title>Question best</title><h1>T</h1><p>${'w '.repeat(40)}</p>`, url })
+  const table: Record<string, SitePage | null> = {
+    'https://shut.example/robots.txt': { status: 200, headers: {}, text: 'User-agent: *\nDisallow: /private', url: 'https://shut.example/robots.txt' },
+    'https://hop.example/robots.txt': { status: 200, headers: {}, text: 'User-agent: *\nDisallow: /members', url: 'https://hop.example/robots.txt' },
+    'https://down.example/robots.txt': { status: 503, headers: {}, text: '', url: 'https://down.example/robots.txt' },
+  }
+  const f: SiteFetcher = {
+    async get(url, o) {
+      asked.push(url)
+      if (url in table) return table[url]
+      // hop.example/go redirects to a path robots.txt closes: the reader asks before it follows.
+      if (url === 'https://hop.example/go') return (await o?.allowHop?.(new URL('https://hop.example/members/x'))) === false ? null : body('https://hop.example/members/x')
+      return body(url)
+    },
+    stats: () => ({ requests: asked.length, refused: 0, errors: 0, hosts: 1 }),
+  }
+  const queries = [...entries.keys()].map(k => ({ query_id: k, query: 'Question best' }))
+  const { result } = await captureStderr(() => readFirstCited(queries, entries, f, { maxPerHost: 1 }))
+  assert.ok(!asked.includes('https://shut.example/private/a'), 'closed by robots.txt: never fetched')
+  assert.ok(asked.includes('https://shut.example/open/b'), 'and it took no place in the host cap of one')
+  assert.ok(!asked.includes('https://down.example/c'), 'an unreadable robots.txt closes the host')
+  assert.equal(result.refused_robots, 2)
+  const read = new Map([...result.byQuery.values()].flat().map(e => [e.url, e.features.read]))
+  assert.deepEqual([read.get('https://shut.example/private/a'), read.get('https://shut.example/open/b'), read.get('https://hop.example/go')], [false, true, false], 'the hop robots.txt closes leaves its page unread')
 })
 
 // ---------- 60: the digest carries the gap class ----------

@@ -1,0 +1,8 @@
+{
+  "_url": "https://docs.example-assistant.com/robots.txt",
+  "status": 200,
+  "headers": {
+    "content-type": "text/plain"
+  },
+  "text": "# Synthetic fixture\nUser-agent: *\nDisallow: /private/\n"
+}

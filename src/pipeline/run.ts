@@ -29,7 +29,7 @@ import { attachFeatures } from './68-features.js'
 import { brandNamesOf } from '../lib/names.js'
 import type { ProbeDetail } from '../lib/probeDetail.js'
 import { EMPTY_AUDIT, failedGates, siteAudit, type HostAuditResult, type SiteAudit } from './15-site.js'
-import { firstCitedEntries, matchPages, readFirstCited, thirdPartyPerHost, type CitedEntry, type PageMatch } from './45-pages.js'
+import { firstCitedEntries, matchPages, mentionFetchesPerHost, readFirstCited, thirdPartyPerHost, type CitedEntry, type PageMatch } from './45-pages.js'
 import { scoreQueries, rowPriority } from './50-score.js'
 import { diagnoseAll, type Diagnosis } from './52-diagnose.js'
 import { buildKits, gapCounts, kitCandidate, withEvidence, type Kit } from './62-kits.js'
@@ -275,10 +275,15 @@ export async function runSubject(subject: ContextSubject, shared: Shared, deps: 
   // and the diagnosis takes their features; its classes do not change.
   let diagnoses = diag.diagnoses
   let citedRead = 0
+  // The run's subjects that read third-party pages, each in its own job: each
+  // takes an equal share of any host's per-host budget for its robots.txt,
+  // the pages cited first and the mention check's fresh fetches together
+  // (45-pages.ts, hostShare), so the subjects of one run together never read
+  // more than the per-host budget of any host (a redirect hop aside).
+  const readers = ctx.subjects.filter(s => s.kind !== 'aspiration').length
   if (site && diag.entries.size) {
     const order = queries.filter(q => q.probes.length).sort((a, b) => rowPriority(b, diagnoses).priority - rowPriority(a, diagnoses).priority || a.query_id.localeCompare(b.query_id))
-    // Fewer pages a host when the run has many subjects, so one run never reads more than the per-host budget of any host.
-    const maxPerHost = thirdPartyPerHost(ctx.subjects.filter(s => s.kind !== 'aspiration').length)
+    const maxPerHost = thirdPartyPerHost(readers)
     const read = await withFallback('first_cited_read', () => readFirstCited(order, diag.entries, pages ?? site, { subject: subject.slug, maxPerHost }), null, { subject: subject.slug })
     if (read) {
       citedRead = read.read
@@ -296,9 +301,9 @@ export async function runSubject(subject: ContextSubject, shared: Shared, deps: 
     if (sheet) {
       const built = sheet
       const mustNot = [...new Set(checks.flatMap(c => c.must_not))]
-      const checked = await withFallback('mention_check', () => checkMentions(built, pages, { domains, names: brandNames, mustNot, today: deps.now.toISOString().slice(0, 10), subject: subject.slug }), null, { subject: subject.slug })
+      const checked = await withFallback('mention_check', () => checkMentions(built, pages, { domains, names: brandNames, mustNot, today: deps.now.toISOString().slice(0, 10), fetchPerHost: mentionFetchesPerHost(readers), subject: subject.slug }), null, { subject: subject.slug })
       const moved = transitions(built.rows, subject.prior?.cited_pages)
-      citedPages = sheetCounts(built.rows, checked, moved)
+      citedPages = sheetCounts(built.rows, checked, moved, subject.prior?.week_start ?? null)
       log('cited_pages', { subject: subject.slug, rows: citedPages.rows, own: citedPages.own, platform: citedPages.platform, checked: citedPages.checked, link: citedPages.link, name: citedPages.name, none: citedPages.none, acquired: moved?.acquired.length ?? null, lost: moved?.lost.length ?? null })
     }
   }
@@ -398,8 +403,9 @@ export async function runSubject(subject: ContextSubject, shared: Shared, deps: 
   if (subject.kind === 'venture') {
     const signals = readSignals(subject.search_signals)
     const pagesTracked = outcomeTargets(queries, shipped, annotated, normaliseQuery)
-    outcomes = outcomesFor(pagesTracked, signals, deps.now)
-    more.outcomes = outcomeCounts(outcomes, signals)
+    // A landing page Control Center gives as a bare path is read only against the venture's own hosts.
+    outcomes = outcomesFor(pagesTracked, signals, deps.now, domains)
+    more.outcomes = outcomeCounts(outcomes, signals, domains)
     const read = outcomes
     kits = annotated.map(k => { const o = read.get(k.query_id); return o ? withEvidence(k, outcomeLine(o), subject.never_say ?? []) : k })
     log('outcomes', { subject: subject.slug, pages: more.outcomes.pages, gsc: more.outcomes.served.gsc, bing: more.outcomes.served.bing, ga4: more.outcomes.served.ga4, clarity: more.outcomes.served.clarity })

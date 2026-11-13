@@ -391,7 +391,10 @@ jobs:
           if [ "$KIND" = "verify" ]; then
             # Krish's approved payload, written here from the plan job's
             # output, on this runner only. One attempt: a verify spend is
-            # never retried blindly.
+            # never retried blindly. "Re-run failed jobs" reuses the plan
+            # job's outputs, so the run checks once itself (verifyGuard,
+            # src/index.ts): it asks nothing on a re-run attempt, on another
+            # day's payload, or when that day's verify report is stored.
             mkdir -p out
             printf '%s\n' "$VERIFY_PAYLOAD" > out/verify-payload.json
             args=(--subject "$SUBJECT" --cap-usd "$CAP" --mode verify --verify-payload out/verify-payload.json)

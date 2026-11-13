@@ -7,10 +7,13 @@
  *   from the subject's last research packet as Control Center serves it
  *   (`subject.prior.queries`, by query_id); one it cannot find is skipped and
  *   counted, never guessed.
- * - Each is asked `samples` times (3) on every packet engine, each ask
- *   charged to the ledger before it is made, the Claude Code lane free. The
- *   ledger's cap is this subject's share of the approved amount: the amount
- *   split over the questions found across every subject, to the cent, down.
+ * - Each question is asked by exactly one subject, the first that holds it
+ *   (src/schema/verify.ts, verifyOwners), `samples` times (3) on every packet
+ *   engine and no other (a gated engine such as Gemini is not asked), each
+ *   ask charged to the ledger before it is made, the Claude Code lane free.
+ *   The ledger's cap is this subject's share of the approved amount: the
+ *   amount split over the questions found across every subject, to the cent,
+ *   down, so the shares never add up to more than the amount.
  * - No model call: no transcripts, no proposal, no digest, no voice pass, no
  *   site audit, no kits, no brand checks and no cited-pages sheet.
  * - The panel is moved against the last research panel Control Center serves
@@ -28,7 +31,7 @@ import { errText, log } from '../lib/log.js'
 import { normaliseQuery } from '../lib/text.js'
 import type { AeoContext, ContextSubject, PriorQuery } from '../schema/context.js'
 import { inPacket, openGatedEngines, packetFeatures, type AeoPacket, type Engine } from '../schema/packet.js'
-import type { VerifyPayload } from '../schema/verify.js'
+import { verifyOwners, type VerifyPayload } from '../schema/verify.js'
 import type { PanelSelection } from './55-panel.js'
 import { krishHitsDomains, loadContext } from './00-context.js'
 import { competitorGapFrom, tallyHosts } from './20-gap.js'
@@ -66,11 +69,13 @@ async function verifySubject(subject: ContextSubject, questions: ProposedQuery[]
   const ctxDomains = krishHitsDomains(ctx, subject)
   const open = openGatedEngines(ctx.packet_features)
   const features = packetFeatures(ctx.packet_features)
-  const engines = deps.engines.map(e => e.engine).filter(e => inPacket(e, open)) as Engine[]
+  // Only the packet's engines are asked: a gated engine's answers would never count, and its asks would spend the amount.
+  const asking = deps.engines.filter(e => inPacket(e.engine, open))
+  const engines = asking.map(e => e.engine) as Engine[]
   const names = (() => { try { return brandNamesFor(subject, subjectsConfig()) } catch { return Array.isArray(subject.brand_names) ? subject.brand_names : [] } })()
-  const outcome = await probeQueries(deps.engines, questions, ctxDomains, deps.ledger, subject.never_say ?? [], questions.length, 0, { open, brandNames: brandNamesOf(names), preordered: true })
+  const outcome = await probeQueries(asking, questions, ctxDomains, deps.ledger, subject.never_say ?? [], questions.length, 0, { open, brandNames: brandNamesOf(names), preordered: true })
   const rounds = Math.max(0, payload.samples - 1)
-  const sampled = rounds > 0 ? await resample(deps.engines, outcome, questions, ctxDomains, deps.ledger, 0, { open, rounds }) : null
+  const sampled = rounds > 0 ? await resample(asking, outcome, questions, ctxDomains, deps.ledger, 0, { open, rounds }) : null
   const set = new Set<string>(engines)
   const details = new Map<string, NonNullable<ReturnType<NonNullable<typeof outcome.detailsByQuery>['get']>>>()
   for (const [k, v] of outcome.detailsByQuery ?? []) {
@@ -147,8 +152,10 @@ async function verifySubject(subject: ContextSubject, questions: ProposedQuery[]
  */
 export async function runVerifyAll(deps: RunDeps, opts: RunOpts, payload: VerifyPayload): Promise<RunResult & { missing: number }> {
   const { ctx, selected } = await loadContext(deps.cc, opts.subject)
+  // Each question to exactly one subject, so no two jobs ask it and the shares never pass the amount.
+  const owners = verifyOwners(ctx.subjects, payload.query_ids)
   const found = new Map<string, ProposedQuery[]>()
-  for (const s of ctx.subjects) found.set(s.id, verifyQuestions(s, payload.query_ids))
+  for (const s of ctx.subjects) found.set(s.id, verifyQuestions(s, payload.query_ids.filter(id => owners.get(id.toLowerCase()) === s.slug)))
   const foundIds = new Set([...found.values()].flatMap(qs => qs.map(q => q.query_id)))
   const missing = payload.query_ids.filter(id => !foundIds.has(id.toLowerCase())).length
   const mine = selected.reduce((n, s) => n + (found.get(s.id)?.length ?? 0), 0)

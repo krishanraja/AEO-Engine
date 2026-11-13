@@ -53,7 +53,7 @@ import { CAPS } from '../config/run.js'
 import type { BrandCheckResult } from '../schema/brand.js'
 import type { CitedPagesCounts } from '../schema/citedPages.js'
 import type { OutcomeCounts } from '../schema/outcome.js'
-import { buildGoLive, goLiveSunday, VERIFY_DONE_EVENT, verifyGoLiveId, verifyIdsIn, verifyIdsLine, verifyPlanProposal, verifyPlanState } from './verify.js'
+import { buildGoLive, checkInSundays, goLiveDecisionAt, goLiveSunday, nextOffWeekSunday, pastOffWeekSundays, planWeek, renderVerifyCheckIn, SKIP_LOOKBACK_DAYS, sundayOutcomes, VERIFY_CHECKIN_ID, VERIFY_DONE_EVENT, VERIFY_PLAN_ID, verifyGoLiveId, verifyIdsIn, verifyIdsLine, verifyPlanProposal, verifyPlanState, type VerifyRunRead } from './verify.js'
 import type { VerifyPayload } from '../schema/verify.js'
 
 export const SPEND_PROPOSAL_ID = 'aeo:spend:max-usd-per-run'
@@ -869,6 +869,37 @@ export function buildResearchReport(input: ResearchInput): EngineReport {
     holds.push({ reason: 'check_in_not_proposed', detail: 'His decisions could not be read before this report, so no check-in is proposed: a plan he stopped could be checked in on again.' })
   }
 
+  // A brand check that passes now closes the brand proposal made for it
+  // (brand_check_passed, its close_condition): one Krish approved, or one the
+  // last full research report carried and he has not decided. A proposal is
+  // for one question (its id carries the question's digest), so it closes
+  // when that question's check passed on every engine that answered it. Not
+  // when he declined it or it is done, and not twice in a row: the last
+  // report's own event counts as sent.
+  if (input.decisions !== null) {
+    const latest = latestDecisions(input.decisions)
+    const lastProposals = new Set((input.lastReport && Array.isArray(input.lastReport.proposals) ? (input.lastReport.proposals as Proposal[]) : []).map(p => p?.proposal_id))
+    const sentBefore = new Set((input.lastReport && Array.isArray(input.lastReport.events) ? (input.lastReport.events as ReportEvent[]) : []).filter(e => e?.event === BRAND_FIXED_EVENT).map(e => e.proposal_id))
+    const fixed: string[] = []
+    for (const p of placed) {
+      if (!p.s.ok || p.s.kind !== 'venture' || !p.s.product_slug) continue
+      for (const r of p.s.brand_checks?.results ?? []) {
+        if (r.pass !== true) continue
+        const id = brandProposalId(p.s.product_slug, r.question)
+        const d = latest.get(id)
+        const made = d ? d.decision === 'approved' : lastProposals.has(id)
+        if (!made || sentBefore.has(id) || fixed.includes(id)) continue
+        events.push({ event: BRAND_FIXED_EVENT, proposal_id: id, at, evidence_url: evidenceUrl })
+        fixed.push(id)
+      }
+    }
+    if (fixed.length) {
+      const byProduct = new Map<string, number>()
+      for (const id of fixed) { const product = id.split(':')[2] ?? 'a venture'; byProduct.set(product, (byProduct.get(product) ?? 0) + 1) }
+      activity.push(line(`${plural(fixed.length, 'brand check proposal')} closed with ${BRAND_FIXED_EVENT}, ${fixed.length === 1 ? 'its check' : 'their checks'} passing on every assistant that answered this run: ${[...byProduct].map(([k, n]) => `${k} (${n})`).join(', ')}.`))
+    }
+  }
+
   // Panel moves this run, for the subjects that count: a question that became
   // won (first on 2 of 3 samples on one assistant, or its one sample) or was
   // lost. One event each, as the report schema allows (kit_won first), and
@@ -890,7 +921,7 @@ export function buildResearchReport(input: ResearchInput): EngineReport {
   // Mentions acquired and lost on the cited pages since the sheet Control
   // Center served (src/pipeline/48-cited-pages.ts): one event each, and one
   // line in counts. Without a served sheet there is no transition.
-  const mentionMoves: Array<{ label: string; acquired: number; lost: number }> = []
+  const mentionMoves: Array<{ label: string; acquired: number; lost: number; since: string | null }> = []
   for (const p of placed) {
     const c = p.s.ok && p.s.kind === 'venture' ? p.s.cited_pages : undefined
     if (!c?.acquired && !c?.lost) continue
@@ -898,13 +929,16 @@ export function buildResearchReport(input: ResearchInput): EngineReport {
     const l = Object.values(c.lost ?? {}).reduce((n, x) => n + (x ?? 0), 0)
     for (let k = 0; k < a; k++) events.push({ event: MENTION_ACQUIRED_EVENT, proposal_id: null, at, evidence_url: evidenceUrl })
     for (let k = 0; k < l; k++) events.push({ event: MENTION_LOST_EVENT, proposal_id: null, at, evidence_url: evidenceUrl })
-    if (a || l) mentionMoves.push({ label: p.label, acquired: a, lost: l })
+    if (a || l) mentionMoves.push({ label: p.label, acquired: a, lost: l, since: typeof c.since === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(c.since) ? c.since : null })
   }
   if (events.length > EVENTS_MAX) activity.push(line(`${events.length - EVENTS_MAX} ${mentionMoves.length ? 'panel and mention events' : 'panel events'} past the report's ${EVENTS_MAX} are counted here only.`))
   if (mentionMoves.length) {
     const a = mentionMoves.reduce((n, m) => n + m.acquired, 0)
     const l = mentionMoves.reduce((n, m) => n + m.lost, 0)
-    activity.push(line(`Cited-page mentions since the sheet Control Center served (${input.runId}): ${plural(a, 'mention')} acquired, ${l} lost. ${mentionMoves.map(m => `${m.label}: ${m.acquired} acquired, ${m.lost} lost`).join('; ')}.`))
+    // The served sheet is an earlier run's: named by its research week, never this run's id.
+    const weeks = [...new Set(mentionMoves.map(m => m.since).filter((w): w is string => !!w))].sort()
+    const which = weeks.length ? ` from the research ${weeks.length === 1 ? 'week' : 'weeks'} of ${weeks.join(' and ')}` : ''
+    activity.push(line(`Cited-page mentions since the sheet Control Center served${which}: ${plural(a, 'mention')} acquired, ${l} lost. ${mentionMoves.map(m => `${m.label}: ${m.acquired} acquired, ${m.lost} lost`).join('; ')}.`))
   }
   if (moved.length) {
     const won = moved.reduce((n, m) => n + m.won, 0)
@@ -1043,32 +1077,80 @@ export interface DirectiveInput extends Envelope {
   /** features.aeo_kits_delivered: the venture engines carry the kits, so an undecided kit plan is no longer carried here. */
   kitsDelivered?: boolean
   /**
-   * His decisions on the verify plan and its go-lives, read back to
-   * VERIFY_EPOCH so a No is never forgotten (src/protocol/verify.ts). Null:
-   * they could not be read, so nothing about the verify lane is proposed.
-   * Undefined: the daily report reads `decisions` instead.
+   * His decisions on the verify plan, its check-in and its go-lives, read
+   * back to VERIFY_EPOCH so a No is never forgotten (src/protocol/verify.ts).
+   * Null: they could not be read, so nothing about the verify lane is
+   * proposed. Undefined: the daily report reads `decisions` instead.
    */
   verifyDecisions?: DecisionLite[] | null
+  /**
+   * The verify reports read back for the recent off-week Sundays
+   * (verifySundaysToRead): a stored one means that Sunday's verify run ran.
+   * Undefined: none was read.
+   */
+  verifyRuns?: VerifyRunRead[] | null
+}
+
+/** The verify plan's check-in: behind strategy, naming the plan, his "On track?". */
+export function verifyCheckInProposal(payload: string, expiresAt: Date): Proposal {
+  return {
+    stage: 'check_in',
+    parent_proposal_id: VERIFY_PLAN_ID,
+    proposal_id: VERIFY_CHECKIN_ID,
+    title: 'On track? The off-week verify plan',
+    why: 'How the verify plan Krish approved is going: each off-week Sunday it covers, run or skipped and why, the questions re-asked and the panel moves, in counts. His yes keeps it going, and his No stops the plan for good. This engine can take only a change to the amount: a change to other words holds the plan.',
+    kind: 'advice',
+    wall: 'strategy',
+    amount_usd: null,
+    channel: null,
+    objective_key: null,
+    exact_payload: payload,
+    payload_sha256: wordsPayloadSha(payload),
+    evidence: [],
+    close_condition: { event: CHECK_IN_EVENT, reference: VERIFY_PLAN_ID },
+    expires_at: expiresAt.toISOString(),
+  }
 }
 
 /**
  * The verify lane's asks on the daily report (src/protocol/verify.ts): the
  * standing plan, once there is a shipped question or a kit plan he approved,
- * and never again after his No; and, with the plan approved, on the Thursday
- * to Saturday before an even-week Sunday, that Sunday's go-live behind
- * spend. A go-live he has decided is not asked again. Nothing here runs or
- * spends: the research workflow's plan job does, on his approved decision.
+ * and never again after his No; with the plan approved, on the Thursday to
+ * Saturday before an even-week Sunday, that Sunday's go-live behind spend (a
+ * go-live he has decided is not asked again); and, while the plan is open,
+ * its check-in, after each off-week Sunday that ran or was skipped and at
+ * least weekly. After an off-week Sunday whose go-live he approved and no
+ * verify report is stored, a line and a hold say it did not run, with the
+ * reason when the records say it, else unknown. Nothing here runs or spends:
+ * the research workflow's plan job does, on his approved decision.
  */
-export function verifyAsks(i: { decisions: readonly DecisionLite[] | null; last: StoredResearch | null; openKitPlans: number; at: Date; next: Date }): { proposals: Proposal[]; lines: ActivityLine[]; holds: Hold[] } {
+export function verifyAsks(i: { decisions: readonly DecisionLite[] | null; last: StoredResearch | null; openKitPlans: number; at: Date; next: Date; runs?: readonly VerifyRunRead[] | null }): { proposals: Proposal[]; lines: ActivityLine[]; holds: Hold[] } {
   const out: { proposals: Proposal[]; lines: ActivityLine[]; holds: Hold[] } = { proposals: [], lines: [], holds: [] }
   // Unread decisions could hide his No: nothing is proposed.
   if (!i.decisions) return out
-  const plan = verifyPlanState(i.decisions as PlanDecision[])
+  const decisions = i.decisions as PlanDecision[]
+  const plan = verifyPlanState(decisions)
   const ids = verifyIdsIn(i.last?.report)
+  // The last off-week Sunday: an approved go-live with no verify report stored did not run.
+  const recent = pastOffWeekSundays(i.at, SKIP_LOOKBACK_DAYS)[0]
+  if (recent && goLiveDecisionAt(decisions, recent)?.decision === 'approved') {
+    const [o] = sundayOutcomes([recent], decisions, i.runs, i.last)
+    if (o.state === 'skipped') {
+      const why = o.reason === 'unknown' ? 'why is not known to this engine (the workflow did not start, failed, or its research job refused)' : `skipped: ${o.reason}`
+      out.lines.push(line(`Krish approved the verify run for ${recent}, and no verify report for it is stored, so it did not run (${why}).`))
+      out.holds.push({ reason: (o.reason ?? 'unknown').slice(0, 200), detail: `The verify go-live ${verifyGoLiveId(recent)} was approved and did not run: no verify report for ${recent} is stored. Reason: ${o.reason === 'unknown' ? 'unknown' : o.reason}. It is not run later: a go-live runs only on its own Sunday.` })
+    } else if (o.state === 'unread') {
+      out.lines.push(line(`Krish approved the verify run for ${recent}, and its verify report could not be read back (${o.reason}), so whether it ran is not known.`))
+    }
+  }
   if (plan.state === 'declined') { out.lines.push(line('Krish declined the verify plan, so no off-week verify run is proposed, now or later.')); return out }
   if (plan.state === 'done') return out
   if (plan.state === 'held') {
     out.holds.push({ reason: 'amendment_unverified', detail: 'His approval of the verify plan came in an amended version whose digest does not check out, so no verify run is proposed until a decision on it that checks out.' })
+    return out
+  }
+  if (plan.state === 'held_words') {
+    out.holds.push({ reason: 'verify_plan_amended_words', detail: 'His change to the verify plan changes more than its amount, and this engine can take only an amount change, so the plan is held: no go-live is proposed and no verify run goes ahead until he approves the plan as proposed, or with only its amount changed.' })
     return out
   }
   if (plan.state === 'none' || plan.state === 'stale') {
@@ -1076,6 +1158,24 @@ export function verifyAsks(i: { decisions: readonly DecisionLite[] | null; last:
     out.proposals.push(verifyPlanProposal(i.next))
     out.lines.push(line(`The standing verify plan is on Krish's list: ${ids.length ? plural(ids.length, 'question') : 'no question yet'} tracked as shipped or a kit in flight by the last full research run, and ${plural(i.openKitPlans, 'kit plan')} he approved.`))
     return out
+  }
+  // The check-in, while the plan is open: after an off-week Sunday that ran or
+  // was skipped, and at least weekly. The same week and Sundays render the
+  // same words, so it waits on his list as one ask; one he answered is not
+  // asked again.
+  if (plan.state === 'open' && plan.decision) {
+    const covered = [...checkInSundays(plan.decision.decided_at, i.at)].sort()
+    const outcomes = sundayOutcomes(covered, decisions, i.runs, i.last)
+    const event = outcomes.some(o => o.state === 'ran' || o.state === 'skipped')
+    if (planWeek(plan.decision.decided_at, i.at).week >= 1 || event) {
+      const payload = renderVerifyCheckIn({ plan, at: i.at, outcomes, nextSunday: nextOffWeekSunday(i.at) })
+      const ask = verifyCheckInProposal(payload, i.next)
+      const answered = latestDecisions(i.decisions).get(VERIFY_CHECKIN_ID)
+      if (!answered || answered.payload_sha256 !== ask.payload_sha256) {
+        out.proposals.push(ask)
+        out.lines.push(line(`The verify plan's check-in is on Krish's list: ${plural(outcomes.filter(o => o.state === 'ran').length, 'verify run')} done and ${outcomes.filter(o => o.state === 'skipped').length} skipped in the Sundays it covers.`))
+      }
+    }
   }
   const sunday = goLiveSunday(i.at)
   if (!sunday) return out
@@ -1241,7 +1341,7 @@ export function buildDirectiveReport(i: DirectiveInput): EngineReport {
   }
 
   // The verify lane: the standing plan, and an off week's go-live.
-  const verify = verifyAsks({ decisions: i.verifyDecisions === undefined ? (i.decisions === null ? null : [...(i.directive?.decisions_since ?? []), ...(i.decisions ?? [])]) : i.verifyDecisions === null ? null : [...(i.directive?.decisions_since ?? []), ...i.verifyDecisions], last: i.last, openKitPlans: open.length, at: i.observedAt, next })
+  const verify = verifyAsks({ decisions: i.verifyDecisions === undefined ? (i.decisions === null ? null : [...(i.directive?.decisions_since ?? []), ...(i.decisions ?? [])]) : i.verifyDecisions === null ? null : [...(i.directive?.decisions_since ?? []), ...i.verifyDecisions], last: i.last, openKitPlans: open.length, at: i.observedAt, next, runs: i.verifyRuns })
   for (const p of verify.proposals) if (!carried.some(c => c.proposal_id === p.proposal_id)) carried.push(p)
   activity.push(...verify.lines)
 

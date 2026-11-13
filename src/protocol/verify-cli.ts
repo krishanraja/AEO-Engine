@@ -26,9 +26,9 @@ import { GrowthEngineHttp, ProtocolError } from '../clients/growthEngine.js'
 import { errText, log } from '../lib/log.js'
 import type { AeoContext } from '../schema/context.js'
 import type { PlanDecision } from '../schema/kit.js'
-import { parseVerifyPayload, verifyPayloadText, type VerifyPayload } from '../schema/verify.js'
+import { parseVerifyPayload, verifyOwners, verifyPayloadText, type VerifyPayload } from '../schema/verify.js'
 import { lastResearch } from './loop.js'
-import { buildGoLive, decideVerify, isOffWeekSunday, VERIFY_EPOCH, VERIFY_PLAN_ID, VERIFY_PREFIX, verifyIdsIn, verifyPlanState, verifyRunId, type VerifyDecision } from './verify.js'
+import { buildGoLive, decideVerify, isOffWeekSunday, isVerifyDecisionId, VERIFY_EPOCH, verifyIdsIn, verifyPlanState, verifyRunId, type VerifyDecision } from './verify.js'
 
 type Reader = Pick<GrowthEngineHttp, 'getDirective' | 'getDecisions' | 'getReport'>
 
@@ -71,7 +71,7 @@ export async function runDecide(c: Reader, date: string, mode: 'live' | 'synthet
   } catch (e) {
     return { run: false, reason: codeOf(e, 'readback_unavailable') }
   }
-  const mine = decisions.filter(d => d.proposal_id === VERIFY_PLAN_ID || d.proposal_id.startsWith(VERIFY_PREFIX)).length
+  const mine = decisions.filter(d => isVerifyDecisionId(d.proposal_id)).length
   const out = decideVerify({ date, decisions, expected, alreadyRan })
   log(out.run ? 'verify_go' : 'verify_skipped', out.run
     ? { questions: out.payload.query_ids.length, samples: out.payload.samples, amount_usd: out.payload.amount_usd, amended: out.amended }
@@ -95,12 +95,14 @@ export function outputLines(d: VerifyDecision, date: string, env: NodeJS.Process
   ]
 }
 
-/** The subjects whose last research packet (subject.prior.queries) holds one of the payload's questions, by slug. */
+/**
+ * The subjects that re-ask at least one of the payload's questions, by slug,
+ * in the context's order: each question goes to exactly one subject that
+ * holds it in its last research packet (src/schema/verify.ts, verifyOwners).
+ */
 export function verifySubjects(ctx: Pick<AeoContext, 'subjects'>, payload: VerifyPayload): string[] {
-  const ids = new Set(payload.query_ids.map(q => q.toLowerCase()))
-  return (Array.isArray(ctx.subjects) ? ctx.subjects : [])
-    .filter(s => (s.prior?.queries ?? []).some(q => typeof q?.query_id === 'string' && ids.has(q.query_id.toLowerCase())))
-    .map(s => s.slug)
+  const owners = new Set(verifyOwners(ctx.subjects, payload.query_ids).values())
+  return (Array.isArray(ctx.subjects) ? ctx.subjects : []).filter(s => owners.has(s.slug)).map(s => s.slug)
 }
 
 function flagsOf(argv: readonly string[]): Record<string, string> {

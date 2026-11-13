@@ -20,18 +20,24 @@
  *     THIRD_PARTY_MAX_PAGES_PER_SUBJECT a subject and
  *     THIRD_PARTY_MAX_PAGES_PER_HOST a host, the highest-priority questions
  *     first, and never their links. A video or a forum thread is typed and not
- *     read: its shape is the platform's, not the page's. Logs carry counts.
+ *     read: its shape is the platform's, not the page's. Every read asks the
+ *     host's robots.txt first, as the site audit does (READER_TOKEN, which
+ *     resolves to the * group; a 2xx file is read, a 4xx means none, anything
+ *     else closes the host), and a same-domain redirect hop is asked again for
+ *     its own path; a page robots.txt closes is never fetched. Logs carry
+ *     counts.
  */
-import type { SiteFetcher } from '../clients/site.js'
+import { CachedSite, type SiteFetcher, type SitePage } from '../clients/site.js'
 import { CAPS } from '../config/run.js'
 import { hostOf, urlMatchesDomain } from '../lib/domains.js'
 import { extractPage, type PageFacts } from '../lib/html.js'
 import { log } from '../lib/log.js'
+import { EMPTY_ROBOTS, isAllowed, parseRobots, type Robots } from '../lib/robots.js'
 import { classifySource, type SourceType } from '../lib/sourceType.js'
 import { tokensOf } from '../lib/text.js'
 import type { CitedFeatures } from '../schema/kit.js'
 import type { ProbeEngine } from '../schema/packet.js'
-import { ANSWER_FIRST_MAX_WORDS, SERVER_RENDERED_MIN_WORDS, type AuditPage } from './15-site.js'
+import { ANSWER_FIRST_MAX_WORDS, READER_TOKEN, SERVER_RENDERED_MIN_WORDS, type AuditPage } from './15-site.js'
 import { cleanCitation, isGroundingRedirect, type ProbeEvidence } from './40-probe.js'
 
 export interface PageMatch { query_id: string; alignment: number; our_best_url: string | null; page: AuditPage | null }
@@ -108,9 +114,68 @@ export interface CitedEntry { engine: ProbeEngine; position: number; url: string
 
 const unread = (url: string | null, host: string, source_type: SourceType): CitedFeatures => ({ url, host, source_type, read: false, title_matches_question: null, answer_first_words: null, words: null, h2_count: null, dated: null, server_rendered: null })
 
-/** Third-party pages a subject may read on one host: at most THIRD_PARTY_MAX_PAGES_PER_HOST, and fewer when a run's subjects together would pass the per-host budget. */
+/**
+ * A subject's share of one third-party host's budget for the whole run: the
+ * run's subject jobs read in parallel, each in its own process, so each may
+ * make at most SITE_MAX_REQUESTS_PER_HOST over the subjects on any one host,
+ * and together they never pass the budget. The host's robots.txt (read once a
+ * process), this stage's pages and the mention check's fresh fetches
+ * (src/pipeline/48-cited-pages.ts) all come out of it; a page this stage read
+ * and the mention check reuses costs nothing. A redirect hop is a request of
+ * its own and is not in the count.
+ */
+export function hostShare(subjects: number): number {
+  return Math.floor(CAPS.SITE_MAX_REQUESTS_PER_HOST / Math.max(1, subjects))
+}
+
+/** Third-party pages a subject may read on one host: at most THIRD_PARTY_MAX_PAGES_PER_HOST, inside its host share after the robots.txt read, and never fewer than one. */
 export function thirdPartyPerHost(subjects: number): number {
-  return Math.max(1, Math.min(CAPS.THIRD_PARTY_MAX_PAGES_PER_HOST, Math.floor(CAPS.SITE_MAX_REQUESTS_PER_HOST / Math.max(1, subjects))))
+  return Math.max(1, Math.min(CAPS.THIRD_PARTY_MAX_PAGES_PER_HOST, hostShare(subjects) - 1))
+}
+
+/**
+ * Pages the mention check (stage 48) may fetch fresh on one host: what the
+ * subject's host share leaves after the robots.txt read and this stage's
+ * pages, at most MENTION_CHECKS_PER_HOST; zero when nothing is left, and then
+ * it checks only pages this stage already read.
+ */
+export function mentionFetchesPerHost(subjects: number): number {
+  return Math.max(0, Math.min(CAPS.MENTION_CHECKS_PER_HOST, hostShare(subjects) - 1 - thirdPartyPerHost(subjects)))
+}
+
+/** The reader robots.txt is read through: the fetcher under a run's page cache, so the cache holds pages only. */
+const baseOf = (f: SiteFetcher): SiteFetcher => (f instanceof CachedSite ? f.inner : f)
+
+/** robots.txt per origin, read once a process per reader: its rules, open on a 4xx, closed (null) when unreadable. */
+const ROBOTS = new WeakMap<SiteFetcher, Map<string, Promise<Robots | null>>>()
+
+export function robotsFor(origin: string, fetcher: SiteFetcher): Promise<Robots | null> {
+  const base = baseOf(fetcher)
+  let byHost = ROBOTS.get(base)
+  if (!byHost) { byHost = new Map(); ROBOTS.set(base, byHost) }
+  let p = byHost.get(origin)
+  if (!p) {
+    p = base.get(`${origin}/robots.txt`).then(r => {
+      if (r && r.status >= 200 && r.status < 300) return parseRobots(r.text)
+      if (r && r.status >= 400 && r.status < 500) return EMPTY_ROBOTS
+      return null
+    }, () => null)
+    byHost.set(origin, p)
+  }
+  return p
+}
+
+/** Whether robots.txt leaves this URL open to this reader. A URL that does not parse, or a host whose robots.txt cannot be read, is closed. */
+export async function robotsAllows(fetcher: SiteFetcher, url: string | URL): Promise<boolean> {
+  let u: URL
+  try { u = typeof url === 'string' ? new URL(url) : url } catch { return false }
+  const robots = await robotsFor(u.origin, fetcher)
+  return !!robots && isAllowed(robots, READER_TOKEN, u.pathname + u.search)
+}
+
+/** One third-party read, after robotsAllows said yes: each same-domain redirect hop is asked of robots.txt again before it is followed. */
+export function getPolitely(fetcher: SiteFetcher, url: string): Promise<SitePage | null> {
+  return fetcher.get(url, { allowHop: next => robotsAllows(fetcher, next) })
 }
 
 /** A URL a kit may name: http(s), no email or handle, no redirect token; its href normalised (ASCII). */
@@ -179,12 +244,14 @@ export function featuresOf(url: string, host: string, question: string, facts: P
 
 const NOT_READ: readonly SourceType[] = ['video', 'forum']
 
-export interface FirstCitedRead { byQuery: Map<string, CitedEntry[]>; read: number; skipped_cap: number; skipped_type: number; failed: number }
+export interface FirstCitedRead { byQuery: Map<string, CitedEntry[]>; read: number; skipped_cap: number; skipped_type: number; failed: number; refused_robots: number }
 
 /**
  * Reads the first-cited pages, highest-priority question first (the order
  * given), each question's first-cited page before the other engines' firsts.
- * Returns the entries with their features; an entry not read keeps read:false.
+ * Each is asked of its host's robots.txt first; one it closes is never
+ * fetched and takes no place in the caps. Returns the entries with their
+ * features; an entry not read keeps read:false.
  */
 export async function readFirstCited(
   queries: ReadonlyArray<{ query_id: string; query: string }>,
@@ -200,6 +267,7 @@ export async function readFirstCited(
   let skippedCap = 0
   let skippedType = 0
   let failed = 0
+  let refusedRobots = 0
   const plan: string[] = []
   for (const pass of [0, 1]) {
     for (const q of queries) {
@@ -212,9 +280,10 @@ export async function readFirstCited(
     const type = classifySource(url)
     if (NOT_READ.includes(type)) { skippedType++; continue }
     if (read >= maxPages || (perHost.get(host) ?? 0) >= maxPerHost) { skippedCap++; continue }
+    if (!(await robotsAllows(fetcher, url))) { refusedRobots++; continue }
     perHost.set(host, (perHost.get(host) ?? 0) + 1)
     read++
-    const res = await fetcher.get(url)
+    const res = await getPolitely(fetcher, url)
     if (!res) { failed++; cache.set(url, null); continue }
     cache.set(url, { facts: extractPage(res.text), status: res.status })
   }
@@ -231,8 +300,8 @@ export async function readFirstCited(
   }
   // Entries for questions not in the order given are kept as they were.
   for (const [qid, list] of entries) if (!byQuery.has(qid)) byQuery.set(qid, [...list])
-  log('first_cited_read', { ...(o.subject ? { subject: o.subject } : {}), questions: queries.length, read, failed, skipped_cap: skippedCap, skipped_type: skippedType })
-  return { byQuery, read, skipped_cap: skippedCap, skipped_type: skippedType, failed }
+  log('first_cited_read', { ...(o.subject ? { subject: o.subject } : {}), questions: queries.length, read, failed, skipped_cap: skippedCap, skipped_type: skippedType, refused_robots: refusedRobots })
+  return { byQuery, read, skipped_cap: skippedCap, skipped_type: skippedType, failed, refused_robots: refusedRobots }
 }
 
 /** Used by the kit and the digest to say whether a first-cited page leads with its answer. */

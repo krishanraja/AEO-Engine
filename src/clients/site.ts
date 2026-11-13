@@ -72,15 +72,23 @@ export interface SitePage {
 
 export interface SiteStats { requests: number; refused: number; errors: number; hosts: number }
 
+/**
+ * What a caller may ask of one read: `allowHop`, asked before each redirect
+ * hop is requested (the URL it would go to), so a third-party read can ask
+ * robots.txt again for the hop's own path; false refuses the hop, and the
+ * read comes back null.
+ */
+export interface GetOptions { allowHop?: (next: URL) => Promise<boolean> }
+
 export interface SiteFetcher {
   /**
    * One text resource. Null when it is not read: the budget is spent, the
-   * path is an asset, the type is not text, a redirect leaves the domain or
-   * passes the hop limit, or the request failed. A 4xx or 5xx comes back
-   * with its status. Never throws, except MissingFixture from a strict
-   * offline twin.
+   * path is an asset, the type is not text, a redirect leaves the domain,
+   * passes the hop limit or is refused by `allowHop`, or the request failed.
+   * A 4xx or 5xx comes back with its status. Never throws, except
+   * MissingFixture from a strict offline twin.
    */
-  get(url: string): Promise<SitePage | null>
+  get(url: string, o?: GetOptions): Promise<SitePage | null>
   /** Counts only. */
   stats(): SiteStats
 }
@@ -167,7 +175,7 @@ export class BudgetedSite implements SiteFetcher {
 
   private refuse(): null { this.refused++; return null }
 
-  async get(url: string): Promise<SitePage | null> {
+  async get(url: string, o: GetOptions = {}): Promise<SitePage | null> {
     let current: URL
     try { current = new URL(url) } catch { return this.refuse() }
     if (!publicWebUrl(current) || isAsset(current)) return this.refuse()
@@ -202,6 +210,7 @@ export class BudgetedSite implements SiteFetcher {
         try { next = new URL(location, current) } catch { return this.refuse() }
         if (!publicWebUrl(next) || isAsset(next) || registrableDomain(next.hostname) !== origin) return this.refuse()
         next.hash = ''
+        if (o.allowHop && !(await o.allowHop(next))) return this.refuse()
         current = next
         continue
       }
@@ -269,10 +278,11 @@ export class CachedSite implements SiteFetcher {
   /** Whether this URL was already read (or is being read) through this cache. */
   has(url: string): boolean { return this.pages.has(this.key(url)) }
 
-  get(url: string): Promise<SitePage | null> {
+  /** A page already held is returned as it was read; `o` applies only to a first read. */
+  get(url: string, o?: GetOptions): Promise<SitePage | null> {
     const k = this.key(url)
     let p = this.pages.get(k)
-    if (!p) { p = this.inner.get(url); this.pages.set(k, p) }
+    if (!p) { p = this.inner.get(url, o); this.pages.set(k, p) }
     return p
   }
 
