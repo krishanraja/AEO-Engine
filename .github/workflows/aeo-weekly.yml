@@ -15,14 +15,34 @@
 # Control Center dedupes a repeated run_id and replaces an earlier attempt's
 # week, so a retry after a partial POST is safe.
 #
+# Our own sites are read once a run, by the site job, before the subject
+# jobs start: many subjects share a host (every prospect's "ours" is
+# Mindmake's and Krish's sites), and a per-job audit would give one host each
+# job's budget, four jobs at once. The site job reads every subject's hosts in
+# one process, fetch only, at most 40 requests a host a second apart, and
+# seals the result to this workflow run; each subject job reads its hosts from
+# that file and never requests one of our pages itself (src/site.ts).
+#
 # The growth engine protocol (docs/control-center/ENGINE-PROTOCOL.md) rides
 # beside the packet ingest, which it does not change: the plan job journals a
 # started attempt and reads the directive before the subject list is read,
-# each research job leaves a sealed counts-only summary, and the report job
+# each research job leaves a sealed summary (counts, and a venture's top win
+# kit), and the report job
 # sends one protocol report, reads it back, reads his decisions and closes the
 # attempt. A dry run POSTs nothing, so it reports nothing either. The daily
 # directive wake-up is its own workflow (cc-growth-directive.yml) and never
 # runs paid research.
+#
+# The off week: the scheduled Sunday of an even ISO week runs no research. It
+# runs a verify run (src/protocol/verify.ts) only on Krish's approved go-live
+# for that Sunday, `aeo:verify:<date>`, whose payload_sha256 matches the
+# payload the plan job rebuilds now from the last full research report (his
+# amended version when he changed it and its digest checks out), and only
+# once. The plan job writes that payload to out/ on its runner and hands it
+# to the jobs as an output, never as an artifact. A verify job re-asks only
+# the payload's questions, three samples on every engine, inside its amount,
+# with no model call, no site read and no retry, and the report job sends the
+# verify report. With no such decision the off week is skipped, as before.
 
 name: AEO weekly
 
@@ -63,12 +83,14 @@ jobs:
       total: ${{ steps.subjects.outputs.total }}
       dry: ${{ steps.guard.outputs.dry }}
       command_id: ${{ steps.guard.outputs.command_id }}
-      skip: ${{ steps.guard.outputs.skip }}
-      protocol: ${{ steps.guard.outputs.protocol }}
-      scope: ${{ steps.guard.outputs.scope }}
-      run_id: ${{ steps.guard.outputs.run_id }}
-      attempt_id: ${{ steps.guard.outputs.attempt_id }}
-      started_at: ${{ steps.guard.outputs.started_at }}
+      skip: ${{ steps.run.outputs.skip }}
+      protocol: ${{ steps.run.outputs.protocol }}
+      scope: ${{ steps.run.outputs.scope }}
+      run_id: ${{ steps.run.outputs.run_id }}
+      attempt_id: ${{ steps.run.outputs.attempt_id }}
+      started_at: ${{ steps.run.outputs.started_at }}
+      kind: ${{ steps.run.outputs.kind }}
+      verify_payload: ${{ steps.verify.outputs.payload }}
     steps:
       - uses: actions/checkout@v4
       - name: Read the trigger
@@ -114,12 +136,15 @@ jobs:
           # A dispatch from Control Center or the Actions button always runs.
           week=$(date -u +%V)
           if [ "$EVENT_NAME" = "schedule" ] && [ $((10#$week % 2)) -eq 0 ]; then
-            echo "ISO week $week is an off week; the research runs fortnightly."
+            echo "ISO week $week is an off week; the research runs fortnightly. A verify run goes ahead only on Krish's approved go-live."
             echo "skip=true" >> "$GITHUB_OUTPUT"
             echo "protocol=false" >> "$GITHUB_OUTPUT"
+            echo "off_week=true" >> "$GITHUB_OUTPUT"
+            echo "verify_date=$(date -u +%F)" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           echo "skip=false" >> "$GITHUB_OUTPUT"
+          echo "off_week=false" >> "$GITHUB_OUTPUT"
 
           # The protocol ids. One full run a day has a run_id the daily
           # directive can find; a single-subject run is told apart by the
@@ -133,38 +158,91 @@ jobs:
           echo "started_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-node@v4
-        if: ${{ steps.guard.outputs.protocol == 'true' }}
+        if: ${{ steps.guard.outputs.protocol == 'true' || steps.guard.outputs.off_week == 'true' }}
         with:
           node-version: '20'
           cache: 'npm'
-      - if: ${{ steps.guard.outputs.protocol == 'true' }}
+      - if: ${{ steps.guard.outputs.protocol == 'true' || steps.guard.outputs.off_week == 'true' }}
         run: npm ci
+      # The off week: Krish's decision on this Sunday's verify go-live, read
+      # with the protocol bearer the research job already holds (free GETs).
+      # It writes the payload to out/ on this runner and its outputs; with no
+      # approved decision whose digest matches, nothing runs.
+      - name: Read Krish's decision on this off week's verify run
+        id: verify
+        if: ${{ steps.guard.outputs.off_week == 'true' }}
+        env:
+          CONTROL_CENTER_URL: ${{ vars.CONTROL_CENTER_URL }}
+          CONTROL_CENTER_ENGINE_TOKEN: ${{ secrets.CONTROL_CENTER_ENGINE_TOKEN }}
+          VERIFY_DATE: ${{ steps.guard.outputs.verify_date }}
+        run: npm run --silent verify -- decide --date "$VERIFY_DATE" --out out/verify-payload.json
+      # What this run is: a research run, a verify run, or nothing.
+      - name: Settle the run
+        id: run
+        shell: bash
+        env:
+          G_SKIP: ${{ steps.guard.outputs.skip }}
+          G_PROTOCOL: ${{ steps.guard.outputs.protocol }}
+          G_SCOPE: ${{ steps.guard.outputs.scope }}
+          G_RUN_ID: ${{ steps.guard.outputs.run_id }}
+          G_ATTEMPT_ID: ${{ steps.guard.outputs.attempt_id }}
+          G_STARTED_AT: ${{ steps.guard.outputs.started_at }}
+          V_RUN: ${{ steps.verify.outputs.run }}
+          V_REASON: ${{ steps.verify.outputs.reason }}
+          V_RUN_ID: ${{ steps.verify.outputs.run_id }}
+          V_ATTEMPT_ID: ${{ steps.verify.outputs.attempt_id }}
+          V_STARTED_AT: ${{ steps.verify.outputs.started_at }}
+        run: |
+          set -euo pipefail
+          if [ "${V_RUN:-}" = "true" ]; then
+            echo "A verify run goes ahead on Krish's approved go-live."
+            { echo "kind=verify"; echo "skip=false"; echo "protocol=true"; echo "scope=all"; echo "run_id=$V_RUN_ID"; echo "attempt_id=$V_ATTEMPT_ID"; echo "started_at=$V_STARTED_AT"; } >> "$GITHUB_OUTPUT"
+          else
+            if [ -n "${V_REASON:-}" ]; then echo "No verify run this off week: $V_REASON"; fi
+            { echo "kind=research"; echo "skip=${G_SKIP:-true}"; echo "protocol=${G_PROTOCOL:-false}"; echo "scope=${G_SCOPE:-}"; echo "run_id=${G_RUN_ID:-}"; echo "attempt_id=${G_ATTEMPT_ID:-}"; echo "started_at=${G_STARTED_AT:-}"; } >> "$GITHUB_OUTPUT"
+          fi
       # Before the subject list is read, as the protocol asks. A protocol
       # failure here is logged and does not stop the research: the packets
       # are the fortnight's work, and the report job says what went wrong.
       - name: Journal the attempt and read the directive
-        if: ${{ steps.guard.outputs.protocol == 'true' }}
+        if: ${{ steps.run.outputs.protocol == 'true' }}
         continue-on-error: true
         env:
           CONTROL_CENTER_URL: ${{ vars.CONTROL_CENTER_URL }}
           CONTROL_CENTER_ENGINE_TOKEN: ${{ secrets.CONTROL_CENTER_ENGINE_TOKEN }}
-          ATTEMPT_ID: ${{ steps.guard.outputs.attempt_id }}
-          RUN_ID: ${{ steps.guard.outputs.run_id }}
-          STARTED_AT: ${{ steps.guard.outputs.started_at }}
-        run: npm run --silent protocol -- research-start --attempt-id "$ATTEMPT_ID" --run-id "$RUN_ID" --started-at "$STARTED_AT"
+          ATTEMPT_ID: ${{ steps.run.outputs.attempt_id }}
+          RUN_ID: ${{ steps.run.outputs.run_id }}
+          STARTED_AT: ${{ steps.run.outputs.started_at }}
+          KIND: ${{ steps.run.outputs.kind }}
+        run: npm run --silent protocol -- research-start --attempt-id "$ATTEMPT_ID" --run-id "$RUN_ID" --started-at "$STARTED_AT" --kind "$KIND"
 
       - name: Resolve the subjects and the per-subject cap
         id: subjects
-        if: ${{ steps.guard.outputs.skip != 'true' }}
+        if: ${{ steps.run.outputs.skip != 'true' }}
         shell: bash
         env:
           CONTROL_CENTER_URL: ${{ secrets.CONTROL_CENTER_URL }}
           AEO_ENGINE_SECRET: ${{ secrets.AEO_ENGINE_SECRET }}
           AEO_MAX_USD_PER_RUN: ${{ vars.AEO_MAX_USD_PER_RUN }}
           ASKED: ${{ steps.guard.outputs.asked }}
+          KIND: ${{ steps.run.outputs.kind }}
         run: |
           set -euo pipefail
           asked="$ASKED"
+          if [ "$KIND" = "verify" ]; then
+            # Only the subjects whose last research packet holds one of the
+            # payload's questions; the whole approved amount, which each job
+            # splits by the questions it holds (src/pipeline/verify.ts).
+            body=$(curl -sS --max-time 60 -H "Authorization: Bearer $AEO_ENGINE_SECRET" "$CONTROL_CENTER_URL/api/aeo/context?subject=all")
+            list=$(printf '%s' "$body" | npm run --silent verify -- subjects --payload out/verify-payload.json)
+            count=$(printf '%s' "$list" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const n=JSON.parse(s).length;if(!n){console.error("no subject holds the verify questions");process.exit(1)}process.stdout.write(String(n))})')
+            total=$(node -e 'process.stdout.write(String(JSON.parse(require("fs").readFileSync("out/verify-payload.json","utf8")).amount_usd))')
+            echo "list=$list" >> "$GITHUB_OUTPUT"
+            echo "cap=$total" >> "$GITHUB_OUTPUT"
+            echo "total=$total" >> "$GITHUB_OUTPUT"
+            echo "Verify subjects: $count, up to $total USD in all"
+            exit 0
+          fi
           if [ "$asked" != "all" ]; then
             list="[\"$asked\"]"
             count=1
@@ -180,21 +258,17 @@ jobs:
           echo "total=$total" >> "$GITHUB_OUTPUT"
           echo "Subjects: $list ($count), $cap USD each of $total"
 
-  research:
+  # Our own hosts, read once for the whole run (src/site.ts). Fetch only: GET,
+  # no script run, robots.txt asked first, an honest User-Agent, a budget and a
+  # throttle per host. Its sealed file is the only way a subject job sees our
+  # pages; if this job fails, the run has no site audit, and no subject job
+  # reads our hosts in its place.
+  site:
     needs: plan
-    if: ${{ needs.plan.outputs.skip != 'true' }}
+    # A verify run reads no page, so it has no site job.
+    if: ${{ needs.plan.outputs.skip != 'true' && needs.plan.outputs.kind != 'verify' }}
     runs-on: ubuntu-latest
-    # One subject measured at 26 minutes on the first live run. An attempt, a
-    # wait and a retry is about 57, so the hour the single-job version had
-    # would have killed the retry rather than the work.
-    timeout-minutes: 90
-    strategy:
-      fail-fast: false
-      # Three at a time: enough to finish inside the hour, gentle enough that
-      # the assistants are not asked fifteen questions at once.
-      max-parallel: 3
-      matrix:
-        subject: ${{ fromJson(needs.plan.outputs.subjects) }}
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -202,20 +276,99 @@ jobs:
           node-version: '20'
           cache: 'npm'
       - run: npm ci
+      - name: Read our own sites, once for the run
+        continue-on-error: true
+        env:
+          CONTROL_CENTER_URL: ${{ secrets.CONTROL_CENTER_URL }}
+          AEO_ENGINE_SECRET: ${{ secrets.AEO_ENGINE_SECRET }}
+          SUBJECTS: ${{ needs.plan.outputs.subjects }}
+        run: npm run --silent site -- --subjects "$SUBJECTS" --out site/audit.json
+      # Sealed to this workflow run, like the summary: our own pages' records
+      # and gates by host, never a subject. Kept one day.
+      - name: Keep the sealed site audit for the subject jobs
+        uses: actions/upload-artifact@v4
+        with:
+          name: aeo-site
+          path: site/
+          retention-days: 1
+          if-no-files-found: ignore
+
+  research:
+    needs: [plan, site]
+    # The site job may fail; the research still runs, with no audit.
+    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.skip != 'true' }}
+    runs-on: ubuntu-latest
+    # One subject measured at 26 minutes for twenty questions on the first
+    # live run, about 1.3 minutes a question (a question's assistants run
+    # together; questions run one after another). A subject with a venture
+    # request probes up to thirty questions since 2026-11-13, about 39
+    # minutes, so an attempt, the five-minute wait and a retry is about 83.
+    # Ninety minutes would leave almost nothing for checkout, npm ci, or a
+    # slower question now that ChatGPT always searches, and would kill the
+    # retry rather than the work, so the job allows 120. After the run of
+    # 22 November, read the subject jobs' durations and record them in
+    # docs/STATE.md, so this projection is replaced by a measurement.
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      # Four at a time since 2026-11-13, when the per-subject limit rose from
+      # twenty questions to twenty-five: gentle enough that the assistants are
+      # not asked twenty questions at once, and one more slot so the longer
+      # subjects do not stretch the whole run. Subjects beyond four wait.
+      max-parallel: 4
+      matrix:
+        subject: ${{ fromJson(needs.plan.outputs.subjects) }}
+    steps:
+      - uses: actions/checkout@v4
+      # Node 22, not the 20 the other jobs use: the pinned Claude Code CLI
+      # declares engines node >=22.0.0 (check:config holds this job to it).
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      # The Claude Code CLI for the Claude probes (src/clients/claudeCode.ts),
+      # pinned to the version its stream-json shape was recorded from. A new
+      # version is a change to the measurement: bump it here with the tests.
+      - name: Install the Claude Code CLI
+        run: npm i -g @anthropic-ai/claude-code@2.1.323
+      # The run's site audit. Missing (the site job failed) means no audit:
+      # the run reads site/audit.json, finds none, and reads none of our pages.
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: aeo-site
+          path: site
       # Two attempts in the one step, five minutes apart. GitHub Actions
-      # rejects YAML anchors, so a second step would mean naming eight
-      # secrets twice; a loop names them once and still ends in exit 1, which
+      # rejects YAML anchors, so a second step would mean naming every
+      # secret twice; a loop names them once and still ends in exit 1, which
       # is what sends the failure email.
       - name: Research this subject
         env:
           CONTROL_CENTER_URL: ${{ secrets.CONTROL_CENTER_URL }}
           AEO_ENGINE_SECRET: ${{ secrets.AEO_ENGINE_SECRET }}
-          FIREFLIES_API_KEY: ${{ secrets.FIREFLIES_API_KEY }}
+          # No Fireflies key: Control Center's tool catalog lists Fireflies as
+          # a retired route (2026-11-13), so the run reads no calls and every
+          # packet says themes_status fireflies_unavailable, never "no calls".
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
           XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
           EXA_API_KEY: ${{ secrets.EXA_API_KEY }}
+          # The Claude probes run on the Claude Code subscription (Ruling,
+          # Krish, 2026-11-13), the same secret the docs steward uses. This
+          # step also holds ANTHROPIC_API_KEY, for the writing stages and the
+          # API lane; the CLI child is given only an allowlisted environment
+          # with no API key, and its first event is checked to have none
+          # (docs/STATE.md says why this stays one step). Unset: the Claude
+          # probes use the API lane, with one log line saying so.
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Optional: Gemini as a fourth engine inside its free tier, measured
+          # beside the packets until Control Center opens it. Unset: no Gemini.
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # code, api, compare or code_then_api (README). Empty: compare for the
+          # run of 22 November, code from the research week of 23 November.
+          AEO_CLAUDE_LANE: ${{ vars.AEO_CLAUDE_LANE }}
           # Read-only: the digest reads Krish's approved voice rules (directive
           # taste, protocol 1.5.0) through the growth engine door. Unset means
           # unknown, and the digest is written without them.
@@ -227,32 +380,55 @@ jobs:
           DRY: ${{ needs.plan.outputs.dry }}
           PROTOCOL: ${{ needs.plan.outputs.protocol }}
           JOB_INDEX: ${{ strategy.job-index }}
+          KIND: ${{ needs.plan.outputs.kind }}
+          VERIFY_PAYLOAD: ${{ needs.plan.outputs.verify_payload }}
         run: |
           set -uo pipefail
-          args=(--subject "$SUBJECT" --cap-usd "$CAP")
+          # Our own pages come only from the site job's sealed audit. A retry
+          # reads no page at all: a fresh process would have a fresh budget.
+          args=(--subject "$SUBJECT" --cap-usd "$CAP" --site-in site/audit.json)
+          attempts="1 2"
+          if [ "$KIND" = "verify" ]; then
+            # Krish's approved payload, written here from the plan job's
+            # output, on this runner only. One attempt: a verify spend is
+            # never retried blindly. "Re-run failed jobs" reuses the plan
+            # job's outputs, so the run checks once itself (verifyGuard,
+            # src/index.ts): it asks nothing on a re-run attempt, on another
+            # day's payload, or when that day's verify report is stored.
+            mkdir -p out
+            printf '%s\n' "$VERIFY_PAYLOAD" > out/verify-payload.json
+            args=(--subject "$SUBJECT" --cap-usd "$CAP" --mode verify --verify-payload out/verify-payload.json)
+            attempts="1"
+          fi
           if [ -n "$COMMAND_ID" ]; then args+=(--command-id "$COMMAND_ID"); fi
           if [ "$DRY" = "true" ]; then args+=(--dry --out "out/packet.$SUBJECT.json"); fi
-          # Counts only, sealed to this workflow run (src/lib/seal.ts), named
-          # by job index so no subject reaches an artifact name.
+          # Counts, and a venture's top win kit, sealed to this workflow run
+          # (src/lib/seal.ts), named by job index so no subject reaches an
+          # artifact name.
           if [ "$PROTOCOL" = "true" ]; then args+=(--summary-out "summary/summary-$JOB_INDEX.json"); fi
-          for attempt in 1 2; do
+          # AEO_ATTEMPT tells the run which attempt it is: only the first asks
+          # Gemini, because each attempt is a fresh process with a fresh
+          # free-tier count (resolveEngines in src/config/run.ts).
+          for attempt in $attempts; do
             echo "::group::$SUBJECT attempt $attempt"
-            npm run --silent run -- "${args[@]}" && { echo "::endgroup::"; exit 0; }
+            AEO_ATTEMPT="$attempt" npm run --silent run -- "${args[@]}" && { echo "::endgroup::"; exit 0; }
             echo "::endgroup::"
-            if [ "$attempt" = "1" ]; then
+            if [ "$attempt" = "1" ] && [ "$attempts" != "1" ]; then
               echo "$SUBJECT failed, waiting five minutes before the retry"
               sleep 300
             fi
           done
-          echo "$SUBJECT failed twice"
+          echo "$SUBJECT failed"
           exit 1
-      # A dry run keeps no packet. A packet holds call themes from his
-      # Fireflies transcripts and prospect approach hooks, and this
-      # repository's artifacts are public, so the packet stays on the runner
-      # and the log carries only the counts the CLI prints. To read a whole
+      # A dry run keeps no packet. A packet can hold call themes (from his
+      # Fireflies transcripts, while that route ran) and prospect approach
+      # hooks, and this repository's artifacts are public, so the packet stays
+      # on the runner and the log carries only the counts the CLI prints. To read a whole
       # packet, run --dry --out on his own machine (README).
       # This repository is public, and so are its artifacts. The summary is
-      # sealed and holds counts only; it lives one day.
+      # sealed and holds counts, plus one prepared win kit per venture (a
+      # question and the pages involved, for Control Center only,
+      # docs/NEVER-PUBLISH.md); it lives one day.
       - name: Keep the sealed summary for the report job
         if: ${{ always() && needs.plan.outputs.protocol == 'true' }}
         uses: actions/upload-artifact@v4
@@ -297,8 +473,15 @@ jobs:
           SCOPE: ${{ needs.plan.outputs.scope }}
           TOTAL: ${{ needs.plan.outputs.total || vars.AEO_MAX_USD_PER_RUN || '25' }}
           PLAN_RESULT: ${{ needs.plan.result }}
+          KIND: ${{ needs.plan.outputs.kind }}
+          VERIFY_PAYLOAD: ${{ needs.plan.outputs.verify_payload }}
         run: |
           set -uo pipefail
           args=(research-report --attempt-id "$ATTEMPT_ID" --run-id "$RUN_ID" --started-at "$STARTED_AT" --subjects "${SUBJECTS:-[]}" --scope "$SCOPE" --total-cap-usd "$TOTAL" --summaries summaries)
           if [ "$PLAN_RESULT" != "success" ]; then args+=(--plan-error context_unavailable); fi
+          if [ "$KIND" = "verify" ]; then
+            mkdir -p out
+            printf '%s\n' "$VERIFY_PAYLOAD" > out/verify-payload.json
+            args+=(--kind verify --verify-payload out/verify-payload.json)
+          fi
           npm run --silent protocol -- "${args[@]}"

@@ -9,13 +9,13 @@
  * filtering variant the current models take; older models need the basic
  * variant, so if the model id changes, check this type with it.
  */
-import { MODELS } from '../config/run.js'
+import { CAPS, MODELS } from '../config/run.js'
 import type { UsageMeter } from '../lib/usage.js'
 import { asArray, asRecord, asString, requireOk } from './http.js'
 import type { EngineAnswer, EngineClient, ModelClient, ModelRequest } from './types.js'
 
 const URL = 'https://api.anthropic.com/v1/messages'
-const WEB_SEARCH_TOOL = { type: 'web_search_20260209', name: 'web_search', max_uses: 5 }
+const WEB_SEARCH_TOOL = { type: 'web_search_20260209', name: 'web_search', max_uses: CAPS.CLAUDE_API_SEARCH_MAX_USES }
 
 /**
  * Deadline for ONE probe turn, which is a search turn and not a model turn.
@@ -23,9 +23,10 @@ const WEB_SEARCH_TOOL = { type: 'web_search_20260209', name: 'web_search', max_u
  * http.ts defaults every request to 120s, and the probe path inherited it. On
  * the 2026-09-20 run that cost six probes on `circle` and seven on `ctrl`, all
  * of them "anthropic_0: timeout after 120000ms". Not auth, not the spend cap:
- * the same key wrote every digest in the same run. A turn here may run up to
- * five web searches (max_uses above) and then compose an answer over what they
- * returned, and that does not reliably fit in two minutes.
+ * the same key wrote every digest in the same run. A turn here may run several
+ * web searches (max_uses above, five then, two since 2026-11-13) and then
+ * compose an answer over what they returned, and that does not reliably fit
+ * in two minutes.
  *
  * It applies to the PROBE path only. The JSON writer below keeps the 120s
  * default deliberately: it is bounded extraction with thinking disabled over
@@ -34,10 +35,13 @@ const WEB_SEARCH_TOOL = { type: 'web_search_20260209', name: 'web_search', max_u
  * fails and falls back.
  *
  * Budget: ask() continues a paused turn at most three times, so the worst case
- * per probe moves from 6 to 12 minutes. The research job allows 90 and the
- * slowest subject on 2026-09-20 took 24, so there is room. If a subject ever
- * approaches the job timeout, cut max_uses before raising this again: waiting
- * longer for the same searches is not the lever that fixes a slow probe.
+ * per probe moves from 6 to 12 minutes. The slowest subject on 2026-09-20 took
+ * 24 minutes for twenty questions; a subject with a venture request may probe
+ * thirty since 2026-11-13 (about 39 minutes at that rate), and the research job
+ * allows 120 so an attempt, a wait and a retry still fit (aeo-weekly.yml). If a
+ * subject ever approaches the job timeout, cut max_uses before raising this
+ * again: waiting longer for the same searches is not the lever that fixes a
+ * slow probe.
  */
 const PROBE_TIMEOUT_MS = 240_000
 
@@ -60,12 +64,24 @@ export class AnthropicClient implements EngineClient {
     return { 'x-api-key': this.apiKey, 'anthropic-version': '2023-06-01' }
   }
 
-  /** A probe: ask the question with web search on, collect text and every cited URL. */
+  /**
+   * A probe: ask the question with web search on.
+   *
+   * Until 2026-11-13 the citations were every URL in content-block order, and
+   * the search result blocks come before the text, so the "first citation"
+   * was the first raw search hit, cited or not. Now, across every turn of a
+   * paused search:
+   *   citations  only the web_search_result_location citations on text
+   *              blocks, in order of appearance, each URL once;
+   *   retrieved  the URLs of the web_search_result items the searches returned;
+   *   fan_out    the query of each web_search server_tool_use, in order;
+   *   searched   at least one web_search server_tool_use, or the usage
+   *              reporting a billed web search request (dynamic filtering
+   *              can run its searches from code).
+   */
   async ask(question: string): Promise<EngineAnswer> {
     const messages: Array<{ role: 'user' | 'assistant'; content: unknown }> = [{ role: 'user', content: question }]
-    const texts: string[] = []
-    const citations: string[] = []
-    const add = (u: unknown) => { const s = asString(u); if (s && !citations.includes(s)) citations.push(s) }
+    const turns: unknown[] = []
     // A search turn can pause; continue it a bounded number of times.
     for (let turn = 0; turn < 3; turn++) {
       const j = asRecord(await requireOk('anthropic', URL, {
@@ -78,23 +94,11 @@ export class AnthropicClient implements EngineClient {
       // recorded. Metering only the last would under-report exactly the probes
       // that searched the hardest.
       this.meter?.record('aeo-probe', this.model, j.usage)
-      const content = asArray(j.content)
-      for (const block of content) {
-        const b = asRecord(block)
-        if (b.type === 'text') {
-          texts.push(asString(b.text))
-          for (const c of asArray(b.citations)) {
-            const cit = asRecord(c)
-            if (cit.type === 'web_search_result_location') add(cit.url)
-          }
-        } else if (b.type === 'web_search_tool_result') {
-          for (const r of asArray(b.content)) add(asRecord(r).url)
-        }
-      }
+      turns.push(j)
       if (j.stop_reason !== 'pause_turn') break
-      messages.push({ role: 'assistant', content })
+      messages.push({ role: 'assistant', content: asArray(j.content) })
     }
-    return { text: texts.join('\n').trim(), citations }
+    return parseTurns(turns)
   }
 
   private async text(system: string, user: string, maxTokens: number, agent = 'aeo-write'): Promise<string> {
@@ -141,4 +145,58 @@ export class AnthropicClient implements EngineClient {
       writeJson: (r: ModelRequest) => this.writeJson(r.system, r.user, r.maxTokens, `aeo-${r.stage}`),
     }
   }
+}
+
+const pushOnce = (list: string[], v: unknown) => {
+  const s = asString(v).trim()
+  if (s && !list.includes(s)) list.push(s)
+}
+/** Fan-out keeps one entry per search the engine ran, repeats included. */
+const pushQuery = (list: string[], v: unknown) => {
+  const s = asString(v).trim()
+  if (s) list.push(s)
+}
+
+/** The search requests a response's usage says were billed, or 0. */
+export function webSearchRequests(usage: unknown): number {
+  const n = asRecord(asRecord(usage).server_tool_use).web_search_requests
+  return typeof n === 'number' && Number.isFinite(n) && n > 0 ? n : 0
+}
+
+/** One probe's turns (a paused search continues in the next) to an answer. Pure; exported for the tests. */
+export function parseTurns(turns: readonly unknown[]): EngineAnswer {
+  const texts: string[] = []
+  const citations: string[] = []
+  const retrieved: string[] = []
+  const fanOut: string[] = []
+  let searched = false
+  let requests = 0
+  const usage: unknown[] = []
+  for (const t of turns) {
+    const j = asRecord(t)
+    if (j.usage !== undefined) usage.push(j.usage)
+    requests += webSearchRequests(j.usage)
+    for (const block of asArray(j.content)) {
+      const b = asRecord(block)
+      if (b.type === 'text') {
+        texts.push(asString(b.text))
+        for (const c of asArray(b.citations)) {
+          const cit = asRecord(c)
+          if (cit.type === 'web_search_result_location') pushOnce(citations, cit.url)
+        }
+      } else if (b.type === 'server_tool_use' && b.name === 'web_search') {
+        searched = true
+        pushQuery(fanOut, asRecord(b.input).query)
+      } else if (b.type === 'web_search_tool_result') {
+        // A failed search carries an error object here, not a list: nothing to read.
+        for (const r of asArray(b.content)) {
+          const item = asRecord(r)
+          if (item.type === undefined || item.type === 'web_search_result') pushOnce(retrieved, item.url)
+        }
+      }
+    }
+  }
+  const out: EngineAnswer = { text: texts.join('\n').trim(), citations, retrieved, searched: searched || requests > 0, fan_out: fanOut }
+  if (usage.length) out.usage = usage.length === 1 ? usage[0] : usage
+  return out
 }

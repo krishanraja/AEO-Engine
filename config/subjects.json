@@ -1,0 +1,19 @@
+{
+  "_about": "Per venture, by product slug only (this file is public): held ventures, measured with no win kit or proposal (Ruling, Krish, 2026-11-13); the repository that ships each product's fixes; and distinctive names for mention checks until Control Center serves subject.brand_names (none for common words). Control Center's subject.engine_held wins when served (src/config/subjects.ts).",
+  "held": ["legibility", "full-time"],
+  "owner_repos": {
+    "mindmake": "krishanraja/mindmake",
+    "ctrl": "krishanraja/mindmake",
+    "heartside": "krishanraja/heartside",
+    "legibility": "krishanraja/legibility",
+    "full-time": "krishanraja/full-time",
+    "publication": "krishanraja/makeyourmindup",
+    "circle": null,
+    "pulse": null
+  },
+  "brand_names": {
+    "mindmake": ["Mindmake"],
+    "heartside": ["Heartside"],
+    "publication": ["makeyourmindup"]
+  }
+}

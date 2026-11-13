@@ -12,9 +12,11 @@
  *
  *   tsx src/protocol/cli.ts research-report --attempt-id <id> --run-id <id> --started-at <iso>
  *       --summaries <dir> --subjects '<json slugs>' --scope all|one --total-cap-usd <n>
- *       [--plan-error <code>]
+ *       [--plan-error <code>] [--kind research|verify --verify-payload <file>]
  *       The research run's report job: opens the sealed job summaries, then
- *       report, readback, decisions and the terminal attempt.
+ *       report, readback, decisions and the terminal attempt. With --kind
+ *       verify, the verify run's report instead (src/protocol/verify.ts):
+ *       its closing event, its panel moves and one line of counts.
  *
  * Reads CONTROL_CENTER_URL and CONTROL_CENTER_ENGINE_TOKEN (and, for
  * research-report, AEO_ENGINE_SECRET and GITHUB_RUN_ID to open the
@@ -31,7 +33,8 @@ import { GrowthEngineHttp, ProtocolError } from '../clients/growthEngine.js'
 import { errText, log } from '../lib/log.js'
 import { unseal } from '../lib/seal.js'
 import { ID_RE } from '../schema/report.js'
-import { finishResearch, runDirective, startResearch } from './loop.js'
+import { finishResearch, finishVerify, runDirective, startResearch } from './loop.js'
+import { parseVerifyPayload, type VerifyPayload } from '../schema/verify.js'
 import type { RunSummary } from './measure.js'
 
 type Flags = Record<string, string>
@@ -79,6 +82,17 @@ export function readSummaries(dir: string, secret: string, context: string): { s
     }
   }
   return { summaries, unreadable }
+}
+
+/** The verify payload the plan job wrote, read strictly; null when absent or unreadable (the verify report then holds). */
+export function readPayload(path: string | undefined): VerifyPayload | null {
+  if (!path || !existsSync(path)) return null
+  try {
+    const parsed = parseVerifyPayload(readFileSync(path, 'utf8').trim())
+    return parsed.ok ? parsed.payload : null
+  } catch {
+    return null
+  }
 }
 
 /** This wake's discriminator: the workflow run and its attempt, or a local stamp. Only id characters. */
@@ -140,7 +154,9 @@ export async function main(argv: readonly string[] = process.argv.slice(2), env:
     const ids = { attemptId: need(flags, 'attempt-id', ID_RE), runId: need(flags, 'run-id', ID_RE), startedAt: need(flags, 'started-at') }
     if (Number.isNaN(Date.parse(ids.startedAt))) throw new Error('--started-at is not a date-time')
 
-    if (command === 'research-start') return (await startResearch(client, ids)).ok ? 0 : 1
+    const kind = flags.kind ?? 'research'
+    if (kind !== 'research' && kind !== 'verify') throw new Error('--kind is research or verify')
+    if (command === 'research-start') return (await startResearch(client, ids, kind)).ok ? 0 : 1
 
     const subjects = JSON.parse(need(flags, 'subjects')) as unknown
     if (!Array.isArray(subjects) || !subjects.every(s => typeof s === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(s))) throw new Error('--subjects must be a JSON array of slugs')
@@ -152,6 +168,14 @@ export async function main(argv: readonly string[] = process.argv.slice(2), env:
     const { summaries, unreadable } = readSummaries(flags.summaries ?? 'summaries', env.AEO_ENGINE_SECRET ?? '', env.GITHUB_RUN_ID || 'local')
     log('protocol_summaries', { read: summaries.length, unreadable, expected: subjects.length })
     const now = new Date()
+    if (kind === 'verify') {
+      const payload = readPayload(flags['verify-payload'])
+      const out = await finishVerify(client, ids, {
+        mode: mode(flags), observedAt: now, revision, capturedAt: new Date(ids.startedAt),
+        expected: subjects as string[], summaries, payload, planError,
+      }, () => new Date(), { evidenceUrl })
+      return out.status === 'succeeded' ? 0 : 1
+    }
     const out = await finishResearch(client, ids, {
       mode: mode(flags), observedAt: now, revision, capturedAt: new Date(ids.startedAt),
       scope, expected: subjects as string[], summaries, totalCapUsd, planError,

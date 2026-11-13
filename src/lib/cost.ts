@@ -5,7 +5,7 @@
  * point is that a map that grows to 200 questions cannot quietly turn into a
  * 200-call invoice every run.
  */
-import { PRICE_USD_PER_CALL, type CostKind } from '../config/run.js'
+import { PRICE_USD_PER_CALL, SUBSCRIPTION_KINDS, type CostKind } from '../config/run.js'
 
 export { PRICE_USD_PER_CALL, type CostKind }
 
@@ -28,15 +28,40 @@ export class Ledger {
 
   priceOf(kind: CostKind): number { return this.prices[kind] ?? 0 }
 
-  canAfford(kind: CostKind): boolean { return this._total + this.priceOf(kind) <= this.capUsd + 1e-9 }
+  /**
+   * Whether one more call of this kind fits under the cap, after `pending`
+   * USD already decided but not yet charged. A subscription kind (the Claude
+   * Code lane) always fits: it is counted, never charged, and the cap is a
+   * ceiling on dollars.
+   */
+  canAfford(kind: CostKind, pending = 0): boolean {
+    if (SUBSCRIPTION_KINDS.includes(kind)) return true
+    return this._total + pending + this.priceOf(kind) <= this.capUsd + 1e-9
+  }
 
-  /** Records the estimate for one call, or throws CapReached without recording. */
+  /** Records the estimate for one call (0 for a subscription kind), or throws CapReached without recording. */
   charge(kind: CostKind, label = ''): number {
-    const usd = this.priceOf(kind)
+    const usd = SUBSCRIPTION_KINDS.includes(kind) ? 0 : this.priceOf(kind)
     if (!this.canAfford(kind)) throw new CapReached(kind, this._total, this.capUsd)
     this._total += usd
     this.entries.push({ kind, usd, label })
     return usd
+  }
+
+  /**
+   * Takes back the latest charge of this kind and label, for a call that was
+   * charged and then never made (Gemini past its free-tier share). Returns
+   * the USD taken back, 0 when no such charge is on the ledger.
+   */
+  refund(kind: CostKind, label = ''): number {
+    for (let i = this.entries.length - 1; i >= 0; i--) {
+      const e = this.entries[i]
+      if (e.kind !== kind || e.label !== label) continue
+      this.entries.splice(i, 1)
+      this._total -= e.usd
+      return e.usd
+    }
+    return 0
   }
 
   /** Per-kind totals for the dry-run report. */

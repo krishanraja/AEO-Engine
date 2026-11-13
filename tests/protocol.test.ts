@@ -8,8 +8,9 @@ import { canonicalJson, reportDigest } from '../src/lib/canonical.js'
 import { seal, unseal } from '../src/lib/seal.js'
 import { deliver, finishResearch, runDirective, startResearch } from '../src/protocol/loop.js'
 import { main as protocolMain } from '../src/protocol/cli.js'
-import { buildRunSummary, countCitedFirst, firstCitationIsOurs, isoWeek, nextScheduledRun, type RunSummary } from '../src/protocol/measure.js'
-import { buildDirectiveReport, buildResearchReport, SPEND_PROPOSAL_ID, spendPayloadSha, type ResearchInput } from '../src/protocol/reports.js'
+import type { ProbeDetail } from '../src/lib/probeDetail.js'
+import { buildRunSummary, countCitedFirst, countDetails, firstCitationIsOurs, isoWeek, nextScheduledRun, summariseSubject, type RunSummary } from '../src/protocol/measure.js'
+import { buildDirectiveReport, buildResearchReport, METHOD_NOTE, METHOD_NOTE_BEFORE_WEEK, SPEND_PROPOSAL_ID, spendPayloadSha, type ResearchInput } from '../src/protocol/reports.js'
 import type { AeoPacket } from '../src/schema/packet.js'
 import { validateReport, type EngineReport } from '../src/schema/report.js'
 import { ROOT, readJson } from './helpers.js'
@@ -70,6 +71,34 @@ test('cited first: our domain must be the first citation, on at least one assist
   assert.equal(c.probed_questions, ctrlPacket().queries.filter(q => q.probes.length).length)
 })
 
+test('cited first: a domain with a path counts only under that path', () => {
+  const krish = ['mindmake.co', 'linkedin.com/in/krishraja']
+  assert.equal(firstCitationIsOurs(['https://www.linkedin.com/in/krishraja/details'], krish), true)
+  assert.equal(firstCitationIsOurs(['https://linkedin.com/pulse/someone-else'], krish), false, 'any LinkedIn page used to count')
+})
+
+test('cited first: the probe details decide, not the cleaned packet list', () => {
+  const packet = ctrlPacket()
+  const probed = packet.queries.filter(q => q.probes.length)
+  const detail = (query_id: string, first: boolean, over: Partial<ProbeDetail> = {}): ProbeDetail => ({ query_id, engine: 'chatgpt', first_host_ours: first, our_position: first ? 1 : null, cited_any: first, searched: true, zero_citation: false, retrieved_ours: false, ...over })
+  // The packet alone says 2; the details say the first question was cited first
+  // (its first source was dropped from the cleaned list) and nothing else was.
+  const details = probed.map((q, i) => detail(q.query_id, i === 0))
+  assert.equal(countCitedFirst(packet, CTRL_DOMAINS, details).cited_first, 1)
+  assert.equal(countCitedFirst(packet, CTRL_DOMAINS).cited_first, 2, 'no details: the packet, as before')
+  const counts = countDetails([...details, detail(probed[1].query_id, false, { engine: 'claude', cited_any: true, searched: false, zero_citation: true })])
+  assert.equal(counts?.cited_any, 2)
+  assert.deepEqual(counts?.engines, { chatgpt: { probes: probed.length, searched: probed.length, zero_citation: 0, first_host_ours: 1, cited_any: 1 }, claude: { probes: 1, searched: 0, zero_citation: 1, first_host_ours: 0, cited_any: 1 } })
+  assert.equal(countDetails([]), null)
+  const sum = summariseSubject(packet, CTRL_DOMAINS, [], details)
+  assert.equal(sum.cited_first, 1)
+  assert.equal(sum.cited_any, 1)
+  assert.equal(sum.engines?.chatgpt.searched, probed.length)
+  const bare = summariseSubject(packet, CTRL_DOMAINS)
+  assert.equal(bare.cited_any, undefined, 'unmeasured stays absent, never zero')
+  assert.equal(bare.engines, undefined)
+})
+
 test('next scheduled run: Sunday 04:00 UTC in an odd ISO week', () => {
   assert.equal(isoWeek(new Date('2026-10-25T00:00:00Z')), 43)
   assert.equal(isoWeek(new Date('2026-11-01T00:00:00Z')), 44)
@@ -125,6 +154,38 @@ test('research report: schema valid, counts ventures and prospects, never names 
   assert.ok(r.activity.some(a => /Next scheduled research run: 2026-11-08 04:00 UTC/.test(a.line)))
   assert.deepEqual(r.proposals, [])
   assert.ok(!/\$|usd/i.test(r.activity.map(a => a.line).join(' ')), 'no spend figure in a line')
+})
+
+test('research report: cited anywhere, how often each assistant searched, and the measurement note while it is new', () => {
+  const engines = { perplexity: { probes: 60, searched: 60, zero_citation: 2 }, chatgpt: { probes: 59, searched: 59, zero_citation: 1 }, claude: { probes: 60, searched: 55, zero_citation: 5 } }
+  const v = { ...venture(3), cited_any: 7, engines }
+  const pr = { ...prospect('secret-prospect-co', 1), cited_any: 2, engines: { perplexity: { probes: 60, searched: 60, zero_citation: 0 }, chatgpt: { probes: 60, searched: 58, zero_citation: 0 }, claude: { probes: 60, searched: 60, zero_citation: 0 } } }
+  const asp = { ...aspiration, cited_any: 9, engines: { perplexity: { probes: 60, searched: 60, zero_citation: 0 } } }
+  const r = buildResearchReport(researchInput({ summaries: [summary({ subjects: [v] }), summary({ subjects: [pr] }), summary({ subjects: [asp] })] }))
+  assertValid(r)
+  const lines = r.activity.map(a => a.line)
+  assert.ok(lines.includes('Probed 20 of 34 questions for ctrl on 3 assistants; ours was the first citation on 3 questions and cited anywhere on 7.'))
+  assert.ok(lines.includes('Probed 20 of 30 questions for prospect 1 of 1 on 3 assistants; Mindmake was the first citation on 1 question and cited anywhere on 2.'))
+  assert.ok(lines.some(l => /^Probed 20 of 25 questions for aspiration 1 of 1 on 3 assistants; aspirations are not counted toward questions cited first\.$/.test(l)), 'an aspiration line is unchanged')
+  assert.deepEqual(lines.filter(l => /: searched on /.test(l)), ['perplexity: searched on 180 of 180 asks.', 'chatgpt: searched on 117 of 119 asks.', 'claude: searched on 115 of 120 asks.'])
+  assert.ok(lines.includes(METHOD_NOTE))
+  assert.equal(METHOD_NOTE, 'Measurement changed after the 8 November run: first citation is now the first source an answer cites in its text, and ChatGPT is required to search.')
+  // True on any run this code makes, a run started by hand before 22 November included.
+  const byHand = buildResearchReport(researchInput({ observedAt: new Date('2026-11-15T12:00:00Z'), summaries: [summary({ week_start: '2026-11-09', subjects: [venture(3)] })], expected: ['ctrl'] }))
+  assert.ok(byHand.activity.some(a => a.line === METHOD_NOTE), 'a hand run before 22 November carries it')
+  assert.ok(!byHand.activity.some(a => /22 November/.test(a.line)), 'and names no date still to come')
+  assert.equal(r.objectives[0].value, 4, 'the objective counts first citations only')
+  for (const l of lines) assert.ok(!/\d[\d\s().-]{8,}\d/.test(l.replace(/\d{4}-\d{2}-\d{2} \d{2}:\d{2} UTC/, '')) , `no long digit run: ${l}`)
+
+  // The note leaves once the week starts on or after its date; summaries
+  // written before the change carry no counts, and no line claims any.
+  assert.equal(METHOD_NOTE_BEFORE_WEEK, '2026-12-07')
+  const later = buildResearchReport(researchInput({ summaries: [summary({ week_start: '2026-12-07', subjects: [venture(3)] }), summary({ week_start: '2026-12-07', subjects: [prospect('secret-prospect-co')] }), summary({ week_start: '2026-12-07', subjects: [aspiration] })] }))
+  assertValid(later)
+  assert.ok(!later.activity.some(a => a.line === METHOD_NOTE))
+  assert.ok(!later.activity.some(a => /searched on|cited anywhere/.test(a.line)))
+  const lastWeek = buildResearchReport(researchInput({ summaries: [summary({ week_start: '2026-11-30', subjects: [venture(3)] })], expected: ['ctrl'] }))
+  assert.ok(lastWeek.activity.some(a => a.line === METHOD_NOTE), 'the 6 December run still says it')
 })
 
 test('research report: a single-subject run or a failed subject leaves the objective unknown, with a reason', () => {
@@ -232,6 +293,9 @@ test('directive loop: attempt started, directive, report, readback, decisions, a
   assert.equal(order[1], 'GET /api/growth/engines/aeo/directive')
   assert.equal(order.filter(o => o === 'GET /api/growth/engines/aeo/reports/<research>').length, 16, 'one free read per day back to the stale line')
   assert.deepEqual(order.slice(-4), ['POST /api/growth/engines/aeo/reports', 'GET /api/growth/engines/aeo/reports/aeo%3A2026-10-19%3Adirective', 'GET /api/growth/engines/aeo/decisions', 'POST /api/growth/engines/aeo/attempts'])
+  // His decisions are also read once before the report, so a walled ask he decided more than seven days ago is not carried again.
+  const before = order.slice(0, order.indexOf('POST /api/growth/engines/aeo/reports'))
+  assert.equal(before.filter(o => o === 'GET /api/growth/engines/aeo/decisions').length, 1)
   for (const x of s.seen) assert.ok(x.path.startsWith('/api/growth/engines/aeo/'), 'only the protocol routes')
 })
 
@@ -346,6 +410,14 @@ test('end to end: an offline research run leaves a sealed summary the report job
   const opened = unseal(sealedText, 'synthetic-engine-secret', '777') as RunSummary
   const bySlug = Object.fromEntries(opened.subjects.map(x => [x.slug, x]))
   assert.equal(bySlug.ctrl.cited_first, 2)
+  // The details travel in the sealed summary as counts; the fixtures predate
+  // them, so "searched" is read from whether an answer cited a source.
+  assert.equal(typeof bySlug.ctrl.cited_any, 'number')
+  assert.ok((bySlug.ctrl.cited_any ?? 0) >= (bySlug.ctrl.cited_first ?? 0))
+  assert.deepEqual(Object.keys(bySlug.ctrl.engines ?? {}).sort(), ['chatgpt', 'claude', 'perplexity'])
+  // 24 questions on 3 assistants, less the one fixture that answers with a 429.
+  assert.equal(Object.values(bySlug.ctrl.engines ?? {}).reduce((n, e) => n + e.probes, 0), 71)
+  assert.equal(opened.search_requests, 0, 'the offline twin reports no search usage')
   assert.equal(bySlug['sample-studio'].kind, 'aspiration')
   assert.equal(opened.subjects.length, 3)
 
@@ -368,6 +440,15 @@ test('end to end: an offline research run leaves a sealed summary the report job
     assert.equal(report.objectives[0].value, 2 + (bySlug['sample-media'].cited_first ?? 0))
     assert.ok(!JSON.stringify(report).includes('sample-media') && !JSON.stringify(report).includes('sample-studio'))
     assert.deepEqual((s.attempts.get('aeo:2026-09-13:research:777.1') ?? []).map(a => a.status), ['succeeded'])
+    // The diagnosis, end to end: the venture's top win kit is the one proposal,
+    // prepared behind strategy; the prospect and the aspiration carry none.
+    assert.equal(bySlug.ctrl.kit_candidate?.query_id, 'b352032b-3bee-4b1e-8b22-d838679921b0')
+    assert.equal(bySlug.ctrl.gap_classes?.retrieved_not_cited, 1)
+    assert.equal(bySlug['sample-media'].kit_candidate, undefined)
+    assert.equal(bySlug['sample-studio'].kit_candidate, undefined)
+    assert.deepEqual(report.proposals.map(p => [p.proposal_id, p.kind, p.wall]), [['aeo:kit:ctrl:b352032b', 'prepared', 'strategy']])
+    assert.match(report.proposals[0].exact_payload ?? '', /^Win kit kit:ctrl:b352032b \(v1\)\nProduct: ctrl\nQuestion: What is a personal AI writing style\?/)
+    assert.ok(!text.includes('personal AI writing style') && !text.includes('ctrl.mindmake.co/answers'), 'the kit never reaches a log line')
 
     // The wrong run cannot open the summaries: every subject reads as failed.
     const other = await captureStderr(() => protocolMain([
@@ -391,13 +472,19 @@ test('buildRunSummary: a run that failed before any subject says so', () => {
 // ---------- the cost wall, statically ----------
 
 test('cost wall: the protocol code never imports the pipeline or a paid client', () => {
-  const files = ['src/protocol/cli.ts', 'src/protocol/loop.ts', 'src/protocol/reports.ts', 'src/protocol/measure.ts', 'src/clients/growthEngine.ts']
+  // Every protocol file, read from the directory so a new one is scanned too, and the protocol client.
+  const files = [...readdirSync(join(ROOT, 'src/protocol')).filter(f => f.endsWith('.ts')).map(f => `src/protocol/${f}`), 'src/clients/growthEngine.ts']
+  for (const f of ['src/protocol/cli.ts', 'src/protocol/loop.ts', 'src/protocol/reports.ts', 'src/protocol/measure.ts', 'src/protocol/state.ts']) assert.ok(files.includes(f), `${f} is scanned`)
   for (const f of files) {
     const src = readFileSync(join(ROOT, f), 'utf8')
-    for (const banned of ['pipeline/', 'anthropic', 'openai', 'perplexity', 'xai', 'fireflies', 'controlCenter.js']) {
+    for (const banned of ['pipeline/', 'anthropic', 'openai', 'perplexity', 'xai', 'fireflies', 'controlCenter.js', 'claudeCode', 'gemini']) {
       assert.ok(!new RegExp(`from '[^']*${banned}`).test(src), `${f} imports ${banned}`)
     }
   }
+  // The lanes the research run pays for (or spends a subscription on) are
+  // never reachable from the daily directive's code, not even through a lib.
+  const imports = (f: string) => [...readFileSync(join(ROOT, f), 'utf8').matchAll(/from '([^']+)'/g)].map(m => m[1])
+  for (const f of files) for (const i of imports(f)) assert.ok(!/claudeCode|gemini|anthropic|openai/.test(i), `${f} imports ${i}`)
   assert.ok(existsSync(join(ROOT, '.github/workflows/cc-growth-directive.yml')))
   assert.ok(readdirSync(join(ROOT, 'src/protocol')).length >= 4)
 })

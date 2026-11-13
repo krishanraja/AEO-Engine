@@ -4,6 +4,7 @@ import { existsSync, readFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
 import { validatePacket, type AeoPacket } from '../src/schema/packet.js'
+import { readSharedAudit } from '../src/site.js'
 import { ROOT, readJson } from './helpers.js'
 
 const TSX = join(ROOT, 'node_modules', '.bin', 'tsx')
@@ -52,6 +53,9 @@ test('offline dry run writes packets that validate and ctrl matches the expected
   assert.ok(!Number.isNaN(Date.parse(ctrl.generated_at)))
 
   const prospect = packets.find(p => p.subject.slug === 'sample-media')!
+  // A second pinned packet, for a prospect: the diagnosis reads Mindmake's pages
+  // for it, and its digest is the deterministic fallback.
+  assert.deepEqual(strip(prospect), strip(readJson('expected/packet.sample-media.json') as AeoPacket))
   const aspiration = packets.find(p => p.subject.slug === 'sample-studio')!
   assert.equal(ctrl.stats.digest_writer, 'claude')
   assert.equal(prospect.stats.digest_writer, 'fallback')
@@ -64,7 +68,9 @@ test('offline dry run writes packets that validate and ctrl matches the expected
   // category term and recommended four questions it could name a reason for.
   assert.equal(ctrl.recommendations.length, 4)
   assert.ok(ctrl.recommendations.every(r => typeof r.why_you_can_win === 'string' && r.why_you_can_win.length > 0))
-  assert.equal(ctrl.not_worth_chasing.length, 2)
+  // Three walls since the limit rose to 25 (2026-11-13): the newly probed
+  // executive question is owned by a business title and a consultancy.
+  assert.equal(ctrl.not_worth_chasing.length, 3)
   // The prospect fell back, so it named no reason to win anything and walled
   // off only what it could see: the question the big platforms are cited on.
   assert.ok(prospect.recommendations.every(r => r.why_you_can_win === null))
@@ -75,7 +81,13 @@ test('offline dry run writes packets that validate and ctrl matches the expected
   assert.ok(aspiration.recommendations.some(r => r.why_you_can_win === null))
   for (const p of packets) for (const w of p.not_worth_chasing) assert.ok(p.queries.some(q => q.query_id === w.query_id), `${p.subject.slug}: ${w.query_id}`)
   const report = JSON.parse(r.stdout)
-  assert.equal(report.ledger.calls, ctrl.stats.probes + prospect.stats.probes + aspiration.stats.probes + ctrl.stats.probes_failed + 2 + 1 + 3 + 3)
+  // Repeat samples (stage 41) are charged like any probe: the ventures' and
+  // prospects' contested questions, asked twice more on each engine.
+  const resampled = r.stderr.split('\n').filter(l => l.includes('"event":"resampled"')).map(l => JSON.parse(l) as { asks: number; questions: number })
+  const sampleAsks = resampled.reduce((n, x) => n + x.asks, 0)
+  assert.ok(sampleAsks > 0, 'the venture\'s contested questions were re-asked')
+  assert.ok(resampled.every(x => x.questions <= 8), 'at most eight questions a subject')
+  assert.equal(report.ledger.calls, ctrl.stats.probes + prospect.stats.probes + aspiration.stats.probes + ctrl.stats.probes_failed + 2 + 1 + 3 + 3 + sampleAsks)
 })
 
 test('the usd cap stops probing and counts every unprobed pair', () => {
@@ -85,7 +97,8 @@ test('the usd cap stops probing and counts every unprobed pair', () => {
   const p = JSON.parse(readFileSync(out, 'utf8')) as AeoPacket
   assert.equal(validatePacket(p).ok, true)
   assert.ok(p.stats.probes_skipped_cap > 0)
-  assert.ok(p.stats.probes + p.stats.probes_failed + p.stats.probes_skipped_cap === 60)
+  // Every probed question times every engine: 24 questions (all of ctrl's, within the limit of 25) on 3 assistants.
+  assert.ok(p.stats.probes + p.stats.probes_failed + p.stats.probes_skipped_cap === 72)
   assert.ok(p.stats.cost_usd <= 0.5)
 })
 
@@ -100,4 +113,32 @@ test('a subject can be named by uuid, as repository_dispatch does', () => {
   assert.equal(r.status, 0, r.stderr)
   const p = JSON.parse(readFileSync(join(ROOT, 'out', 'test-uuid.json'), 'utf8')) as AeoPacket
   assert.equal(p.subject.slug, 'sample-studio')
+})
+
+test('site job: our hosts are read once for the run, sealed to it, and a subject job given the file makes the same packet with no request of its own', () => {
+  const env = { ...process.env, XAI_API_KEY: '', AEO_MAX_USD_PER_RUN: '', AEO_ENGINE_SECRET: 'synthetic-secret-for-the-seal', GITHUB_RUN_ID: '4242' }
+  const audit = join(ROOT, 'out', 'site-test.json')
+  rmSync(audit, { force: true })
+  const site = spawnSync(TSX, ['src/site.ts', '--offline', '--subjects', '["ctrl","sample-media","sample-studio"]', '--out', 'out/site-test.json'], { cwd: ROOT, encoding: 'utf8', env })
+  assert.equal(site.status, 0, site.stderr)
+  assert.match(site.stderr, /"event":"site_run_audit","hosts":4,/)
+  assert.ok(!/https?:\/\//.test(site.stderr), 'counts only in the log')
+  const sealed = readFileSync(audit, 'utf8')
+  assert.ok(!sealed.includes('mindmake.co'), 'sealed')
+  assert.equal(readSharedAudit(audit, { ...env, GITHUB_RUN_ID: '9999' }).size, 0, 'another run cannot open it')
+
+  const out = join(ROOT, 'out', 'test-shared.json')
+  rmSync(out, { force: true })
+  const r = spawnSync(TSX, ['src/index.ts', '--offline', '--dry', '--subject', 'ctrl', '--week', EXPECTED_WEEK, '--out', 'out/test-shared.json', '--site-in', 'out/site-test.json'], { cwd: ROOT, encoding: 'utf8', env })
+  assert.equal(r.status, 0, r.stderr)
+  assert.match(r.stderr, /"event":"shared_site_audit","state":"read","hosts":4/)
+  assert.match(r.stderr, /"event":"site_audit","subject":"ctrl","hosts":2,"pages":\d+,"requests":0,"errors":0,"shared":true/)
+  const ctrl = JSON.parse(readFileSync(out, 'utf8')) as AeoPacket
+  assert.deepEqual(strip(ctrl), strip(readJson('expected/packet.ctrl.json') as AeoPacket))
+
+  // No file (the site job failed): no audit, and no page of ours is read in its place.
+  const none = spawnSync(TSX, ['src/index.ts', '--offline', '--dry', '--subject', 'ctrl', '--week', EXPECTED_WEEK, '--out', 'out/test-shared.json', '--site-in', 'out/no-such-audit.json'], { cwd: ROOT, encoding: 'utf8', env })
+  assert.equal(none.status, 0, none.stderr)
+  assert.match(none.stderr, /"event":"shared_site_audit","state":"missing"/)
+  assert.match(none.stderr, /"event":"site_audit","subject":"ctrl","hosts":0,"pages":0,"requests":0/)
 })

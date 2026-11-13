@@ -3,5 +3,14 @@
   "citations": [
     "https://docs.example-assistant.com/custom-instructions",
     "https://www.example-writer-tools.com/blog/2026/train-your-voice"
+  ],
+  "retrieved": [
+    "https://docs.example-assistant.com/custom-instructions",
+    "https://www.example-writer-tools.com/blog/2026/train-your-voice"
+  ],
+  "fan_out": [
+    "what is a personal writing style for AI tools",
+    "teach an AI assistant your writing style",
+    "personal AI writing style examples"
   ]
 }

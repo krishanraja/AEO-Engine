@@ -2,16 +2,99 @@
  * The interfaces the pipeline talks to. Live and offline implementations
  * satisfy the same shapes, so no stage ever knows which one it has.
  */
+import type { CostKind } from '../config/run.js'
 import type { UsageRow } from '../lib/usage.js'
 import type { AeoContext } from '../schema/context.js'
-import type { AeoPacket, Engine } from '../schema/packet.js'
+import type { AeoPacket, ProbeEngine } from '../schema/packet.js'
 
-export interface EngineAnswer { text: string; citations: string[] }
+/**
+ * One engine's answer to one question.
+ *
+ * `citations` are the sources the answer cites IN ITS TEXT, in the order it
+ * first cites them, each URL once: Claude's web_search_result_location
+ * citations on its text blocks, ChatGPT's url_citation annotations by
+ * position, Perplexity's [n] markers mapped to its source list. Index 0 is the
+ * answer's first citation, which is what queries_cited_first reads. The rest
+ * is what the engine reports about how it got there, each optional because
+ * not every engine says:
+ *
+ *   retrieved  every source its search returned, cited or not
+ *   searched   whether it searched the web for this answer at all
+ *   fan_out    the search queries it ran, in order
+ *   usage      the provider's own usage object, untouched
+ */
+export interface EngineAnswer {
+  text: string
+  citations: string[]
+  retrieved?: string[]
+  searched?: boolean
+  fan_out?: string[]
+  usage?: unknown
+  /**
+   * URLs the answer's text carried that its searches never returned, dropped
+   * from `citations` (the Claude Code lane, whose answer is plain text). A
+   * count; absent where the engine's citations are structured.
+   */
+  typed_urls_dropped?: number
+  /**
+   * The Claude Code subscription passed a warning threshold while this answer
+   * was written (rate_limit_event status allowed_warning) and still served
+   * it. Counted as probes_limit_warning; absent otherwise.
+   */
+  limit_warning?: boolean
+}
+
+/** What a probe may tell an engine beyond the question. Nothing here ever reaches the engine's prompt. */
+export interface AskContext {
+  /** The domains that count as ours for this subject (Gemini resolves a grounding redirect only for the first citation and for these). */
+  domains?: readonly string[]
+}
 
 export interface EngineClient {
-  readonly engine: Engine
+  readonly engine: ProbeEngine
   readonly model: string
-  ask(question: string): Promise<EngineAnswer>
+  /** What the ledger charges a probe to. Absent: the engine itself. */
+  readonly costKind?: CostKind
+  /**
+   * Asked instead when this engine stops on its subscription's limit
+   * (SubscriptionLimit), charged at its own cost kind. The Claude Code lane
+   * carries the API lane here in `code_then_api` mode.
+   */
+  readonly fallback?: EngineClient
+  /**
+   * True when this engine will ask nothing more this job (Gemini past its
+   * free-tier share). The probe stage reads it before charging, so a probe
+   * that would be skipped is never charged. Absent: never exhausted.
+   */
+  readonly exhausted?: boolean
+  ask(question: string, ctx?: AskContext): Promise<EngineAnswer>
+}
+
+/**
+ * The Claude Code subscription stopped a probe on its rate limit: a
+ * rate_limit_event whose status is rejected (or one the CLI does not
+ * declare), or whose isUsingOverage is true, which means paid extra usage
+ * would carry on. allowed_warning is not a limit (EngineAnswer.limit_warning).
+ * The probe is failed and counted in probes_skipped_limit; no paid call
+ * replaces it unless the lane says so.
+ */
+export class SubscriptionLimit extends Error {
+  constructor(public readonly status: string, public readonly limitType: string) {
+    super(`subscription_limit: ${status}${limitType ? ` (${limitType})` : ''}`)
+    this.name = 'SubscriptionLimit'
+  }
+}
+
+/**
+ * Gemini's grounding queries for this job reached CAPS.GEMINI_MAX_QUERIES_PER_JOB,
+ * the job's share of the free tier. The probe is skipped, never paid for, and
+ * counted in probes_skipped_free_tier.
+ */
+export class FreeTierExhausted extends Error {
+  constructor(public readonly used: number, public readonly cap: number) {
+    super(`free_tier_exhausted: ${used} of ${cap} grounding queries`)
+    this.name = 'FreeTierExhausted'
+  }
 }
 
 export type ModelStage = 'classify' | 'themes' | 'propose' | 'digest' | 'voice'

@@ -12,13 +12,23 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test } from 'node:test'
+import type { ControlCenterClient } from '../src/clients/types.js'
+import { uuidFromKey } from '../src/index.js'
+import { Ledger } from '../src/lib/cost.js'
+import { UsageMeter } from '../src/lib/usage.js'
 import { buildResearchReport, type ResearchInput } from '../src/protocol/reports.js'
 import { buildRunSummary, type RunSummary } from '../src/protocol/measure.js'
-import { requestsFor, servedBy } from '../src/pipeline/run.js'
-import { PRODUCT_SLUGS } from '../src/schema/packet.js'
+import { gapFor } from '../src/pipeline/20-gap.js'
+import { proposeQueries } from '../src/pipeline/30-propose.js'
+import { orderForProbing, probeLimitFor, probeQueries } from '../src/pipeline/40-probe.js'
+import { scoreQueries } from '../src/pipeline/50-score.js'
+import { requestsFor, runAll, servedBy, type RunDeps } from '../src/pipeline/run.js'
+import type { AeoContext, ContextSubject } from '../src/schema/context.js'
+import { PRODUCT_SLUGS, type AeoPacket } from '../src/schema/packet.js'
 import { ANSWERS_VERSION, parseAnswerRequests, parseFeatures, validateReport, type AnswerRequest } from '../src/schema/report.js'
-import { ROOT } from './helpers.js'
+import { fixtureContext, ROOT, StubEngine, StubModel, subject } from './helpers.js'
 import { schemaErrors } from './schema-check.js'
+import { captureStderr } from './standin.js'
 
 const SCHEMA = JSON.parse(readFileSync(join(ROOT, 'docs/control-center/engine-report.schema.json'), 'utf8')) as Record<string, unknown>
 const PACKET_SCHEMA = JSON.parse(readFileSync(join(ROOT, 'docs/packet.schema.json'), 'utf8')) as { $defs?: unknown; properties: { subject: { properties: { product_slug: { oneOf: Array<{ enum?: string[] }> } } } } }
@@ -109,4 +119,129 @@ test('the run summary carries the served ids by subject, sealed with the counts'
     failures: [], errorCode: null,
   })
   assert.deepEqual(s.subjects[0].served, [R1])
+})
+
+test('a full request of 25 questions is asked whole, first, beside 30 high-demand questions of the engine\'s own, and is served', async () => {
+  const ctx = fixtureContext()
+  const asked = Array.from({ length: 25 }, (_, i) => `Which personalised present suits owner kind${i}?`)
+  const own = Array.from({ length: 30 }, (_, i) => `How do I choose a dog gift for occasion${i}?`)
+  // Every one of the engine's own questions carries high prior demand, which
+  // used to put each of them ahead of every requested (seed) question.
+  const venture = {
+    ...subject('ctrl'), slug: 'heartside', product_slug: 'heartside', domains: ['heartside.example'], competitor_domains: [],
+    touchpoints: [], striking_distance: [], probes_4w: [],
+    prior: { week_start: '2026-11-02', watch_list: [], recommendations: [], queries: own.map((query, i) => ({ query_id: `c0000000-0000-4000-8000-${String(i).padStart(12, '0')}`, query, demand_score: 90, status: 'watch' as const, trend: 'flat' as const })) },
+  } as ContextSubject
+  const req = request({ questions: asked })
+  const requested = requestsFor(venture, [req]).flatMap(r => r.questions)
+  assert.equal(requested.length, 25)
+
+  const model = new StubModel(JSON.stringify({ queries: own.map(query => ({ query, source: 'gap', touchpoint_id: null })) }))
+  const ledger = new Ledger(25)
+  const domains = ['heartside.example']
+  const proposed = await proposeQueries(model, ledger, venture, ctx, [], gapFor(venture, domains), uuidFromKey, requested)
+  assert.equal(proposed.filter(q => q.requested).length, 25, 'no requested question lost at the proposal cap')
+  assert.ok(proposed.every(q => q.requested ? q.source === 'seed' : true), 'the packet source enum is unchanged')
+
+  const ordered = orderForProbing(proposed)
+  assert.deepEqual(ordered.slice(0, 25).map(q => q.query), asked, 'requested first, in request order')
+  const limit = probeLimitFor(proposed.filter(q => q.requested).length)
+  assert.equal(limit, 30)
+  const engines = (['perplexity', 'chatgpt', 'claude'] as const).map(e => new StubEngine(e, () => ({ text: 'An answer.', citations: ['https://x.example/a'], searched: true })))
+  const outcome = await probeQueries(engines, proposed, domains, ledger, [], limit)
+  for (const e of engines) {
+    assert.deepEqual(e.asked.slice(0, 25), asked, `${e.engine} asked every requested question first`)
+    assert.equal(e.asked.length, 30, 'and five of its own beside them')
+  }
+  const queries = scoreQueries(proposed, outcome, [], venture, domains)
+  assert.deepEqual(servedBy({ queries }, [req]), [R1])
+})
+
+test('a requested question of one meaningful word is still asked', async () => {
+  const venture = { ...subject('ctrl'), slug: 'heartside', product_slug: 'heartside', domains: ['heartside.example'] } as ContextSubject
+  const proposed = await proposeQueries(new StubModel('{"queries":[]}'), new Ledger(10), venture, fixtureContext(), [], gapFor(venture, []), uuidFromKey, ['What is Heartside?'])
+  assert.equal(proposed[0].query, 'What is Heartside?')
+  assert.equal(proposed[0].requested, true)
+})
+
+/**
+ * The whole subject run, as the CLI composes it (runAll: propose, the probe
+ * limit, the probes, the score, the digest, ship, servedBy), offline, with a
+ * venture request of 25 questions beside 30 of the engine's own that all carry
+ * high prior demand. Only the shared spend share differs between the cases.
+ */
+async function runRequested(capUsd: number) {
+  const asked = Array.from({ length: 25 }, (_, i) => `Which personalised present suits owner kind${i}?`)
+  const own = Array.from({ length: 30 }, (_, i) => `How do I choose a dog gift for occasion${i}?`)
+  const venture = {
+    ...subject('ctrl'), slug: 'heartside', product_slug: 'heartside', domains: ['heartside.example'], competitor_domains: [],
+    touchpoints: [], striking_distance: [], probes_4w: [],
+    prior: { week_start: '2026-11-02', watch_list: [], recommendations: [], queries: own.map((query, i) => ({ query_id: `c0000000-0000-4000-8000-${String(i).padStart(12, '0')}`, query, demand_score: 90, status: 'watch' as const, trend: 'flat' as const })) },
+  } as ContextSubject
+  const ctx = { ...fixtureContext(), subjects: [venture] } as AeoContext
+  const ingested: AeoPacket[] = []
+  const cc: ControlCenterClient = {
+    getContext: async () => ctx,
+    postIngest: async p => { ingested.push(p); return { ok: true, status: 200 } },
+    patchCommand: async () => {},
+    postUsage: async () => ({ ok: true, error: null }),
+  }
+  // The proposal returns the engine's own 30; the digest fails and falls back, after its charge.
+  const model = new StubModel(req => req.stage === 'propose' ? JSON.stringify({ queries: own.map(query => ({ query, source: 'gap', touchpoint_id: null })) }) : 'THROW')
+  const engines = (['perplexity', 'chatgpt', 'claude'] as const).map(e => new StubEngine(e, () => ({ text: 'An answer.', citations: ['https://x.example/a'], searched: true })))
+  const ledger = new Ledger(capUsd)
+  const deps: RunDeps = { cc, fireflies: null, engines, model, ledger, usage: new UsageMeter(), mintId: uuidFromKey, now: new Date('2026-11-22T10:00:00Z'), requests: [request({ questions: asked })] }
+  const { result } = await captureStderr(() => runAll(deps, { subject: 'all', weekStart: '2026-11-16', dry: false, outPath: null, commandId: null }))
+  return { asked, engines, ledger, result, packet: ingested[0] }
+}
+
+test('runAll: a request of 25 questions is asked whole and first beside 30 high-demand questions of the engine\'s own, shipped and served', async () => {
+  const { asked, engines, ledger, result, packet } = await runRequested(25)
+  assert.deepEqual(result.failures, [])
+  for (const e of engines) {
+    assert.deepEqual(e.asked.slice(0, 25), asked, `${e.engine} asked every requested question first, in request order`)
+    assert.equal(e.asked.length, 30, 'the limit rose to the 25 requested and five of its own')
+  }
+  for (const q of asked) assert.ok(packet.queries.find(x => x.query === q)?.probes.length === 3, `every requested question carries its probes in the shipped packet`)
+  assert.deepEqual(result.results[0].served, [R1])
+  assert.equal(result.results[0].unserved, 0)
+  assert.ok(ledger.entries.some(e => e.kind === 'digest'), 'the digest was charged')
+})
+
+test('runAll: a share too small for the request leaves it unserved, says so by count, and still keeps the digest its money', async () => {
+  // propose 0.04, then 0.13 a question for three assistants, with the digest's 0.06 held back.
+  const { asked, engines, ledger, result } = await runRequested(2)
+  const r = result.results[0]
+  assert.ok(r.packet.stats.probes_skipped_cap > 0, 'the cap stopped pairs')
+  assert.deepEqual(engines[0].asked, asked.slice(0, 15), 'requested questions still went first')
+  assert.deepEqual(r.served, [], 'not every requested question was asked, so the request is not served')
+  assert.equal(r.unserved, 1)
+  assert.ok(ledger.entries.some(e => e.kind === 'digest'), 'the probes left the digest its share')
+  assert.ok(ledger.total <= 2 + 1e-9)
+
+  const sum = buildRunSummary({ subjectArg: 'heartside', weekStart: '2026-11-16', now: NOW, engines: ['perplexity', 'chatgpt', 'claude'], capUsd: 2, spentUsd: ledger.total, maxProbeUsd: 0.07, results: result.results, failures: [], errorCode: null })
+  assert.equal(sum.subjects[0].requests_unserved, 1)
+  const report = buildResearchReport(input({ answers: true, summaries: [sum] }))
+  assert.deepEqual(schemaErrors(SCHEMA, report), [])
+  assert.deepEqual(validateReport(report), { ok: true })
+  const said = '1 venture request for heartside was not asked in full: the spend cap stopped some of its questions. It stays open for a later run.'
+  assert.ok(report.activity.some(a => a.line === said))
+  assert.ok(report.holds.some(h => h.reason === 'answer_request_not_served' && h.detail === said))
+  assert.equal(report.answers_served, undefined, 'an unserved request is not claimed')
+  // A question reaches the report only inside the one win kit proposal, which
+  // goes to Control Center alone (docs/NEVER-PUBLISH.md); never in a line or a hold.
+  const kits = report.proposals.filter(p => p.proposal_id.startsWith('aeo:kit:heartside:'))
+  assert.equal(kits.length, 1, 'one win kit for the venture')
+  assert.ok(!JSON.stringify({ ...report, proposals: report.proposals.filter(p => !kits.includes(p)) }).includes('owner kind'), 'never a question in the report outside the kit')
+})
+
+test('proposeQueries: two requests of 25 questions reach the proposal whole, past the usual cap of 40 and inside the packet\'s 60', async () => {
+  const venture = { ...subject('ctrl'), slug: 'heartside', product_slug: 'heartside', domains: ['heartside.example'] } as ContextSubject
+  const first = Array.from({ length: 25 }, (_, i) => `Which personalised present suits owner kind${i}?`)
+  const second = Array.from({ length: 25 }, (_, i) => `Which framed portrait suits a breed${i} lover?`)
+  const own = Array.from({ length: 30 }, (_, i) => `How do I choose a dog gift for occasion${i}?`)
+  const model = new StubModel(JSON.stringify({ queries: own.map(query => ({ query, source: 'gap', touchpoint_id: null })) }))
+  const proposed = await proposeQueries(model, new Ledger(10), venture, fixtureContext(), [], gapFor(venture, []), uuidFromKey, [...first, ...second])
+  assert.deepEqual(proposed.filter(q => q.requested).map(q => q.query), [...first, ...second])
+  assert.ok(proposed.length <= 60)
 })

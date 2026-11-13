@@ -1,0 +1,8 @@
+{
+  "_url": "https://ctrl.mindmake.co/sitemap.xml",
+  "status": 200,
+  "headers": {
+    "content-type": "application/xml"
+  },
+  "text": "<?xml version=\"1.0\"?><sitemapindex xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\"><sitemap><loc>https://ctrl.mindmake.co/sitemap-pages.xml</loc></sitemap><sitemap><loc>https://ctrl.mindmake.co/sitemap-answers.xml</loc></sitemap></sitemapindex>"
+}

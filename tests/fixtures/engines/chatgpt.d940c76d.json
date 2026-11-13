@@ -3,5 +3,15 @@
   "citations": [
     "https://www.example-prompting.com/voice-guide",
     "https://forum.example-dev.org/t/skills/123"
+  ],
+  "retrieved": [
+    "https://www.example-prompting.com/voice-guide",
+    "https://ctrl.mindmake.co/answers/personal-ai-writing-style",
+    "https://forum.example-dev.org/t/skills/123"
+  ],
+  "fan_out": [
+    "personal AI writing style definition",
+    "how to define your writing style for AI",
+    "personal AI writing style examples"
   ]
 }

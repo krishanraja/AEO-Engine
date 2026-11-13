@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { parseArgs, uuidFromKey } from '../src/index.js'
 import { CapReached, Ledger } from '../src/lib/cost.js'
-import { citedHosts, hostOf, ourHits, pathPatternOf } from '../src/lib/domains.js'
+import { citedHosts, hostMatches, hostOf, mentionsDomain, ourHits, ourPosition, pathPatternOf, splitDomain, urlMatchesDomain } from '../src/lib/domains.js'
 import { CLEAN, callRef, normaliseQuery, questionsFrom, robustJson, scrubPII } from '../src/lib/text.js'
 import { mondayOf } from '../src/lib/week.js'
 
@@ -51,6 +51,43 @@ test('domains helpers', () => {
   assert.deepEqual(ourHits('nothing', ['https://notmindmake.co/x'], ['mindmake.co']), [])
 })
 
+test('urlMatchesDomain: a bare host matches it and its subdomains; a path matches only under that path', () => {
+  assert.deepEqual(splitDomain('https://www.LinkedIn.com/in/KrishRaja/'), { host: 'linkedin.com', path: '/in/krishraja' })
+  assert.deepEqual(splitDomain('mindmake.co'), { host: 'mindmake.co', path: '' })
+  assert.equal(urlMatchesDomain('https://mindmake.co', 'mindmake.co'), true)
+  assert.equal(urlMatchesDomain('https://blog.mindmake.co/x', 'mindmake.co'), true)
+  assert.equal(urlMatchesDomain('https://notmindmake.co/x', 'mindmake.co'), false)
+  assert.equal(urlMatchesDomain('https://mindmake.com/x', 'mindmake.co'), false)
+  assert.equal(urlMatchesDomain('mindmake.co/ctrl', 'mindmake.co'), true, 'a citation without its scheme still names a host')
+  assert.equal(urlMatchesDomain('not a url', 'mindmake.co'), false)
+  assert.equal(urlMatchesDomain('https://www.linkedin.com/in/krishraja', 'linkedin.com/in/krishraja'), true)
+  assert.equal(urlMatchesDomain('https://uk.linkedin.com/in/KrishRaja/details/', 'linkedin.com/in/krishraja'), true)
+  assert.equal(urlMatchesDomain('https://linkedin.com/in/krishrajapal', 'linkedin.com/in/krishraja'), false)
+  assert.equal(urlMatchesDomain('https://linkedin.com/pulse/anyone', 'linkedin.com/in/krishraja'), false)
+  assert.equal(urlMatchesDomain('https://linkedin.com/', 'linkedin.com/in/krishraja'), false)
+  // hostMatches keeps its host-only reading for the callers that tally hosts.
+  assert.equal(hostMatches('linkedin.com', 'linkedin.com/in/krishraja'), true)
+})
+
+test('ourPosition: the 1-based place of our first source, or null', () => {
+  const ours = ['mindmake.co', 'linkedin.com/in/krishraja']
+  assert.equal(ourPosition(['https://mindmake.co/a', 'https://x.example'], ours), 1)
+  assert.equal(ourPosition(['https://x.example', 'https://linkedin.com/pulse/y', 'https://linkedin.com/in/krishraja'], ours), 3)
+  assert.equal(ourPosition(['https://x.example'], ours), null)
+  assert.equal(ourPosition([], ours), null)
+})
+
+test('ourHits: the text and the citations are read apart, and both honour a path', () => {
+  const ours = ['mindmake.co', 'linkedin.com/in/krishraja']
+  assert.deepEqual(ourHits('nothing', ['https://linkedin.com/pulse/someone'], ours), [], 'any LinkedIn page used to count')
+  assert.deepEqual(ourHits('nothing', ['https://example.com/?ref=mindmake.co'], ours), [], 'a domain inside another URL is not a citation')
+  assert.deepEqual(ourHits('read linkedin.com/in/krishraja/posts', [], ours), ['linkedin.com/in/krishraja'])
+  assert.deepEqual(ourHits('read linkedin.com/in/krishrajapal', [], ours), [])
+  assert.equal(mentionsDomain('visit www.mindmake.co today', 'mindmake.co'), true)
+  assert.equal(mentionsDomain('visit mindmake.com today', 'mindmake.co'), false)
+  assert.equal(mentionsDomain('mindmake.co.', 'mindmake.co'), true, 'a full stop after it ends a sentence')
+})
+
 test('mondayOf: a Sunday reports the week that began the previous Monday', () => {
   assert.equal(mondayOf(new Date('2026-09-13T04:00:00Z')), '2026-09-07')
   assert.equal(mondayOf(new Date('2026-09-07T00:00:00Z')), '2026-09-07')
@@ -58,7 +95,7 @@ test('mondayOf: a Sunday reports the week that began the previous Monday', () =>
 })
 
 test('the ledger charges estimates and stops at the cap', () => {
-  const l = new Ledger(0.05, { perplexity: 0.02, chatgpt: 0.02, claude: 0.02, grok: 0.02, classify: 0.01, themes: 0.01, propose: 0.01, digest: 0.01, voice: 0.01 })
+  const l = new Ledger(0.05, { perplexity: 0.02, chatgpt: 0.02, claude: 0.02, grok: 0.02, gemini: 0.02, claude_code: 0, classify: 0.01, themes: 0.01, propose: 0.01, digest: 0.01, voice: 0.01 })
   l.charge('perplexity')
   l.charge('chatgpt')
   assert.equal(l.canAfford('claude'), false)

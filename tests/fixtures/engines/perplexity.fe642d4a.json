@@ -3,5 +3,9 @@
   "citations": [
     "https://www.example-writer-tools.com/guide/voice",
     "https://help.example-assistant.com/style"
+  ],
+  "fan_out": [
+    "AI assistant style guide template",
+    "how to write a style guide for ChatGPT"
   ]
 }
