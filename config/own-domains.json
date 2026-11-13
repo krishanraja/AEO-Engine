@@ -1,0 +1,9 @@
+{
+  "_about": "Krish's ruling of 2026-11-13 on which domains are his, applied over Control Center's lists before a probe is read (src/config/ownDomains.ts). Keys are venture product slugs only: this file is public, so no prospect or aspiration is ever named here.",
+  "krish": {
+    "add": ["krishraja.ai", "krishraja.com", "themindmaker.ai"]
+  },
+  "apply_krish_to": ["mindmake"],
+  "subjects": {},
+  "not_ours": ["fractionl.us"]
+}

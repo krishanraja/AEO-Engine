@@ -90,3 +90,18 @@ test('a non-numeric field never becomes NaN in the total', () => {
   assert.equal(row.usage.input_tokens, 0)
   assert.equal(row.usage.output_tokens, 100)
 })
+
+// Hosted web searches are billed per request beside the tokens. The meter
+// counts them from usage.server_tool_use, and leaves the posted row as it was:
+// that shape is Control Center's, and the count travels in the sealed run
+// summary until Control Center says its reader takes it.
+test('web search requests are counted by unit and kept out of the posted row', () => {
+  const m = new UsageMeter()
+  m.record('aeo-probe', 'claude-sonnet-5', usage(1000, 100, { server_tool_use: { web_search_requests: 2 } }))
+  m.record('aeo-probe', 'claude-sonnet-5', usage(1000, 100, { server_tool_use: { web_search_requests: 1 } }))
+  m.record('aeo-digest', 'claude-sonnet-5', usage(1000, 100))
+  assert.equal(m.searches, 3)
+  assert.equal(m.searchesBy('aeo-probe'), 3)
+  assert.equal(m.searchesBy('aeo-digest'), 0)
+  for (const row of m.rows()) assert.ok(!('server_tool_use' in row.usage) && !('searches' in row))
+})

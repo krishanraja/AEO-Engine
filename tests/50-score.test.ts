@@ -11,7 +11,7 @@ const ctrl = subject('ctrl')
 const OURS = ['ctrl.mindmake.co', 'mindmake.co']
 let n = 0
 const pq = (query: string, prior: number | null = null, source: ProposedQuery['source'] = 'seed'): ProposedQuery => ({
-  query_id: `00000000-0000-4000-8000-${String(++n).padStart(12, '0')}`, query, source, touchpoint_id: null, norm: normaliseQuery(query),
+  query_id: `00000000-0000-4000-8000-${String(++n).padStart(12, '0')}`, query, source, touchpoint_id: null, norm: normaliseQuery(query), requested: false,
   prior: prior === null ? null : { query_id: 'p', query, demand_score: prior, status: 'watch', trend: 'flat' },
 })
 const probe = (engine: Engine, we_cited: boolean, chars = 300, cites = 2): Probe => ({

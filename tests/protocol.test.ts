@@ -8,8 +8,9 @@ import { canonicalJson, reportDigest } from '../src/lib/canonical.js'
 import { seal, unseal } from '../src/lib/seal.js'
 import { deliver, finishResearch, runDirective, startResearch } from '../src/protocol/loop.js'
 import { main as protocolMain } from '../src/protocol/cli.js'
-import { buildRunSummary, countCitedFirst, firstCitationIsOurs, isoWeek, nextScheduledRun, type RunSummary } from '../src/protocol/measure.js'
-import { buildDirectiveReport, buildResearchReport, SPEND_PROPOSAL_ID, spendPayloadSha, type ResearchInput } from '../src/protocol/reports.js'
+import type { ProbeDetail } from '../src/lib/probeDetail.js'
+import { buildRunSummary, countCitedFirst, countDetails, firstCitationIsOurs, isoWeek, nextScheduledRun, summariseSubject, type RunSummary } from '../src/protocol/measure.js'
+import { buildDirectiveReport, buildResearchReport, METHOD_NOTE, METHOD_NOTE_BEFORE_WEEK, SPEND_PROPOSAL_ID, spendPayloadSha, type ResearchInput } from '../src/protocol/reports.js'
 import type { AeoPacket } from '../src/schema/packet.js'
 import { validateReport, type EngineReport } from '../src/schema/report.js'
 import { ROOT, readJson } from './helpers.js'
@@ -70,6 +71,34 @@ test('cited first: our domain must be the first citation, on at least one assist
   assert.equal(c.probed_questions, ctrlPacket().queries.filter(q => q.probes.length).length)
 })
 
+test('cited first: a domain with a path counts only under that path', () => {
+  const krish = ['mindmake.co', 'linkedin.com/in/krishraja']
+  assert.equal(firstCitationIsOurs(['https://www.linkedin.com/in/krishraja/details'], krish), true)
+  assert.equal(firstCitationIsOurs(['https://linkedin.com/pulse/someone-else'], krish), false, 'any LinkedIn page used to count')
+})
+
+test('cited first: the probe details decide, not the cleaned packet list', () => {
+  const packet = ctrlPacket()
+  const probed = packet.queries.filter(q => q.probes.length)
+  const detail = (query_id: string, first: boolean, over: Partial<ProbeDetail> = {}): ProbeDetail => ({ query_id, engine: 'chatgpt', first_host_ours: first, our_position: first ? 1 : null, cited_any: first, searched: true, zero_citation: false, ...over })
+  // The packet alone says 2; the details say the first question was cited first
+  // (its first source was dropped from the cleaned list) and nothing else was.
+  const details = probed.map((q, i) => detail(q.query_id, i === 0))
+  assert.equal(countCitedFirst(packet, CTRL_DOMAINS, details).cited_first, 1)
+  assert.equal(countCitedFirst(packet, CTRL_DOMAINS).cited_first, 2, 'no details: the packet, as before')
+  const counts = countDetails([...details, detail(probed[1].query_id, false, { engine: 'claude', cited_any: true, searched: false, zero_citation: true })])
+  assert.equal(counts?.cited_any, 2)
+  assert.deepEqual(counts?.engines, { chatgpt: { probes: probed.length, searched: probed.length, zero_citation: 0 }, claude: { probes: 1, searched: 0, zero_citation: 1 } })
+  assert.equal(countDetails([]), null)
+  const sum = summariseSubject(packet, CTRL_DOMAINS, [], details)
+  assert.equal(sum.cited_first, 1)
+  assert.equal(sum.cited_any, 1)
+  assert.equal(sum.engines?.chatgpt.searched, probed.length)
+  const bare = summariseSubject(packet, CTRL_DOMAINS)
+  assert.equal(bare.cited_any, undefined, 'unmeasured stays absent, never zero')
+  assert.equal(bare.engines, undefined)
+})
+
 test('next scheduled run: Sunday 04:00 UTC in an odd ISO week', () => {
   assert.equal(isoWeek(new Date('2026-10-25T00:00:00Z')), 43)
   assert.equal(isoWeek(new Date('2026-11-01T00:00:00Z')), 44)
@@ -125,6 +154,38 @@ test('research report: schema valid, counts ventures and prospects, never names 
   assert.ok(r.activity.some(a => /Next scheduled research run: 2026-11-08 04:00 UTC/.test(a.line)))
   assert.deepEqual(r.proposals, [])
   assert.ok(!/\$|usd/i.test(r.activity.map(a => a.line).join(' ')), 'no spend figure in a line')
+})
+
+test('research report: cited anywhere, how often each assistant searched, and the measurement note while it is new', () => {
+  const engines = { perplexity: { probes: 60, searched: 60, zero_citation: 2 }, chatgpt: { probes: 59, searched: 59, zero_citation: 1 }, claude: { probes: 60, searched: 55, zero_citation: 5 } }
+  const v = { ...venture(3), cited_any: 7, engines }
+  const pr = { ...prospect('secret-prospect-co', 1), cited_any: 2, engines: { perplexity: { probes: 60, searched: 60, zero_citation: 0 }, chatgpt: { probes: 60, searched: 58, zero_citation: 0 }, claude: { probes: 60, searched: 60, zero_citation: 0 } } }
+  const asp = { ...aspiration, cited_any: 9, engines: { perplexity: { probes: 60, searched: 60, zero_citation: 0 } } }
+  const r = buildResearchReport(researchInput({ summaries: [summary({ subjects: [v] }), summary({ subjects: [pr] }), summary({ subjects: [asp] })] }))
+  assertValid(r)
+  const lines = r.activity.map(a => a.line)
+  assert.ok(lines.includes('Probed 20 of 34 questions for ctrl on 3 assistants; ours was the first citation on 3 questions and cited anywhere on 7.'))
+  assert.ok(lines.includes('Probed 20 of 30 questions for prospect 1 of 1 on 3 assistants; Mindmake was the first citation on 1 question and cited anywhere on 2.'))
+  assert.ok(lines.some(l => /^Probed 20 of 25 questions for aspiration 1 of 1 on 3 assistants; aspirations are not counted toward questions cited first\.$/.test(l)), 'an aspiration line is unchanged')
+  assert.deepEqual(lines.filter(l => /: searched on /.test(l)), ['perplexity: searched on 180 of 180 asks.', 'chatgpt: searched on 117 of 119 asks.', 'claude: searched on 115 of 120 asks.'])
+  assert.ok(lines.includes(METHOD_NOTE))
+  assert.equal(METHOD_NOTE, 'Measurement changed after the 8 November run: first citation is now the first source an answer cites in its text, and ChatGPT is required to search.')
+  // True on any run this code makes, a run started by hand before 22 November included.
+  const byHand = buildResearchReport(researchInput({ observedAt: new Date('2026-11-15T12:00:00Z'), summaries: [summary({ week_start: '2026-11-09', subjects: [venture(3)] })], expected: ['ctrl'] }))
+  assert.ok(byHand.activity.some(a => a.line === METHOD_NOTE), 'a hand run before 22 November carries it')
+  assert.ok(!byHand.activity.some(a => /22 November/.test(a.line)), 'and names no date still to come')
+  assert.equal(r.objectives[0].value, 4, 'the objective counts first citations only')
+  for (const l of lines) assert.ok(!/\d[\d\s().-]{8,}\d/.test(l.replace(/\d{4}-\d{2}-\d{2} \d{2}:\d{2} UTC/, '')) , `no long digit run: ${l}`)
+
+  // The note leaves once the week starts on or after its date; summaries
+  // written before the change carry no counts, and no line claims any.
+  assert.equal(METHOD_NOTE_BEFORE_WEEK, '2026-12-07')
+  const later = buildResearchReport(researchInput({ summaries: [summary({ week_start: '2026-12-07', subjects: [venture(3)] }), summary({ week_start: '2026-12-07', subjects: [prospect('secret-prospect-co')] }), summary({ week_start: '2026-12-07', subjects: [aspiration] })] }))
+  assertValid(later)
+  assert.ok(!later.activity.some(a => a.line === METHOD_NOTE))
+  assert.ok(!later.activity.some(a => /searched on|cited anywhere/.test(a.line)))
+  const lastWeek = buildResearchReport(researchInput({ summaries: [summary({ week_start: '2026-11-30', subjects: [venture(3)] })], expected: ['ctrl'] }))
+  assert.ok(lastWeek.activity.some(a => a.line === METHOD_NOTE), 'the 6 December run still says it')
 })
 
 test('research report: a single-subject run or a failed subject leaves the objective unknown, with a reason', () => {
@@ -346,6 +407,13 @@ test('end to end: an offline research run leaves a sealed summary the report job
   const opened = unseal(sealedText, 'synthetic-engine-secret', '777') as RunSummary
   const bySlug = Object.fromEntries(opened.subjects.map(x => [x.slug, x]))
   assert.equal(bySlug.ctrl.cited_first, 2)
+  // The details travel in the sealed summary as counts; the fixtures predate
+  // them, so "searched" is read from whether an answer cited a source.
+  assert.equal(typeof bySlug.ctrl.cited_any, 'number')
+  assert.ok((bySlug.ctrl.cited_any ?? 0) >= (bySlug.ctrl.cited_first ?? 0))
+  assert.deepEqual(Object.keys(bySlug.ctrl.engines ?? {}).sort(), ['chatgpt', 'claude', 'perplexity'])
+  assert.equal(Object.values(bySlug.ctrl.engines ?? {}).reduce((n, e) => n + e.probes, 0), 59)
+  assert.equal(opened.search_requests, 0, 'the offline twin reports no search usage')
   assert.equal(bySlug['sample-studio'].kind, 'aspiration')
   assert.equal(opened.subjects.length, 3)
 

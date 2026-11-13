@@ -6,7 +6,8 @@
  *   context.all.json                       the context for every subject
  *   fireflies.transcripts.json             the list for the window
  *   fireflies.transcript.<id>.json         one transcript
- *   engines/<engine>.<sha8(question)>.json { text, citations } or { error }
+ *   engines/<engine>.<sha8(question)>.json { text, citations } or { error };
+ *                                          optional retrieved, searched, fan_out
  *   model/<stage>.<sha8(key)>.json         the JSON the model would return
  */
 import { existsSync, readFileSync } from 'node:fs'
@@ -39,10 +40,20 @@ function readFixture(dir: string, rel: string, hint: string): unknown {
 export class OfflineEngine implements EngineClient {
   constructor(readonly engine: Engine, readonly model: string, private readonly dir: string) {}
 
+  /**
+   * A fixture's `citations` are the answer's inline citations, in order. The
+   * fixtures written before 2026-11-13 carry only text and citations; for
+   * them `searched` is read as "it cited a source", and retrieved and fan_out
+   * stay unknown.
+   */
   async ask(question: string): Promise<EngineAnswer> {
     const j = asRecord(readFixture(this.dir, join('engines', `${this.engine}.${sha8(question)}.json`), `${this.engine} answer to "${question}"`))
     if (typeof j.error === 'string') throw new Error(`${this.engine}_fixture_error: ${j.error}`)
-    return { text: asString(j.text), citations: asArray(j.citations).map(String) }
+    const citations = asArray(j.citations).map(String)
+    const out: EngineAnswer = { text: asString(j.text), citations, searched: typeof j.searched === 'boolean' ? j.searched : citations.length > 0 }
+    if (Array.isArray(j.retrieved)) out.retrieved = j.retrieved.map(String)
+    if (Array.isArray(j.fan_out)) out.fan_out = j.fan_out.map(String)
+    return out
   }
 }
 

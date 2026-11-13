@@ -19,7 +19,7 @@ Three rules hold for every string in the packet, whatever the field: no em dash,
 | `week_start` | See Timing. |
 | `generated_at` | ISO timestamp of the packet. |
 | `engines` | The engines this run asked: the default three plus grok when a key exists. Unique, at least one. |
-| `themes_status` | `ok`: calls were attributed and themes written. `no_calls`: Fireflies answered and there were no calls in the window. `no_attributed_calls`: there were calls, none belonged to this subject at confidence 0.6 or above. `fireflies_unavailable`: any Fireflies error or a missing key; never reported as a quiet week. `not_applicable`: aspirations, which have no calls. |
+| `themes_status` | `ok`: calls were attributed and themes written. `no_calls`: Fireflies answered and there were no calls in the window. `no_attributed_calls`: there were calls, none belonged to this subject at confidence 0.6 or above. `fireflies_unavailable`: any Fireflies error or a missing key; never reported as a quiet week. `not_applicable`: aspirations, which have no calls. Since 2026-11-13 Fireflies is a retired route (Control Center's tool catalog lists it so), the research workflow passes no Fireflies key, and every venture and prospect packet says `fireflies_unavailable`. |
 | `themes` | Five to ten buyer themes from this subject's calls, each with `calls` (distinct calls behind it) and up to six `evidence` items. Empty unless the status is ok. |
 | `calls` | `considered`: transcripts in the fourteen-day window (seven until 2026-11-12). `attributed`: how many the classifier gave to this subject. |
 | `queries` | The week's questions, scored. Up to 60. |
@@ -42,17 +42,41 @@ An evidence item is `call_ref` (the first eight hex characters of a sha256 of th
 |---|---|
 | `query_id` | Stable across weeks. When this week's question matches last week's by a normalised comparison (lower-case, punctuation and stop words removed), the prior id is carried; otherwise a new uuid is minted. Trends depend on this. |
 | `query` | The question as a person would type it into an assistant, 3 to 400 characters. |
-| `source` | Where it came from: `transcript` (a call theme), `gap` (a question a competitor is cited on), `seed` (a map touchpoint or seed topic), `striking_distance` (a Google query we nearly rank for), `watch_carry` (carried from last week's watch list), `room_signal` (a prospect's trigger). |
+| `source` | Where it came from: `transcript` (a call theme), `gap` (a question a competitor is cited on), `seed` (a map touchpoint or seed topic, or a question a venture's engine requested word for word, protocol 1.22.0), `striking_distance` (a Google query we nearly rank for), `watch_carry` (carried from last week's watch list), `room_signal` (a prospect's trigger). |
 | `demand_score` | 0 to 100, the sum of the three proxies below, capped. |
 | `demand_basis` | `llm_demand` 0 to 40: ten per engine that gave a substantive answer (200 or more characters with two or more citations). `transcript_evidence` 0 to 30: ten per call evidence item whose theme overlaps the query. `rising_volume` 0 to 30: when a striking-distance row matches the query exactly after normalisation, 15 for volume of 100 or more plus 15 when the position improved; otherwise 15 when a prior row exists and we went from absent to cited on any engine; else 0. `labels` always carries "no prompt-volume corpus; proxies only", plus "Google volume via DataForSEO" when volume was used. |
 | `call_evidence` | Up to ten evidence items from the themes that overlap this query. |
-| `gap` | `we_cited_engines`: the engines whose answer named one of our domains. `competitor_domains`: the hosts cited in this query's answers that are not ours, most frequent first, up to twelve. |
+| `gap` | `we_cited_engines`: the engines whose probe says `we_cited` (below). `competitor_domains`: the hosts cited in this query's answers that are not ours, most frequent first, up to twelve. |
 | `trend` | `new` with no prior row; else `up` or `down` when the score moved by ten or more; else `flat`. |
 | `status` | `recommend`: the top three to five by score that are absent on at least two probed engines (or on every probed engine when fewer than two were probed). `watch`: the rest with a score of 30 or more. `drop`: below. |
 | `touchpoint_id` | The Growth map touchpoint this question came from, when it did. |
-| `probes` | One per engine asked, up to eight: `engine`, `model`, `question`, `answer_snapshot` (cleaned, up to 1800 characters), `we_cited`, `citations` (up to eight URLs), `cost_usd` (the estimate charged). A query over the per-subject cap carries an empty list. |
+| `probes` | One per engine asked, up to eight: `engine`, `model`, `question`, `answer_snapshot` (cleaned, up to 1800 characters), `we_cited`, `citations` (up to eight URLs, in the order the answer cites them; see below), `cost_usd` (the estimate charged). A query beyond the subject's probe limit carries an empty list: the limit is 20 questions, raised to hold every question a venture's engine requested plus five more, and never above 30. Requested questions are probed first. |
 
-"Our domains" means the subject's own domains for a venture or an aspiration, and Mindmake's and Krish's domains for a prospect: the prospect read is whether Mindmake is in the answer that company's leaders would see.
+"Our domains" means the subject's own domains for a venture or an aspiration, and Mindmake's and Krish's domains for a prospect: the prospect read is whether Mindmake is in the answer that company's leaders would see. Control Center's lists are read every run, then Krish's ruled corrections are applied over them from `config/own-domains.json` (Ruling, Krish, 2026-11-13: krishraja.ai, krishraja.com and themindmaker.ai are his; fractionl.us is not): his own domains are added for every prospect and for the Mindmake venture, and a domain he ruled is not his is never counted, whatever a list says. A domain with a path, such as a profile page on a social network, counts only for URLs under that path, never for every page on that host.
+
+## What a probe's citations and we_cited mean
+
+Since 2026-11-13 (first live in the research run of 22 November 2026), `probes[].citations` is the sources the answer cites **in its text**, in the order it first cites them, each URL once. It is not every page the assistant's search returned. Per engine:
+
+| Engine | Where its citations come from |
+|---|---|
+| `claude` | The `web_search_result_location` citations attached to the answer's text blocks, across every turn of a paused search. Before, it was every URL in the response in block order, and the search result blocks come before the text, so the first citation was the first raw search hit, cited or not. Claude runs at most two web searches a probe (it was five). |
+| `chatgpt` | The `url_citation` annotations on the answer's text, ordered by where they sit in it. The web search is now required on every probe (`tool_choice: required`); before, it was only offered, and most ChatGPT answers since September cited nothing because the model answered from memory. |
+| `perplexity` | The sources the answer's `[n]` markers point to, in the order the markers first appear; when an answer carries no marker, its source list in its own order. Before, the whole source list in its own order. |
+| `grok` | Its citation list in its own order (Grok is not asked today). |
+
+`citations[0]` is therefore the answer's first cited source, or the first one left after cleaning. The packet's list is cleaned (a URL carrying an email address or an @handle is dropped, and the list stops at eight), so this engine measures the first citation before that cleaning, from the answer as it came back; that reading travels beside the packet in the run's sealed summary, never in the packet, and is what the engine's own `queries_cited_first` counts. A packet's own `citations[0]` can therefore differ from what the engine counted when the answer's first source was such a URL.
+
+Two readings of "cited first" exist, and they agree only when Control Center reads the packet the way this engine does:
+
+- **The engine's objective**, `queries_cited_first` in the research report, counted here from the uncleaned inline citations, against the subject's domains with Krish's ruled corrections applied and a path-aware match.
+- **The North Star share Krish reads**, computed in Control Center (`READERS['aeo-engine']` in its `api/_northStarRefresh.ts`) from the packets' probes against its own domain lists. It matches the engine's count only if it also matches a domain with a path only under that path, applies `config/own-domains.json` (fractionl.us never ours; krishraja.ai, krishraja.com and themindmaker.ai ours for every prospect and for Mindmake), and reads `citations[0]`. The cleaning difference above it cannot close: the packet's shape is closed, so it never carries the uncleaned first source. `docs/CONTROL-CENTER-BRIEF.md` carries the ask.
+
+Two other readings take the same list, so they move with it from 22 November: `demand_basis.llm_demand` counts answers with two or more citations, now cited ones only, and `gap.competitor_domains` and `competitor_gap` count the hosts an answer cites, no longer every host Claude's search returned. A demand score's trend across that run reads the change of measurement as well as any change in demand.
+
+`we_cited` is true when the answer names one of our domains in its text, or cites a URL on one of them in its inline citations. A page the search returned and the answer did not cite no longer makes it true (that was how Claude's probes read until 2026-11-13), a domain inside another URL's query string no longer counts, and a domain with a path counts only under that path.
+
+What the engines report about how they searched (whether they searched, the queries they ran, every source they read) is kept for the run's counts and is not in the packet: its shape is shared with Control Center and closed.
 
 ## A recommendation
 

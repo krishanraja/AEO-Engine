@@ -21,6 +21,7 @@ test('an unknown subject names the known slugs', async () => {
 test('krish_hits_domains: own domains for ventures and aspirations, Mindmake for prospects', () => {
   const ctx = fixtureContext()
   assert.deepEqual(krishHitsDomains(ctx, subject('ctrl')), ['ctrl.mindmake.co', 'mindmake.co'])
-  assert.deepEqual(krishHitsDomains(ctx, subject('sample-media')), ['mindmake.co', 'krishraja.com', 'mindmakerlive.substack.com', 'home.makeyourmindup.ai', 'makeyourmindup.ai', 'linkedin.com/in/krishraja'])
+  // A prospect reads against Krish's domains, plus the ones he ruled are his (config/own-domains.json).
+  assert.deepEqual(krishHitsDomains(ctx, subject('sample-media')), ['mindmake.co', 'krishraja.com', 'mindmakerlive.substack.com', 'home.makeyourmindup.ai', 'makeyourmindup.ai', 'linkedin.com/in/krishraja', 'krishraja.ai', 'themindmaker.ai'])
   assert.deepEqual(krishHitsDomains(ctx, subject('sample-studio')), ['sample-studio.example'])
 })

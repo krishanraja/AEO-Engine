@@ -72,6 +72,22 @@ export interface StateContext {
   evidenceUrl: string | null
 }
 
+/**
+ * The measurement changed after the research run of 8 November 2026, the
+ * last one made by the earlier code: the first citation became the first
+ * source an answer cites in its text, and ChatGPT was required to search. A
+ * research report says so while its week begins before this date (the
+ * scheduled runs of 22 November and 6 December, and any run Krish starts by
+ * hand before them), so the reading is not taken for a change in the answers.
+ *
+ * The line names the last run of the old measurement rather than the first
+ * of the new: the first scheduled one is 22 November, but a run started by
+ * hand after this code merges would already measure the new way, and a line
+ * saying "changed on 22 November" would then name a date still to come.
+ */
+export const METHOD_NOTE_BEFORE_WEEK = '2026-12-07'
+export const METHOD_NOTE = 'Measurement changed after the 8 November run: first citation is now the first source an answer cites in its text, and ChatGPT is required to search.'
+
 /** Control Center stores an instruction `expired` once it is this many days old (ENGINE-PROTOCOL.md, 1.20.0). */
 export const INSTRUCTION_LIFE_DAYS = 7
 
@@ -214,9 +230,29 @@ export function buildResearchReport(input: ResearchInput): EngineReport {
     if (p.noSummary) { activity.push(line(`Research for ${p.label} left no readable summary, so it is counted as failed.`)); continue }
     if (!s.ok) { activity.push(line(`Research failed for ${p.label}; nothing was written or guessed for it.`)); continue }
     const who = s.kind === 'prospect' ? 'Mindmake was' : 'ours was'
-    const tail = p.counts ? `; ${who} the first citation on ${plural(s.cited_first ?? 0, 'question')}` : '; aspirations are not counted toward questions cited first'
+    const anywhere = typeof s.cited_any === 'number' ? ` and cited anywhere on ${s.cited_any}` : ''
+    const tail = p.counts ? `; ${who} the first citation on ${plural(s.cited_first ?? 0, 'question')}${anywhere}` : '; aspirations are not counted toward questions cited first'
     activity.push(line(`Probed ${s.probed_questions} of ${plural(s.questions ?? 0, 'question')} for ${p.label} on ${plural(engines.length, 'assistant')}${tail}.`))
   }
+  // How often each assistant searched before it answered, over every subject
+  // that reported (counts only). An answer with no search is the assistant's
+  // memory, not what a buyer's search would find.
+  const byEngine = new Map<string, { probes: number; searched: number }>()
+  for (const p of placed) {
+    if (!p.s.ok || !p.s.engines) continue
+    for (const [engine, c] of Object.entries(p.s.engines)) {
+      const e = byEngine.get(engine) ?? { probes: 0, searched: 0 }
+      e.probes += c.probes
+      e.searched += c.searched
+      byEngine.set(engine, e)
+    }
+  }
+  const engineOrder = [...engines, ...[...byEngine.keys()].filter(e => !engines.includes(e)).sort()]
+  for (const engine of engineOrder) {
+    const e = byEngine.get(engine)
+    if (e) activity.push(line(`${engine}: searched on ${e.searched} of ${plural(e.probes, 'ask')}.`))
+  }
+  if (weekStart && weekStart < METHOD_NOTE_BEFORE_WEEK) activity.push(line(METHOD_NOTE))
 
   const skipped = placed.reduce((n, p) => n + (p.s.probes_skipped_cap ?? 0), 0)
   if (skipped > 0) {
@@ -228,6 +264,17 @@ export function buildResearchReport(input: ResearchInput): EngineReport {
   if (served.length) {
     const products = [...new Set(placed.filter(p => p.s.ok && (p.s.served ?? []).length).map(p => p.label))]
     activity.push(line(`Asked ${plural(served.length, 'venture request')} for AI answers, word for word (${products.join(', ')}).`))
+  }
+  // A request not asked in full stays open in Control Center for a later run.
+  // Said here, by product and count (never a question), so a request the cap
+  // or a failed call stopped is not mistaken for one still waiting its turn.
+  for (const p of placed) {
+    const n = p.s.ok ? p.s.requests_unserved ?? 0 : 0
+    if (n <= 0) continue
+    const why = (p.s.probes_skipped_cap ?? 0) > 0 ? 'the spend cap stopped some of its questions' : 'a failed call or the probe limit left some of its questions unasked'
+    const text = `${plural(n, 'venture request')} for ${p.label} ${n === 1 ? 'was' : 'were'} not asked in full: ${why}. ${n === 1 ? 'It stays' : 'They stay'} open for a later run.`
+    activity.push(line(text))
+    holds.push({ reason: 'answer_request_not_served', detail: text })
   }
   const next = nextScheduledRun(input.observedAt)
   activity.push(line(`Next scheduled research run: ${utc(next)} (Sundays at 04:00 UTC in odd ISO weeks).`))

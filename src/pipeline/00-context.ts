@@ -4,6 +4,7 @@
  * subject even when the run is for one, so the read is always "all".
  */
 import type { ControlCenterClient } from '../clients/types.js'
+import { applyOwnDomains, ownDomains, type OwnDomains } from '../config/ownDomains.js'
 import type { AeoContext, ContextSubject } from '../schema/context.js'
 
 export async function loadContext(cc: ControlCenterClient, subjectArg: string): Promise<{ ctx: AeoContext; selected: ContextSubject[] }> {
@@ -20,10 +21,16 @@ export async function loadContext(cc: ControlCenterClient, subjectArg: string): 
  * it is the subject's own domains. For a prospect it is Mindmake and Krish:
  * the question is whether the prospect's leaders would see Mindmake in the
  * answers their assistants give them.
+ *
+ * Control Center's lists, then Krish's ruled corrections over them
+ * (config/own-domains.json, src/config/ownDomains.ts): his own domains for a
+ * prospect and for the venture that counts them, each subject's own add and
+ * remove, and never a domain he ruled is not his. Every stage that asks "is
+ * this ours" reads this one list.
  */
-export function krishHitsDomains(ctx: AeoContext, subject: ContextSubject): string[] {
+export function krishHitsDomains(ctx: AeoContext, subject: ContextSubject, overlay: OwnDomains = ownDomains()): string[] {
   const own = Array.isArray(subject.domains) ? subject.domains : []
   const krish = Array.isArray(ctx.krish?.domains) ? ctx.krish.domains : []
   const list = subject.kind === 'prospect' ? krish : own
-  return [...new Set(list.map(d => String(d).toLowerCase().trim()).filter(Boolean))]
+  return applyOwnDomains(list.map(d => String(d)), subject, overlay)
 }

@@ -144,7 +144,7 @@
             "https://mindmake.co/ctrl",
             "https://www.example-writer-tools.com/guide/voice"
           ],
-          "cost_usd": 0.03
+          "cost_usd": 0.05
         },
         {
           "engine": "claude",
@@ -156,7 +156,7 @@
             "https://www.example-writer-tools.com/blog/2026/train-your-voice",
             "https://docs.example-assistant.com/custom-instructions"
           ],
-          "cost_usd": 0.04
+          "cost_usd": 0.07
         }
       ]
     },
@@ -211,7 +211,7 @@
             "https://www.example-prompting.com/voice-guide",
             "https://forum.example-dev.org/t/skills/123"
           ],
-          "cost_usd": 0.03
+          "cost_usd": 0.05
         },
         {
           "engine": "claude",
@@ -223,7 +223,7 @@
             "https://docs.example-assistant.com/custom-instructions",
             "https://www.example-writer-tools.com/blog/2026/train-your-voice"
           ],
-          "cost_usd": 0.04
+          "cost_usd": 0.07
         }
       ]
     },
@@ -286,7 +286,7 @@
             "https://help.example-assistant.com/style",
             "https://forum.example-dev.org/t/skills/123"
           ],
-          "cost_usd": 0.03
+          "cost_usd": 0.05
         },
         {
           "engine": "claude",
@@ -298,7 +298,7 @@
             "https://forum.example-dev.org/t/skills/123",
             "https://www.example-writer-tools.com/blog/2026/train-your-voice"
           ],
-          "cost_usd": 0.04
+          "cost_usd": 0.07
         }
       ]
     },
@@ -361,7 +361,7 @@
             "https://help.example-assistant.com/style",
             "https://forum.example-dev.org/t/skills/123"
           ],
-          "cost_usd": 0.03
+          "cost_usd": 0.05
         },
         {
           "engine": "claude",
@@ -373,7 +373,7 @@
             "https://forum.example-dev.org/t/skills/123",
             "https://www.example-writer-tools.com/blog/2026/train-your-voice"
           ],
-          "cost_usd": 0.04
+          "cost_usd": 0.07
         }
       ]
     },
@@ -426,7 +426,7 @@
             "https://docs.example-assistant.com/custom-instructions",
             "https://www.example-prompting.com/voice-guide"
           ],
-          "cost_usd": 0.03
+          "cost_usd": 0.05
         },
         {
           "engine": "claude",
@@ -438,7 +438,7 @@
             "https://www.example-writer-tools.com/guide/voice",
             "https://docs.example-assistant.com/custom-instructions"
           ],
-          "cost_usd": 0.04
+          "cost_usd": 0.07
         }
       ]
     },
@@ -498,7 +498,7 @@
             "https://www.example-writer-tools.com/blog/2026/train-your-voice",
             "https://www.example-writer-tools.com/guide/voice"
           ],
-          "cost_usd": 0.03
+          "cost_usd": 0.05
         },
         {
           "engine": "claude",
@@ -510,7 +510,7 @@
             "https://www.example-prompting.com/voice-guide",
             "https://help.example-assistant.com/style"
           ],
-          "cost_usd": 0.04
+          "cost_usd": 0.07
         }
       ]
     },
@@ -571,7 +571,7 @@
             "https://mindmake.co/ctrl",
             "https://help.example-assistant.com/style"
           ],
-          "cost_usd": 0.03
+          "cost_usd": 0.05
         },
         {
           "engine": "claude",
@@ -583,7 +583,7 @@
             "https://ctrl.mindmake.co",
             "https://www.example-prompting.com/voice-guide"
           ],
-          "cost_usd": 0.04
+          "cost_usd": 0.07
         }
       ]
     },
@@ -643,7 +643,7 @@
             "https://forum.example-dev.org/t/skills/123",
             "https://www.example-prompting.com/voice-guide"
           ],
-          "cost_usd": 0.03
+          "cost_usd": 0.05
         },
         {
           "engine": "claude",
@@ -655,7 +655,7 @@
             "https://www.example-writer-tools.com/blog/2026/train-your-voice",
             "https://docs.example-assistant.com/custom-instructions"
           ],
-          "cost_usd": 0.04
+          "cost_usd": 0.07
         }
       ]
     },
@@ -713,7 +713,7 @@
             "https://help.example-assistant.com/style",
             "https://forum.example-dev.org/t/skills/123"
           ],
-          "cost_usd": 0.03
+          "cost_usd": 0.05
         },
         {
           "engine": "claude",
@@ -725,7 +725,7 @@
             "https://forum.example-dev.org/t/skills/123",
             "https://www.example-writer-tools.com/blog/2026/train-your-voice"
           ],
-          "cost_usd": 0.04
+          "cost_usd": 0.07
         }
       ]
     },
@@ -779,7 +779,7 @@
             "https://www.example-writer-tools.com/blog/2026/train-your-voice",
             "https://www.example-writer-tools.com/guide/voice"
           ],
-          "cost_usd": 0.03
+          "cost_usd": 0.05
         },
         {
           "engine": "claude",
@@ -791,7 +791,7 @@
             "https://www.example-prompting.com/voice-guide",
             "https://help.example-assistant.com/style"
           ],
-          "cost_usd": 0.04
+          "cost_usd": 0.07
         }
       ]
     },
@@ -843,7 +843,7 @@
             "https://docs.example-assistant.com/custom-instructions",
             "https://www.example-prompting.com/voice-guide"
           ],
-          "cost_usd": 0.03
+          "cost_usd": 0.05
         },
         {
           "engine": "claude",
@@ -855,7 +855,7 @@
             "https://www.example-writer-tools.com/guide/voice",
             "https://docs.example-assistant.com/custom-instructions"
           ],
-          "cost_usd": 0.04
+          "cost_usd": 0.07
         }
       ]
     },
@@ -913,7 +913,7 @@
             "https://www.example-writer-tools.com/blog/2026/train-your-voice",
             "https://www.example-writer-tools.com/guide/voice"
           ],
-          "cost_usd": 0.03
+          "cost_usd": 0.05
         },
         {
           "engine": "claude",
@@ -924,7 +924,7 @@
           "citations": [
             "https://forum.example-dev.org/t/skills/123"
           ],
-          "cost_usd": 0.04
+          "cost_usd": 0.07
         }
       ]
     },
@@ -978,7 +978,7 @@
             "https://forum.example-dev.org/t/skills/123",
             "https://www.example-prompting.com/voice-guide"
           ],
-          "cost_usd": 0.03
+          "cost_usd": 0.05
         },
         {
           "engine": "claude",
@@ -990,7 +990,7 @@
             "https://www.example-writer-tools.com/blog/2026/train-your-voice",
             "https://docs.example-assistant.com/custom-instructions"
           ],
-          "cost_usd": 0.04
+          "cost_usd": 0.07
         }
       ]
     },
@@ -1044,7 +1044,7 @@
             "https://www.example-prompting.com/voice-guide",
             "https://forum.example-dev.org/t/skills/123"
           ],
-          "cost_usd": 0.03
+          "cost_usd": 0.05
         },
         {
           "engine": "claude",
@@ -1056,7 +1056,7 @@
             "https://docs.example-assistant.com/custom-instructions",
             "https://www.example-writer-tools.com/blog/2026/train-your-voice"
           ],
-          "cost_usd": 0.04
+          "cost_usd": 0.07
         }
       ]
     },
@@ -1141,7 +1141,7 @@
             "https://docs.example-assistant.com/custom-instructions",
             "https://www.example-prompting.com/voice-guide"
           ],
-          "cost_usd": 0.03
+          "cost_usd": 0.05
         },
         {
           "engine": "claude",
@@ -1153,7 +1153,7 @@
             "https://www.example-writer-tools.com/guide/voice",
             "https://docs.example-assistant.com/custom-instructions"
           ],
-          "cost_usd": 0.04
+          "cost_usd": 0.07
         }
       ]
     },
@@ -1194,7 +1194,7 @@
             "https://www.example-prompting.com/voice-guide",
             "https://docs.example-assistant.com/custom-instructions"
           ],
-          "cost_usd": 0.03
+          "cost_usd": 0.05
         },
         {
           "engine": "claude",
@@ -1206,7 +1206,7 @@
             "https://docs.example-assistant.com/custom-instructions",
             "https://www.example-writer-tools.com/blog/2026/train-your-voice"
           ],
-          "cost_usd": 0.04
+          "cost_usd": 0.07
         }
       ]
     },
@@ -1262,7 +1262,7 @@
           "citations": [
             "https://www.example-writer-tools.com/guide/voice"
           ],
-          "cost_usd": 0.03
+          "cost_usd": 0.05
         },
         {
           "engine": "claude",
@@ -1273,7 +1273,7 @@
           "citations": [
             "https://help.example-assistant.com/style"
           ],
-          "cost_usd": 0.04
+          "cost_usd": 0.07
         }
       ]
     },
@@ -1321,7 +1321,7 @@
           "citations": [
             "https://help.example-assistant.com/style"
           ],
-          "cost_usd": 0.03
+          "cost_usd": 0.05
         },
         {
           "engine": "claude",
@@ -1332,7 +1332,7 @@
           "citations": [
             "https://help.example-assistant.com/style"
           ],
-          "cost_usd": 0.04
+          "cost_usd": 0.07
         }
       ]
     },
@@ -1428,7 +1428,7 @@
           "citations": [
             "https://www.example-writer-tools.com/guide/voice"
           ],
-          "cost_usd": 0.03
+          "cost_usd": 0.05
         },
         {
           "engine": "claude",
@@ -1439,7 +1439,7 @@
           "citations": [
             "https://help.example-assistant.com/style"
           ],
-          "cost_usd": 0.04
+          "cost_usd": 0.07
         }
       ]
     },
@@ -1512,7 +1512,7 @@
           "citations": [
             "https://www.example-writer-tools.com/guide/voice"
           ],
-          "cost_usd": 0.03
+          "cost_usd": 0.05
         },
         {
           "engine": "claude",
@@ -1523,7 +1523,7 @@
           "citations": [
             "https://help.example-assistant.com/style"
           ],
-          "cost_usd": 0.04
+          "cost_usd": 0.07
         }
       ]
     }
@@ -1697,7 +1697,7 @@
     "probes": 59,
     "probes_failed": 1,
     "probes_skipped_cap": 0,
-    "cost_usd": 1.59,
+    "cost_usd": 2.59,
     "engines": 3,
     "transcripts": 2,
     "digest_writer": "claude"

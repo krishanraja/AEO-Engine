@@ -13,6 +13,9 @@ import { errText, log } from '../lib/log.js'
 import { CLEAN, normaliseQuery, questionsFrom, robustJson, scrubPII, toQuestion } from '../lib/text.js'
 import type { AeoContext, ContextSubject, PriorQuery } from '../schema/context.js'
 import { QUERY_SOURCES, UUID_RE, type QuerySource, type Theme } from '../schema/packet.js'
+
+/** The packet carries at most this many queries (src/schema/packet.ts). */
+const MAX_PACKET_QUERIES = 60
 import type { GapResult } from './20-gap.js'
 
 export interface ProposedQuery {
@@ -22,6 +25,12 @@ export interface ProposedQuery {
   touchpoint_id: string | null
   prior: PriorQuery | null
   norm: string
+  /**
+   * 1.22.0: a venture engine asked for this question (directive
+   * answer_requests). Probed first and never dropped by a cap; its packet
+   * source stays seed, because the packet's source enum is shared and closed.
+   */
+  requested: boolean
 }
 
 const PROPOSE_SYSTEM = [
@@ -32,7 +41,7 @@ const PROPOSE_SYSTEM = [
   'Never write a person\'s name, email address or handle. No em dashes anywhere, and no ASCII stand-ins for one: use a comma or a full stop.',
 ].join('\n\n')
 
-interface Candidate { query: string; source: QuerySource; touchpoint_id: string | null }
+interface Candidate { query: string; source: QuerySource; touchpoint_id: string | null; requested?: boolean }
 
 /** The inputs a proposal can be built from without a model, in priority order. */
 export function deterministicCandidates(subject: ContextSubject, gap: GapResult): Candidate[] {
@@ -113,14 +122,20 @@ export async function proposeQueries(
   // Pad from the deterministic inputs when the model came up short or failed.
   if (candidates.length < CAPS.MIN_PROPOSED_QUERIES) candidates.push(...deterministicCandidates(subject, gap))
   // A venture engine's own questions lead, word for word (only a name or address is scrubbed).
-  const asked = requested.map(q => ({ query: scrubPII(CLEAN(q, 400), subject.never_say), source: 'seed' as QuerySource, touchpoint_id: null }))
+  const asked: Candidate[] = requested.map(q => ({ query: scrubPII(CLEAN(q, 400), subject.never_say), source: 'seed' as QuerySource, touchpoint_id: null, requested: true }))
   candidates = [...asked, ...candidates]
+  // The cap never cuts a requested question: they lead the list, and the cap
+  // stretches to hold them all, up to the packet's own limit on queries.
+  const cap = Math.min(MAX_PACKET_QUERIES, Math.max(CAPS.MAX_PROPOSED_QUERIES, new Set(asked.map(c => normaliseQuery(c.query))).size))
 
   const out: ProposedQuery[] = []
   const seen = new Set<string>()
   for (const c of candidates) {
     const norm = normaliseQuery(c.query)
-    if (c.query.length < 3 || norm.split(' ').length < 2 || seen.has(norm)) continue
+    // A proposed question needs two meaningful words; a requested one is asked
+    // as it came ("What is Heartside?" is one word to the dedupe, and still asked).
+    const tooThin = c.requested ? false : norm.split(' ').length < 2
+    if (c.query.length < 3 || tooThin || seen.has(norm)) continue
     seen.add(norm)
     const prior = priorByNorm.get(norm) ?? null
     out.push({
@@ -130,10 +145,11 @@ export async function proposeQueries(
       touchpoint_id: c.touchpoint_id ?? touchpointByNorm.get(norm) ?? null,
       prior,
       norm,
+      requested: c.requested === true,
     })
-    if (out.length >= CAPS.MAX_PROPOSED_QUERIES) break
+    if (out.length >= cap) break
   }
   if (out.length < CAPS.MIN_PROPOSED_QUERIES) log('propose_short', { subject: subject.slug, queries: out.length, min: CAPS.MIN_PROPOSED_QUERIES })
-  log('queries_proposed', { subject: subject.slug, queries: out.length, carried: out.filter(q => q.prior).length })
+  log('queries_proposed', { subject: subject.slug, queries: out.length, carried: out.filter(q => q.prior).length, requested: out.filter(q => q.requested).length })
   return out
 }

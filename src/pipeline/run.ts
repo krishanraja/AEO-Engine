@@ -17,7 +17,8 @@ import { krishHitsDomains, loadContext } from './00-context.js'
 import { classifyTranscripts, gatherTranscripts, themesForSubject, type Attribution, type Gathered } from './10-transcripts.js'
 import { gapFor } from './20-gap.js'
 import { proposeQueries } from './30-propose.js'
-import { probeQueries } from './40-probe.js'
+import { probeLimitFor, probeQueries } from './40-probe.js'
+import type { ProbeDetail } from '../lib/probeDetail.js'
 import { scoreQueries } from './50-score.js'
 import { writeDigest } from './60-digest.js'
 import { applyVoice } from './65-voice.js'
@@ -64,8 +65,18 @@ export interface RunOpts {
   commandId: number | null
 }
 
-/** `domains` is the list the probes were read against, kept so the protocol report can count first citations. `served`: the venture requests whose every question was asked (1.22.0). */
-export interface SubjectResult { slug: string; packet: AeoPacket; shipped: ShipResult; domains: string[]; served?: string[] }
+/**
+ * `domains` is the list the probes were read against. `details` is what each
+ * probe measured about us from its raw inline citations (never in the
+ * packet); the protocol report counts first citations from it. `served`: the
+ * venture requests whose every question was asked (1.22.0). `unserved`: how
+ * many of this subject's requests were not asked in full (the spend cap, a
+ * failed call or the probe limit stopped a question), a count only.
+ */
+export interface SubjectResult { slug: string; packet: AeoPacket; shipped: ShipResult; domains: string[]; details?: ProbeDetail[]; served?: string[]; unserved?: number }
+
+/** One subject's packet and the measurement that travels beside it. */
+export interface SubjectRun { packet: AeoPacket; details: ProbeDetail[]; domains: string[] }
 
 /** The venture requests a subject answers: a venture subject, its own product's requests only. Pure. */
 export function requestsFor(subject: Pick<ContextSubject, 'kind' | 'product_slug'>, requests: readonly AnswerRequest[] | undefined): AnswerRequest[] {
@@ -83,7 +94,7 @@ export interface RunResult { results: SubjectResult[]; failures: RunFailure[] }
 
 export interface Shared { ctx: AeoContext; gathered: Gathered; attribution: Map<string, Attribution> }
 
-export async function runSubject(subject: ContextSubject, shared: Shared, deps: RunDeps, opts: RunOpts): Promise<AeoPacket> {
+export async function runSubject(subject: ContextSubject, shared: Shared, deps: RunDeps, opts: RunOpts): Promise<SubjectRun> {
   const { ctx } = shared
   const domains = krishHitsDomains(ctx, subject)
   const engines = deps.engines.map(e => e.engine)
@@ -94,7 +105,13 @@ export async function runSubject(subject: ContextSubject, shared: Shared, deps: 
   const requested = requestsFor(subject, deps.requests).flatMap(r => r.questions)
   if (requested.length) log('answer_requests', { subject: subject.slug, questions: requested.length })
   const proposed = await proposeQueries(deps.model, deps.ledger, subject, ctx, themes.themes, gap, deps.mintId, requested)
-  const outcome = await probeQueries(deps.engines, proposed, domains, deps.ledger, subject.never_say ?? [])
+  // Every requested question is probed, with a few of the engine's own beside
+  // them, within the hard ceiling (CAPS, 40-probe.ts probeLimitFor) and the
+  // subject's USD share. The share keeps back what the digest, and the voice
+  // pass when a rule is approved, will be charged after the probes.
+  const limit = probeLimitFor(proposed.filter(q => q.requested).length)
+  const reserve = deps.ledger.priceOf('digest') + (deps.taste?.approved_voice_rules?.length ? deps.ledger.priceOf('voice') : 0)
+  const outcome = await probeQueries(deps.engines, proposed, domains, deps.ledger, subject.never_say ?? [], limit, reserve)
   const queries = scoreQueries(proposed, outcome, themes.themes, subject, domains)
   // The digest judges and drafts with no taste; the approved voice rules are
   // applied afterwards to its drafted words only (stage 65), never to a choice.
@@ -131,7 +148,8 @@ export async function runSubject(subject: ContextSubject, shared: Shared, deps: 
       digest_writer: digest.digest_writer,
     },
   }
-  return packet
+  const details = [...(outcome.detailsByQuery?.values() ?? [])].flat()
+  return { packet, details, domains }
 }
 
 function round4(n: number): number { return Math.round(n * 10000) / 10000 }
@@ -153,11 +171,14 @@ export async function runAll(deps: RunDeps, opts: RunOpts): Promise<RunResult> {
   const bundle = opts.dry && !!opts.outPath && selected.length > 1
   for (const subject of selected) {
     try {
-      const packet = await runSubject(subject, shared, deps, opts)
+      const { packet, details, domains } = await runSubject(subject, shared, deps, opts)
       const outPath = bundle ? null : opts.outPath ?? defaultOutPath(subject.slug, opts.weekStart)
       const shipped = await ship(deps.cc, packet, { dry: opts.dry, outPath })
-      const served = opts.dry ? [] : servedBy(packet, requestsFor(subject, deps.requests))
-      results.push({ slug: subject.slug, packet, shipped, domains: krishHitsDomains(ctx, subject), served })
+      const asked = requestsFor(subject, deps.requests)
+      const served = opts.dry ? [] : servedBy(packet, asked)
+      const unserved = opts.dry ? 0 : asked.length - served.length
+      if (unserved) log('answer_requests_unserved', { subject: subject.slug, requests: asked.length, unserved, skipped_cap: packet.stats.probes_skipped_cap })
+      results.push({ slug: subject.slug, packet, shipped, domains, details, served, unserved })
       log('subject_done', { subject: subject.slug, queries: packet.stats.queries, probes: packet.stats.probes, cost_usd: packet.stats.cost_usd, ledger_usd: deps.ledger.total })
     } catch (e) {
       failures.push({ slug: subject.slug, kind: subject.kind, error: errText(e) })

@@ -18,6 +18,14 @@
  * The accumulated shape is Anthropic's own, field for field, so the receiving
  * end parses it with the same readUsage() it uses for a live call, including
  * the cache fields, which are all zero today and will not be forever.
+ *
+ * Hosted web searches are billed per request, beside the tokens, and a probe
+ * response says how many it made (usage.server_tool_use.web_search_requests).
+ * The meter counts them, but the posted row does not carry them yet: the
+ * meter's POST shape is Control Center's, and whether its reader takes the
+ * extra field cannot be checked from this repository. The count goes to the
+ * log line and the sealed run summary instead (`searches`, `searchesBy`), and
+ * moves into the row once Control Center says it reads it.
  */
 
 /** Anthropic's usage shape, summed. Field names are the wire's, not ours. */
@@ -50,6 +58,8 @@ const num = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v)
 
 export class UsageMeter {
   private readonly cells = new Map<string, UsageRow>()
+  /** Web search requests by meter unit (agent), from usage.server_tool_use. Never posted. */
+  private readonly searchCells = new Map<string, number>()
 
   /**
    * Record one response.
@@ -75,6 +85,18 @@ export class UsageMeter {
     cell.usage.cache_creation.ephemeral_1h_input_tokens += num(creation.ephemeral_1h_input_tokens)
     cell.calls += 1
     if (failed) cell.failed += 1
+    const searches = num(((u.server_tool_use || {}) as Record<string, unknown>).web_search_requests)
+    if (searches > 0) this.searchCells.set(agent, (this.searchCells.get(agent) ?? 0) + searches)
+  }
+
+  /** Web search requests the responses reported, all units. */
+  get searches(): number {
+    return [...this.searchCells.values()].reduce((s, n) => s + n, 0)
+  }
+
+  /** Web search requests the responses reported for one unit (aeo-probe, say). */
+  searchesBy(agent: string): number {
+    return this.searchCells.get(agent) ?? 0
   }
 
   /** Rows with no tokens at all are dropped: nothing was measured, so there is

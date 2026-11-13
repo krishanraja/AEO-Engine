@@ -1,11 +1,13 @@
 /**
  * Config guard, run in CI: the engine list is a known subset, every cap is
- * positive, and no em dash has crept into src/ or docs/ (prompts included,
- * because a prompt that carries one teaches the model to write one).
+ * positive, config/own-domains.json has its shape, and no em dash has crept
+ * into src/, docs/ or config/ (prompts included, because a prompt that
+ * carries one teaches the model to write one).
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { CAPS, ENGINES, PRICE_USD_PER_CALL } from '../src/config/run.js'
+import { parseOwnDomains } from '../src/config/ownDomains.js'
 import { ENGINES_ALL } from '../src/schema/packet.js'
 
 const failures: string[] = []
@@ -14,6 +16,17 @@ for (const e of ENGINES) if (!(ENGINES_ALL as readonly string[]).includes(e)) fa
 if (!ENGINES.length) failures.push('ENGINES is empty')
 for (const [k, v] of Object.entries(CAPS)) if (!(typeof v === 'number' && v > 0)) failures.push(`CAPS.${k} must be a positive number, got ${String(v)}`)
 for (const [k, v] of Object.entries(PRICE_USD_PER_CALL)) if (!(typeof v === 'number' && v > 0)) failures.push(`PRICE_USD_PER_CALL.${k} must be a positive number`)
+if (CAPS.MAX_PROBED_QUERIES_HARD < CAPS.MAX_PROBED_QUERIES_PER_SUBJECT) failures.push('CAPS.MAX_PROBED_QUERIES_HARD must be at least CAPS.MAX_PROBED_QUERIES_PER_SUBJECT')
+if (!Number.isInteger(CAPS.CLAUDE_API_SEARCH_MAX_USES)) failures.push('CAPS.CLAUDE_API_SEARCH_MAX_USES must be a whole number of searches')
+
+// Krish's ruled domain corrections (src/config/ownDomains.ts): the shape, closed.
+const ownDomainsFile = 'config/own-domains.json'
+try {
+  const parsed = parseOwnDomains(JSON.parse(readFileSync(ownDomainsFile, 'utf8')))
+  if (!parsed.ok) for (const e of parsed.errors) failures.push(`${ownDomainsFile}: ${e}`)
+} catch (e) {
+  failures.push(`${ownDomainsFile} could not be read as JSON: ${(e as Error).message}`)
+}
 
 function walk(dir: string): string[] {
   return readdirSync(dir).flatMap(name => {
@@ -21,7 +34,7 @@ function walk(dir: string): string[] {
     return statSync(p).isDirectory() ? walk(p) : [p]
   })
 }
-for (const root of ['src', 'docs']) {
+for (const root of ['src', 'docs', 'config']) {
   for (const file of walk(root)) {
     const lines = readFileSync(file, 'utf8').split(/\r?\n/)
     lines.forEach((line, i) => { if (line.includes('\u2014')) failures.push(`${file}:${i + 1}: em dash`) })
@@ -62,4 +75,4 @@ if (failures.length) {
   for (const f of failures) console.error(`- ${f}`)
   process.exit(1)
 }
-console.log(`check:config passed: engines ${ENGINES.join(', ')}; caps positive; no em dash in src/ or docs/; the directive workflow holds no paid key; the research workflow uploads no packet.`)
+console.log(`check:config passed: engines ${ENGINES.join(', ')}; caps positive; ${ownDomainsFile} valid; no em dash in src/, docs/ or config/; the directive workflow holds no paid key; the research workflow uploads no packet.`)

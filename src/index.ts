@@ -220,6 +220,8 @@ export async function main(argv: readonly string[] = process.argv.slice(2)): Pro
     const posted = await deps.cc.postUsage(rows, args.week)
     log('usage_reported', {
       rows: rows.length, calls: deps.usage.calls, tokens: deps.usage.tokens,
+      // Counted, not posted: the meter's row shape is Control Center's (src/lib/usage.ts).
+      web_search_requests: deps.usage.searches,
       ok: posted.ok, error: posted.error,
     })
   } else {
@@ -257,6 +259,7 @@ function writeSummary(args: CliArgs, deps: RunDeps, outcome: RunResult | null, e
     results: outcome?.results ?? [],
     failures: outcome?.failures ?? [],
     errorCode: outcome ? null : 'run_failed',
+    searchRequests: deps.usage.searchesBy('aeo-probe'),
   })
   try {
     writePacket(args.summaryOut, JSON.parse(seal(summary, secret, env.GITHUB_RUN_ID ?? 'local')))

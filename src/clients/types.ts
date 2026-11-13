@@ -6,7 +6,30 @@ import type { UsageRow } from '../lib/usage.js'
 import type { AeoContext } from '../schema/context.js'
 import type { AeoPacket, Engine } from '../schema/packet.js'
 
-export interface EngineAnswer { text: string; citations: string[] }
+/**
+ * One engine's answer to one question.
+ *
+ * `citations` are the sources the answer cites IN ITS TEXT, in the order it
+ * first cites them, each URL once: Claude's web_search_result_location
+ * citations on its text blocks, ChatGPT's url_citation annotations by
+ * position, Perplexity's [n] markers mapped to its source list. Index 0 is the
+ * answer's first citation, which is what queries_cited_first reads. The rest
+ * is what the engine reports about how it got there, each optional because
+ * not every engine says:
+ *
+ *   retrieved  every source its search returned, cited or not
+ *   searched   whether it searched the web for this answer at all
+ *   fan_out    the search queries it ran, in order
+ *   usage      the provider's own usage object, untouched
+ */
+export interface EngineAnswer {
+  text: string
+  citations: string[]
+  retrieved?: string[]
+  searched?: boolean
+  fan_out?: string[]
+  usage?: unknown
+}
 
 export interface EngineClient {
   readonly engine: Engine

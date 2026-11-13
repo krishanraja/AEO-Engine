@@ -28,7 +28,8 @@ export class Ledger {
 
   priceOf(kind: CostKind): number { return this.prices[kind] ?? 0 }
 
-  canAfford(kind: CostKind): boolean { return this._total + this.priceOf(kind) <= this.capUsd + 1e-9 }
+  /** Whether one more call of this kind fits under the cap, after `pending` USD already decided but not yet charged. */
+  canAfford(kind: CostKind, pending = 0): boolean { return this._total + pending + this.priceOf(kind) <= this.capUsd + 1e-9 }
 
   /** Records the estimate for one call, or throws CapReached without recording. */
   charge(kind: CostKind, label = ''): number {

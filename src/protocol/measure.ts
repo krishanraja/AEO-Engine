@@ -6,13 +6,23 @@
  * when at least one assistant that answered it gave one of our domains as its
  * FIRST citation. "Our domains" is the same list the probe stage reads
  * (krishHitsDomains): a venture's own domains, and Mindmake's and Krish's for
- * a prospect. An aspiration is another company's site, so it is researched
- * and reported as activity but never counted toward the objective.
+ * a prospect, with Krish's ruled corrections applied. An aspiration is
+ * another company's site, so it is researched and reported as activity but
+ * never counted toward the objective.
  *
- * Nothing here is a cost to a model: it reads packets the run already wrote.
+ * Since 2026-11-13 the first citation is the first source the answer cites in
+ * its text (src/clients/types.ts, EngineAnswer), read from the probe's detail
+ * (src/lib/probeDetail.ts), which is taken before the packet's cleaning can
+ * drop that source; and a domain with a path counts only under that path.
+ *
+ * Nothing here is a cost to a model: it reads what the run already measured.
  */
-import { hostMatches, hostOf } from '../lib/domains.js'
+import { urlMatchesDomain } from '../lib/domains.js'
+import type { ProbeDetail } from '../lib/probeDetail.js'
 import type { AeoPacket, SubjectKind } from '../schema/packet.js'
+
+/** One engine's answers in a subject, as counts: answered, searched, cited no source. */
+export interface EngineCounts { probes: number; searched: number; zero_citation: number }
 
 export interface SubjectSummary {
   slug: string
@@ -28,6 +38,12 @@ export interface SubjectSummary {
   probes_skipped_cap: number | null
   /** 1.22.0: the venture requests (ids only) whose every question this subject asked. */
   served?: string[]
+  /** How many of this subject's venture requests were not asked in full this run. A count; absent when none. */
+  requests_unserved?: number
+  /** Probed questions where any answer named one of our domains, in its text or an inline citation. Absent: not measured. */
+  cited_any?: number
+  /** Per engine, counts only. Absent: not measured. */
+  engines?: Record<string, EngineCounts>
 }
 
 /** One research job's output: one subject in the workflow, any number locally. */
@@ -45,31 +61,68 @@ export interface RunSummary {
   /** Set when the run failed before any subject (no context, for example). */
   error_code: string | null
   subjects: SubjectSummary[]
+  /**
+   * Web search requests the Claude probe responses reported as billed in this
+   * job (usage.server_tool_use.web_search_requests). A count, kept here
+   * rather than in the usage meter's POST, whose shape is Control Center's.
+   */
+  search_requests?: number
 }
 
-/** True when this probe's first citation is on one of our domains. */
+/** True when this probe's first citation is on one of our domains (path-aware: urlMatchesDomain). */
 export function firstCitationIsOurs(citations: readonly string[], domains: readonly string[]): boolean {
   const first = citations[0]
   if (!first) return false
-  const host = hostOf(first)
-  return !!host && domains.some(d => hostMatches(host, d))
+  return domains.some(d => urlMatchesDomain(first, d))
 }
 
-export function countCitedFirst(packet: AeoPacket, domains: readonly string[]): { probed_questions: number; cited_first: number } {
+/** Details grouped by question. */
+function byQuery(details: readonly ProbeDetail[]): Map<string, ProbeDetail[]> {
+  const m = new Map<string, ProbeDetail[]>()
+  for (const d of details) m.set(d.query_id, [...(m.get(d.query_id) ?? []), d])
+  return m
+}
+
+/**
+ * Probed questions, and those where at least one answer's first citation is
+ * ours. A question's details, when the run kept them, decide; a question
+ * without them (a packet read back on its own) falls back to the packet's
+ * cleaned citation list, which is all it carries.
+ */
+export function countCitedFirst(packet: AeoPacket, domains: readonly string[], details: readonly ProbeDetail[] = []): { probed_questions: number; cited_first: number } {
+  const kept = byQuery(details)
   let probed = 0
   let first = 0
   for (const q of packet.queries) {
     if (!q.probes.length) continue
     probed++
-    if (q.probes.some(p => firstCitationIsOurs(p.citations, domains))) first++
+    const d = kept.get(q.query_id)
+    if (d ? d.some(x => x.first_host_ours) : q.probes.some(p => firstCitationIsOurs(p.citations, domains))) first++
   }
   return { probed_questions: probed, cited_first: first }
 }
 
-export function summariseSubject(packet: AeoPacket, domains: readonly string[], served: readonly string[] = []): SubjectSummary {
-  const c = countCitedFirst(packet, domains)
+/** Questions cited anywhere, and each engine's counts, from the details. Null when the run kept none. */
+export function countDetails(details: readonly ProbeDetail[]): { cited_any: number; engines: Record<string, EngineCounts> } | null {
+  if (!details.length) return null
+  let citedAny = 0
+  for (const ds of byQuery(details).values()) if (ds.some(d => d.cited_any)) citedAny++
+  const engines: Record<string, EngineCounts> = {}
+  for (const d of details) {
+    const e = (engines[d.engine] ??= { probes: 0, searched: 0, zero_citation: 0 })
+    e.probes++
+    if (d.searched) e.searched++
+    if (d.zero_citation) e.zero_citation++
+  }
+  return { cited_any: citedAny, engines }
+}
+
+export function summariseSubject(packet: AeoPacket, domains: readonly string[], served: readonly string[] = [], details: readonly ProbeDetail[] = [], unserved = 0): SubjectSummary {
+  const c = countCitedFirst(packet, domains, details)
+  const d = countDetails(details)
   return {
     ...(served.length ? { served: [...served] } : {}),
+    ...(unserved > 0 ? { requests_unserved: unserved } : {}),
     slug: packet.subject.slug,
     kind: packet.subject.kind,
     product_slug: packet.subject.product_slug,
@@ -80,6 +133,7 @@ export function summariseSubject(packet: AeoPacket, domains: readonly string[], 
     probes: packet.stats.probes,
     probes_failed: packet.stats.probes_failed,
     probes_skipped_cap: packet.stats.probes_skipped_cap,
+    ...(d ? { cited_any: d.cited_any, engines: d.engines } : {}),
   }
 }
 
@@ -143,9 +197,11 @@ export function buildRunSummary(i: {
   capUsd: number
   spentUsd: number
   maxProbeUsd: number
-  results: ReadonlyArray<{ packet: AeoPacket; domains: readonly string[]; served?: readonly string[] }>
+  results: ReadonlyArray<{ packet: AeoPacket; domains: readonly string[]; served?: readonly string[]; details?: readonly ProbeDetail[]; unserved?: number }>
   failures: ReadonlyArray<{ slug: string; kind: SubjectKind | null }>
   errorCode: string | null
+  /** Web search requests the Claude probes reported (UsageMeter.searchesBy('aeo-probe')). */
+  searchRequests?: number
 }): RunSummary {
   return {
     v: 1,
@@ -157,6 +213,7 @@ export function buildRunSummary(i: {
     spent_usd: i.spentUsd,
     max_probe_usd: i.maxProbeUsd,
     error_code: i.errorCode,
-    subjects: [...i.results.map(r => summariseSubject(r.packet, r.domains, r.served ?? [])), ...i.failures.map(f => failedSubject(f.slug, f.kind))],
+    subjects: [...i.results.map(r => summariseSubject(r.packet, r.domains, r.served ?? [], r.details ?? [], r.unserved ?? 0)), ...i.failures.map(f => failedSubject(f.slug, f.kind))],
+    ...(typeof i.searchRequests === 'number' ? { search_requests: i.searchRequests } : {}),
   }
 }
