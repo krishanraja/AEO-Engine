@@ -11,6 +11,7 @@ import { EMAIL_RE, EM_DASH_RE, HANDLE_RE } from '../lib/text.js'
 import { mondayOf } from '../lib/week.js'
 import { GAP_CLASSES, HOST_GATES, TARGET_KINDS, type GapClass, type HostGate, type Kit } from './kit.js'
 import { PANEL_STATES, SAMPLES_PER_CONTESTED, type Panel, type SampleCounts } from './panel.js'
+import { MENTIONS, type CitedPageRow } from './citedPages.js'
 
 /** Control Center refuses a packet carrying more probes than this in total. */
 export const MAX_PROBES_PER_PACKET = 600
@@ -63,8 +64,12 @@ export function inPacket(e: ProbeEngine, open: readonly GatedEngine[] = []): boo
  *   site           site
  *   run_kind       run_kind
  *   engine_gemini  gemini in the engines enum (GATED_ENGINES)
+ *   outcome        queries[] outcome: Search Console, Bing and AI-referral
+ *                  readings for the page a kit targets or a venture shipped
+ *   cited_pages    cited_pages[]: the venture's cited-pages sheet, and a
+ *                  kit's off_site mention and mention_ok
  */
-export const PACKET_FEATURES = ['probe_detail', 'name_mentions', 'samples', 'panel', 'diagnosis', 'kits', 'site', 'run_kind', 'engine_gemini'] as const
+export const PACKET_FEATURES = ['probe_detail', 'name_mentions', 'samples', 'panel', 'diagnosis', 'kits', 'site', 'run_kind', 'engine_gemini', 'outcome', 'cited_pages'] as const
 export type PacketFeature = (typeof PACKET_FEATURES)[number]
 
 /** The packet features a context lists that this engine knows, each once. Absent or misshapen: none. */
@@ -80,6 +85,8 @@ export const KITS_MAX = 10
 export const SITE_HOSTS_MAX = 10
 export const RUN_KINDS = ['research', 'verify'] as const
 export type RunKind = (typeof RUN_KINDS)[number]
+/** The cited-pages sheet a packet carries: at most this many rows (CAPS.CITED_PAGES_PER_SUBJECT). */
+export const CITED_PAGES_MAX = 50
 
 export const SUBJECT_KINDS = ['venture', 'prospect', 'aspiration'] as const
 export type SubjectKind = (typeof SUBJECT_KINDS)[number]
@@ -141,6 +148,22 @@ export interface PacketDiagnosis {
   first_cited_type: SourceType | null
 }
 
+/** One window of Search Console readings for a page: its queries' impressions and clicks summed, position averaged by impressions (null with none). */
+export interface GscWindow { impressions: number; clicks: number; position: number | null; from: string; to: string }
+
+/**
+ * outcome (src/pipeline/63-outcomes.ts): what the search signals Control
+ * Center serves say about the page a kit targets or a venture shipped. Each
+ * part is null when its signal was not served: unknown, never zero. AI
+ * referrals from GA4 and from Clarity are kept apart, never summed.
+ */
+export interface PacketOutcome {
+  url: string
+  gsc: (GscWindow & { before: GscWindow | null }) | null
+  bing: { indexed: boolean | null; last_crawled: string | null } | null
+  ai_referrals: { from: string; to: string; ga4: number | null; clarity: number | null } | null
+}
+
 /** site: each of our hosts' gates, pass or fail (src/pipeline/15-site.ts). */
 export interface PacketSite { hosts: Array<{ host: string; gates: Array<{ gate: HostGate; pass: boolean }> }> }
 
@@ -172,6 +195,8 @@ export interface PacketQuery {
   panel?: Panel
   /** diagnosis: why it is not won. */
   diagnosis?: PacketDiagnosis
+  /** outcome: the search signals for the page shipped or targeted for it. */
+  outcome?: PacketOutcome
 }
 
 export interface Theme {
@@ -282,6 +307,8 @@ export interface AeoPacket {
   site?: PacketSite
   /** run_kind: a research run, or a verify run that never counts toward the share. */
   run_kind?: RunKind
+  /** cited_pages: the venture's cited-pages sheet, at most 50 rows. */
+  cited_pages?: CitedPageRow[]
 }
 
 export type ValidationResult = { ok: true; packet: AeoPacket } | { ok: false; errors: string[] }
@@ -482,10 +509,12 @@ function checkKit(c: Checker, path: string, v: unknown, queryIds: ReadonlySet<st
   })
   if (c.arr(`${path}.off_site`, v.off_site, { max: 5 })) v.off_site.forEach((o, i) => {
     const p = `${path}.off_site[${i}]`
-    if (!c.obj(p, o, ['host', 'source_type', 'engines'])) return
+    if (!c.obj(p, o, ['host', 'source_type', 'engines'], c.has('cited_pages') ? ['mention', 'mention_ok'] : [])) return
     c.str(`${p}.host`, o.host, { min: 1, max: 120 })
     c.oneOf(`${p}.source_type`, o.source_type, SOURCE_TYPES)
     if (c.arr(`${p}.engines`, o.engines, { max: 8 })) o.engines.forEach((e, j) => c.oneOf(`${p}.engines[${j}]`, e, c.engines))
+    if ('mention' in o) c.oneOf(`${p}.mention`, o.mention, MENTIONS)
+    if ('mention_ok' in o && o.mention_ok !== null) c.bool(`${p}.mention_ok`, o.mention_ok)
   })
   if (c.obj(`${path}.verify`, v.verify, ['engines', 'samples', 'success', 'recheck', 'baseline'])) {
     const vf = v.verify
@@ -513,8 +542,50 @@ function checkSite(c: Checker, path: string, v: unknown): void {
   })
 }
 
+function checkGscWindow(c: Checker, path: string, v: unknown, before: boolean): void {
+  if (!c.obj(path, v, ['impressions', 'clicks', 'position', 'from', 'to', ...(before ? ['before'] : [])])) return
+  c.int(`${path}.impressions`, v.impressions, { min: 0 })
+  c.int(`${path}.clicks`, v.clicks, { min: 0 })
+  if (v.position !== null) c.num(`${path}.position`, v.position, { min: 0 })
+  c.ymd(`${path}.from`, v.from)
+  c.ymd(`${path}.to`, v.to)
+  if (before && v.before !== null) checkGscWindow(c, `${path}.before`, v.before, false)
+}
+
+function checkOutcome(c: Checker, path: string, v: unknown): void {
+  if (!c.obj(path, v, ['url', 'gsc', 'bing', 'ai_referrals'])) return
+  c.str(`${path}.url`, v.url, { min: 1, max: 500 })
+  if (v.gsc !== null) checkGscWindow(c, `${path}.gsc`, v.gsc, true)
+  if (v.bing !== null && c.obj(`${path}.bing`, v.bing, ['indexed', 'last_crawled'])) {
+    if (v.bing.indexed !== null) c.bool(`${path}.bing.indexed`, v.bing.indexed)
+    c.ymd(`${path}.bing.last_crawled`, v.bing.last_crawled, true)
+  }
+  if (v.ai_referrals !== null && c.obj(`${path}.ai_referrals`, v.ai_referrals, ['from', 'to', 'ga4', 'clarity'])) {
+    const a = v.ai_referrals
+    c.ymd(`${path}.ai_referrals.from`, a.from)
+    c.ymd(`${path}.ai_referrals.to`, a.to)
+    for (const k of ['ga4', 'clarity'] as const) if (a[k] !== null) c.int(`${path}.ai_referrals.${k}`, a[k], { min: 0 })
+  }
+}
+
+function checkCitedPage(c: Checker, path: string, v: unknown): void {
+  if (!c.obj(path, v, ['url', 'host', 'page_type', 'questions', 'engines', 'times_cited', 'times_first', 'mention', 'mention_ok', 'checked_at', 'platform', 'own'])) return
+  c.str(`${path}.url`, v.url, { min: 1, max: 500 })
+  c.str(`${path}.host`, v.host, { min: 1, max: 120 })
+  c.oneOf(`${path}.page_type`, v.page_type, SOURCE_TYPES)
+  c.int(`${path}.questions`, v.questions, { min: 0 })
+  if (c.arr(`${path}.engines`, v.engines, { max: 8, unique: true })) v.engines.forEach((e, j) => c.oneOf(`${path}.engines[${j}]`, e, c.engines))
+  c.int(`${path}.times_cited`, v.times_cited, { min: 0 })
+  c.int(`${path}.times_first`, v.times_first, { min: 0 })
+  c.oneOf(`${path}.mention`, v.mention, MENTIONS)
+  if (v.mention_ok !== null) c.bool(`${path}.mention_ok`, v.mention_ok)
+  c.ymd(`${path}.checked_at`, v.checked_at, true)
+  c.bool(`${path}.platform`, v.platform)
+  c.bool(`${path}.own`, v.own)
+}
+
 function checkQuery(c: Checker, path: string, v: unknown): void {
-  const optional = [...(c.has('panel') ? ['panel'] : []), ...(c.has('diagnosis') ? ['diagnosis'] : [])]
+  const optional = [...(c.has('panel') ? ['panel'] : []), ...(c.has('diagnosis') ? ['diagnosis'] : []), ...(c.has('outcome') ? ['outcome'] : [])]
   if (!c.obj(path, v, ['query_id', 'query', 'source', 'demand_score', 'demand_basis', 'call_evidence', 'gap', 'trend', 'status', 'touchpoint_id', 'probes'], optional)) return
   c.str(`${path}.query_id`, v.query_id, { re: UUID_RE })
   c.str(`${path}.query`, v.query, { min: 3, max: 400 })
@@ -539,6 +610,7 @@ function checkQuery(c: Checker, path: string, v: unknown): void {
   if (c.arr(`${path}.probes`, v.probes, { max: 8 })) v.probes.forEach((x, i) => checkProbe(c, `${path}.probes[${i}]`, x))
   if ('panel' in v) checkPanel(c, `${path}.panel`, v.panel)
   if ('diagnosis' in v) checkDiagnosis(c, `${path}.diagnosis`, v.diagnosis)
+  if ('outcome' in v) checkOutcome(c, `${path}.outcome`, v.outcome)
 }
 
 /** Every string anywhere in the value, with its path, for the content rules. */
@@ -574,7 +646,7 @@ export function validatePacket(value: unknown, opts: ValidateOptions | readonly 
   // Additive in v1: this engine always writes not_worth_chasing, and a packet
   // written before the winnability gate existed still validates without it.
   // The rest only when Control Center lists their feature.
-  const topOptional = ['not_worth_chasing', ...(c.has('kits') ? ['kits'] : []), ...(c.has('site') ? ['site'] : []), ...(c.has('run_kind') ? ['run_kind'] : [])]
+  const topOptional = ['not_worth_chasing', ...(c.has('kits') ? ['kits'] : []), ...(c.has('site') ? ['site'] : []), ...(c.has('run_kind') ? ['run_kind'] : []), ...(c.has('cited_pages') ? ['cited_pages'] : [])]
   if (!c.obj('packet', value, top, topOptional)) return { ok: false, errors: c.errors }
   const p = value
 
@@ -725,6 +797,14 @@ export function validatePacket(value: unknown, opts: ValidateOptions | readonly 
   }
   if ('site' in p) checkSite(c, 'site', p.site)
   if ('run_kind' in p) c.oneOf('run_kind', p.run_kind, RUN_KINDS)
+  if ('cited_pages' in p && c.arr('cited_pages', p.cited_pages, { max: CITED_PAGES_MAX })) {
+    const urls = new Set<string>()
+    p.cited_pages.forEach((r, i) => {
+      checkCitedPage(c, `cited_pages[${i}]`, r)
+      const u = (r as Rec)?.url
+      if (typeof u === 'string') { if (urls.has(u)) c.fail(`cited_pages[${i}].url`, 'repeated'); urls.add(u) }
+    })
+  }
 
   // Content rules that hold for every string in the packet, whatever its field.
   const strings: Array<[string, string]> = []
@@ -746,11 +826,31 @@ export function validatePacket(value: unknown, opts: ValidateOptions | readonly 
  * content rules every packet string obeys, on its own, so a kit a page or an
  * answer made unsendable is dropped rather than refusing the whole packet.
  */
-export function kitErrors(kit: unknown, queryIds: ReadonlySet<string>, engines: readonly string[] = ENGINES_ALL): string[] {
-  const c = new Checker(engines, new Set(['kits']))
+export function kitErrors(kit: unknown, queryIds: ReadonlySet<string>, engines: readonly string[] = ENGINES_ALL, features: readonly string[] = ['kits']): string[] {
+  const c = new Checker(engines, new Set(['kits', ...packetFeatures(features)]))
   checkKit(c, 'kit', kit, queryIds)
   const strings: Array<[string, string]> = []
   walkStrings(kit, 'kit', strings)
+  for (const [path, s] of strings) {
+    if (EM_DASH_RE.test(s)) c.fail(path, 'contains an em dash')
+    EMAIL_RE.lastIndex = 0
+    if (EMAIL_RE.test(s)) c.fail(path, 'contains an email address')
+    HANDLE_RE.lastIndex = 0
+    if (HANDLE_RE.test(s)) c.fail(path, 'contains an @handle')
+  }
+  return c.errors
+}
+
+/**
+ * One cited-pages row as the packet's `cited_pages` feature would carry it:
+ * its shape and the content rules, on its own, so a row a page's URL made
+ * unsendable is dropped rather than refusing the whole packet.
+ */
+export function citedPageErrors(row: unknown, engines: readonly string[] = ENGINES_ALL): string[] {
+  const c = new Checker(engines, new Set(['cited_pages']))
+  checkCitedPage(c, 'cited_page', row)
+  const strings: Array<[string, string]> = []
+  walkStrings(row, 'cited_page', strings)
   for (const [path, s] of strings) {
     if (EM_DASH_RE.test(s)) c.fail(path, 'contains an em dash')
     EMAIL_RE.lastIndex = 0

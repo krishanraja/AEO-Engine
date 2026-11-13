@@ -36,6 +36,7 @@
  */
 import { CAPS } from '../config/run.js'
 import { sha8 } from '../lib/text.js'
+import { normaliseUrl } from '../lib/urls.js'
 import { asArray, asRecord, asString, isTextType, requestText } from './http.js'
 import { readFixture } from './offline.js'
 import { MissingFixture } from './types.js'
@@ -250,3 +251,30 @@ export class OfflineSite extends BudgetedSite {
 
 /** The fixture file a URL maps to (tests/fixtures/site/<this>.json). */
 export const siteFixtureName = (url: string): string => `${sha8(new URL(url).href)}.json`
+
+/**
+ * A reader that remembers what it read, for one subject's run: the pages
+ * cited first (src/pipeline/45-pages.ts) and the cited-pages mention check
+ * (src/pipeline/48-cited-pages.ts) read through it, so a page the first read
+ * already fetched is reused, never fetched again. Keyed by the normalised
+ * URL (src/lib/urls.ts). A failed read is remembered too, and not retried in
+ * the run. Held in memory only; nothing here is logged or written.
+ */
+export class CachedSite implements SiteFetcher {
+  private readonly pages = new Map<string, Promise<SitePage | null>>()
+  constructor(readonly inner: SiteFetcher) {}
+
+  private key(url: string): string { return normaliseUrl(url) ?? url }
+
+  /** Whether this URL was already read (or is being read) through this cache. */
+  has(url: string): boolean { return this.pages.has(this.key(url)) }
+
+  get(url: string): Promise<SitePage | null> {
+    const k = this.key(url)
+    let p = this.pages.get(k)
+    if (!p) { p = this.inner.get(url); this.pages.set(k, p) }
+    return p
+  }
+
+  stats(): SiteStats { return this.inner.stats() }
+}

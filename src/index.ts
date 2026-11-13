@@ -14,6 +14,12 @@
  *   --site-in  the run's site audit, sealed by its site job (src/site.ts). With
  *              it, our own pages come from the file and none is requested
  *              here; a missing or unreadable file means no audit this run.
+ *   --mode     research (the default) or verify. A verify run
+ *              (src/pipeline/verify.ts) re-asks only the questions of the
+ *              payload in --verify-payload, written by the research
+ *              workflow's plan job from Krish's approved go-live
+ *              (src/protocol/verify.ts): no model call, no site read, and a
+ *              packet only when Control Center lists run_kind.
  */
 import { createHash, randomUUID } from 'node:crypto'
 import { attemptOf, CAPS, MODELS, PRICE_USD_PER_CALL, resolveClaudeLane, resolveEngines, type ClaudeLane } from './config/run.js'
@@ -42,6 +48,9 @@ import { buildRunSummary } from './protocol/measure.js'
 import { GrowthEngineHttp, ProtocolError } from './clients/growthEngine.js'
 import type { AnswerRequest, Taste } from './schema/report.js'
 import { kitPlans, PLAN_OPEN_DAYS, type KitPlan, type PlanDecision } from './schema/kit.js'
+import { parseVerifyPayload, type VerifyPayload } from './schema/verify.js'
+import { runVerifyAll } from './pipeline/verify.js'
+import { readFileSync } from 'node:fs'
 
 export interface CliArgs {
   subject: string
@@ -54,10 +63,12 @@ export interface CliArgs {
   commandId: number | null
   capUsd: number
   fixtures: string
+  mode: 'research' | 'verify'
+  verifyPayload: string | null
 }
 
 export function parseArgs(argv: readonly string[], now = new Date()): CliArgs {
-  const args: CliArgs = { subject: 'all', week: mondayOf(now), dry: false, offline: false, out: null, summaryOut: null, siteIn: null, commandId: null, capUsd: CAPS.MAX_USD_PER_RUN, fixtures: 'tests/fixtures' }
+  const args: CliArgs = { subject: 'all', week: mondayOf(now), dry: false, offline: false, out: null, summaryOut: null, siteIn: null, commandId: null, capUsd: CAPS.MAX_USD_PER_RUN, fixtures: 'tests/fixtures', mode: 'research', verifyPayload: null }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     const next = () => { const v = argv[++i]; if (v === undefined) throw new Error(`${a} needs a value`); return v }
@@ -87,10 +98,32 @@ export function parseArgs(argv: readonly string[], now = new Date()): CliArgs {
         break
       }
       case '--fixtures': args.fixtures = next(); break
+      case '--mode': {
+        const m = next()
+        if (m !== 'research' && m !== 'verify') throw new Error('--mode is research or verify')
+        args.mode = m
+        break
+      }
+      case '--verify-payload': args.verifyPayload = next(); break
       default: throw new Error(`unknown argument ${a}`)
     }
   }
+  if (args.mode === 'verify' && !args.verifyPayload) throw new Error('--mode verify needs --verify-payload')
+  if (args.mode !== 'verify' && args.verifyPayload) throw new Error('--verify-payload is for --mode verify only')
   return args
+}
+
+/**
+ * The verify payload the plan job wrote (src/protocol/verify.ts), read
+ * strictly. A payload that does not read is refused, and nothing is asked.
+ * The log carries a reason code and counts, never a query id.
+ */
+export function readVerifyPayload(path: string): VerifyPayload | null {
+  let text: string
+  try { text = readFileSync(path, 'utf8') } catch { log('verify_payload_unread', { reason: 'missing' }); return null }
+  const parsed = parseVerifyPayload(text.trim())
+  if (!parsed.ok) { log('verify_payload_unread', { reason: parsed.reason }); return null }
+  return parsed.payload
 }
 
 /** A uuid derived from a key: version and variant nibbles set so it passes the contract's pattern. */
@@ -282,6 +315,7 @@ export async function readDirectiveInputs(env: NodeJS.ProcessEnv, client?: Pick<
 
 export async function main(argv: readonly string[] = process.argv.slice(2)): Promise<number> {
   const args = parseArgs(argv)
+  if (args.mode === 'verify') return verifyMain(args)
   const deps = buildDeps(args)
   // Offline runs stay offline: fixtures carry no directive, so taste is
   // unknown, no request is open and no kit plan is in flight.
@@ -350,13 +384,45 @@ export async function main(argv: readonly string[] = process.argv.slice(2)): Pro
 }
 
 /**
+ * The verify run (`--mode verify`): only the payload's questions, no model
+ * call, no directive read, no site read. Its summary says it is a verify
+ * run, for the report job's verify report.
+ */
+export async function verifyMain(args: CliArgs, env: NodeJS.ProcessEnv = process.env, overrides: DepsOverrides = {}): Promise<number> {
+  const payload = args.verifyPayload ? readVerifyPayload(args.verifyPayload) : null
+  if (!payload) return 1
+  const deps = buildDeps(args, env, new Date(), overrides)
+  // A verify run reads no page: no site audit, no page cited first.
+  deps.site = null
+  const opts: RunOpts = { subject: args.subject, weekStart: args.week, dry: args.dry, outPath: args.out, commandId: null }
+  log('run_start', { mode: 'verify', subject: args.subject, week_start: args.week, dry: args.dry, offline: args.offline, engines: deps.engines.map(e => e.engine), claude_lane: deps.claudeLane ?? null, cap_usd: args.capUsd })
+  let failed: string | null = null
+  let outcome: RunResult | null = null
+  try {
+    const r = outcome = await runVerifyAll(deps, opts, payload)
+    if (r.failures.length) failed = r.failures.map(f => `${f.slug}: ${f.error}`).join(' | ')
+  } catch (e) {
+    failed = errText(e)
+    log('run_failed', { error: failed })
+  }
+  const rows = deps.usage.rows()
+  if (rows.length) {
+    const posted = await deps.cc.postUsage(rows, args.week)
+    log('usage_reported', { rows: rows.length, calls: deps.usage.calls, tokens: deps.usage.tokens, web_search_requests: deps.usage.searches, ok: posted.ok, error: posted.error })
+  }
+  if (deps.usage.subscriptionCalls) log('usage_subscription', { calls: deps.usage.subscriptionCalls, tokens: deps.usage.subscriptionTokens, posted: false })
+  if (args.summaryOut) writeSummary(args, deps, outcome, env, 'verify')
+  return failed ? 1 : 0
+}
+
+/**
  * Counts, and each venture's top win kit (the one field that is not a count,
  * bound for Control Center only), sealed (src/lib/seal.ts), because the file
  * crosses jobs as an artifact of a public repository. Never fails the run: the packets have
  * shipped by now, and the report job reads a missing summary as a failed
  * subject rather than as a quiet one.
  */
-function writeSummary(args: CliArgs, deps: RunDeps, outcome: RunResult | null, env: NodeJS.ProcessEnv = process.env): void {
+function writeSummary(args: CliArgs, deps: RunDeps, outcome: RunResult | null, env: NodeJS.ProcessEnv = process.env, kind: 'research' | 'verify' = 'research'): void {
   if (!args.summaryOut) return
   const secret = env.AEO_ENGINE_SECRET ?? ''
   if (!secret) { log('summary_not_written', { reason: 'AEO_ENGINE_SECRET is not set' }); return }
@@ -369,7 +435,7 @@ function writeSummary(args: CliArgs, deps: RunDeps, outcome: RunResult | null, e
     weekStart: args.week,
     now: new Date(),
     engines,
-    capUsd: args.capUsd,
+    capUsd: kind === 'verify' ? deps.ledger.capUsd : args.capUsd,
     spentUsd: deps.ledger.total,
     maxProbeUsd: Math.max(0, ...[...deps.engines, ...(deps.shadow ? [deps.shadow] : [])].map(e => PRICE_USD_PER_CALL[costKindOf(e)] ?? 0)),
     results: outcome?.results ?? [],
@@ -378,6 +444,7 @@ function writeSummary(args: CliArgs, deps: RunDeps, outcome: RunResult | null, e
     searchRequests: deps.usage.searchesBy('aeo-probe'),
     ...(deps.claudeLane ? { claudeLane: deps.claudeLane } : {}),
     subscription: { calls: deps.usage.subscriptionCalls, tokens: deps.usage.subscriptionTokens },
+    kind,
   })
   try {
     writePacket(args.summaryOut, JSON.parse(seal(summary, secret, env.GITHUB_RUN_ID ?? 'local')))

@@ -5,8 +5,8 @@
 import { randomUUID } from 'node:crypto'
 import { CAPS } from '../config/run.js'
 import type { ControlCenterClient, EngineClient, FirefliesClient, ModelClient } from '../clients/types.js'
-import type { SiteFetcher } from '../clients/site.js'
-import { subjectsConfig, isHeld } from '../config/subjects.js'
+import { CachedSite, type SiteFetcher } from '../clients/site.js'
+import { brandNamesFor, subjectsConfig, isHeld } from '../config/subjects.js'
 import type { Ledger } from '../lib/cost.js'
 import { errText, log } from '../lib/log.js'
 import type { UsageMeter } from '../lib/usage.js'
@@ -14,6 +14,7 @@ import type { AeoContext, ContextSubject, ShippedDeclaration } from '../schema/c
 import { inPacket, openGatedEngines, packetFeatures, type AeoPacket, type Engine, type GatedEngine } from '../schema/packet.js'
 import type { AnswerRequest } from '../schema/report.js'
 import type { KitPlan } from '../schema/kit.js'
+import type { VerifySubject } from '../protocol/measure.js'
 import type { SubjectPanel } from '../schema/panel.js'
 import { normaliseQuery } from '../lib/text.js'
 import type { Taste } from '../schema/report.js'
@@ -31,7 +32,10 @@ import { EMPTY_AUDIT, failedGates, siteAudit, type HostAuditResult, type SiteAud
 import { firstCitedEntries, matchPages, readFirstCited, thirdPartyPerHost, type CitedEntry, type PageMatch } from './45-pages.js'
 import { scoreQueries, rowPriority } from './50-score.js'
 import { diagnoseAll, type Diagnosis } from './52-diagnose.js'
-import { buildKits, gapCounts, kitCandidate, type Kit } from './62-kits.js'
+import { buildKits, gapCounts, kitCandidate, withEvidence, type Kit } from './62-kits.js'
+import { askBrandChecks, brandChecksOf, brandSummary, type BrandSummary } from './42-brand.js'
+import { annotateOffSite, buildSheet, checkMentions, sheetCounts, transitions, type CitedPagesCounts, type Sheet } from './48-cited-pages.js'
+import { outcomeCounts, outcomeLine, outcomesFor, outcomeTargets, readSignals, type OutcomeCounts, type PacketOutcome } from './63-outcomes.js'
 import { KIT_BACKUPS_MAX, type SubjectDiagnosis } from '../schema/kit.js'
 import { withFallback } from './stage.js'
 import { writeDigest } from './60-digest.js'
@@ -113,7 +117,16 @@ export interface RunOpts {
  * many of this subject's requests were not asked in full (the spend cap, a
  * failed call or the probe limit stopped a question), a count only.
  */
-export interface SubjectResult { slug: string; packet: AeoPacket; shipped: ShipResult; domains: string[]; details?: ProbeDetail[]; served?: string[]; unserved?: number; extras?: ProbeExtras; diagnosis?: SubjectDiagnosis; panel?: SubjectPanel }
+export interface SubjectResult { slug: string; packet: AeoPacket; shipped: ShipResult; domains: string[]; details?: ProbeDetail[]; served?: string[]; unserved?: number; extras?: ProbeExtras; diagnosis?: SubjectDiagnosis; panel?: SubjectPanel; more?: SubjectMore }
+
+/**
+ * What a venture's run measured beyond the packet, for the sealed summary
+ * only: its brand checks (stage 42), its cited-pages sheet in counts (stage
+ * 48) and its outcomes in counts (stage 63); on a verify run, the
+ * payload's questions it found and asked (src/pipeline/verify.ts). Absent:
+ * not measured.
+ */
+export interface SubjectMore { brand?: BrandSummary; cited_pages?: CitedPagesCounts; outcomes?: OutcomeCounts; verify?: VerifySubject }
 
 export type { SubjectDiagnosis }
 
@@ -128,7 +141,7 @@ export type ProbeExtras = Pick<ProbeOutcome, 'probes_skipped_limit' | 'probes_li
 }
 
 /** One subject's packet and the measurement that travels beside it. */
-export interface SubjectRun { packet: AeoPacket; details: ProbeDetail[]; domains: string[]; extras?: ProbeExtras; open?: GatedEngine[]; diagnosis?: SubjectDiagnosis; panel?: SubjectPanel; features?: string[] }
+export interface SubjectRun { packet: AeoPacket; details: ProbeDetail[]; domains: string[]; extras?: ProbeExtras; open?: GatedEngine[]; diagnosis?: SubjectDiagnosis; panel?: SubjectPanel; features?: string[]; more?: SubjectMore }
 
 /** A per-question map kept to the packet's engines. */
 function packetOnly<T extends { engine: string }>(m: ReadonlyMap<string, readonly T[]> | undefined, engines: ReadonlySet<string>): Map<string, T[]> {
@@ -241,7 +254,9 @@ export async function runSubject(subject: ContextSubject, shared: Shared, deps: 
   const site = diagnosing ? deps.site ?? null : null
   const sharedAudit = diagnosing ? deps.sharedAudit : undefined
   const auditing = site || sharedAudit ? withFallback('site_audit', () => siteAudit(subject, site, domains, CAPS.SITE_MAX_PAGES_PER_SUBJECT, sharedAudit), EMPTY_AUDIT, { subject: subject.slug }) : Promise.resolve(EMPTY_AUDIT)
-  const brandNames = brandNamesOf(subject.brand_names)
+  // Control Center's brand_names when it serves them, else config/subjects.json's interim overlay.
+  const names = await withFallback('brand_names', () => brandNamesFor(subject, subjectsConfig()), () => (Array.isArray(subject.brand_names) ? subject.brand_names : []), { subject: subject.slug })
+  const brandNames = brandNamesOf(names)
   const outcome = await probeQueries(deps.engines, selection ? selection.ordered : proposed, domains, deps.ledger, subject.never_say ?? [], limit, reserve, { open, shadow, brandNames, ...(selection ? { preordered: true } : {}) })
   // Repeat samples (stage 41): a contested question is asked twice more on
   // every packet engine that answered it, inside the cap and the digest's
@@ -249,6 +264,11 @@ export async function runSubject(subject: ContextSubject, shared: Shared, deps: 
   // citation never makes a question contested.
   const toSample = selection ? sampleSet(selection, outcome.detailsByQuery, CAPS.MAX_SAMPLED_QUESTIONS_PER_SUBJECT, new Set<string>(engines)) : []
   const sampled = toSample.length ? await withFallback('samples', () => resample(deps.engines, outcome, toSample, domains, deps.ledger, reserve, { open }), null, { subject: subject.slug }) : null
+  // Stage 42: a venture's brand checks, each once on every packet engine, inside the cap and the reserve.
+  const checks = subject.kind === 'venture' ? brandChecksOf(subject.brand_checks) : []
+  const brand = checks.length ? await withFallback('brand_checks', () => askBrandChecks(deps.engines, checks, deps.ledger, reserve, { open, domains, subject: subject.slug }), null, { subject: subject.slug }) : null
+  // One reader for the pages cited first and the cited-pages mention check, so no page is fetched twice.
+  const pages = site ? new CachedSite(site) : null
   const diag = await diagnoseSubject(subject, domains, proposed, outcome, engines, auditing)
   const queries = scoreQueries(proposed, outcome, themes.themes, subject, domains, diagnosing ? diag.diagnoses : undefined)
   // The pages cited first are read now, the highest-priority questions first,
@@ -259,11 +279,27 @@ export async function runSubject(subject: ContextSubject, shared: Shared, deps: 
     const order = queries.filter(q => q.probes.length).sort((a, b) => rowPriority(b, diagnoses).priority - rowPriority(a, diagnoses).priority || a.query_id.localeCompare(b.query_id))
     // Fewer pages a host when the run has many subjects, so one run never reads more than the per-host budget of any host.
     const maxPerHost = thirdPartyPerHost(ctx.subjects.filter(s => s.kind !== 'aspiration').length)
-    const read = await withFallback('first_cited_read', () => readFirstCited(order, diag.entries, site, { subject: subject.slug, maxPerHost }), null, { subject: subject.slug })
+    const read = await withFallback('first_cited_read', () => readFirstCited(order, diag.entries, pages ?? site, { subject: subject.slug, maxPerHost }), null, { subject: subject.slug })
     if (read) {
       citedRead = read.read
       diag.entries = read.byQuery
       diagnoses = await withFallback('diagnose', () => diagnoseAll(proposed, diag.details, diag.matches, read.byQuery, diag.evidence, domains), diagnoses, { subject: subject.slug })
+    }
+  }
+  // Stage 48: a venture's cited-pages sheet (held ventures included:
+  // measured, never proposed), and the fetch-only mention check, which
+  // reuses a page the read above already fetched.
+  let sheet: Sheet | null = null
+  let citedPages: CitedPagesCounts | undefined
+  if (subject.kind === 'venture') {
+    sheet = await withFallback('cited_pages', () => buildSheet({ questions: proposed, evidence: diag.evidence, probes4w: subject.probes_4w, domains, engines }), null, { subject: subject.slug })
+    if (sheet) {
+      const built = sheet
+      const mustNot = [...new Set(checks.flatMap(c => c.must_not))]
+      const checked = await withFallback('mention_check', () => checkMentions(built, pages, { domains, names: brandNames, mustNot, today: deps.now.toISOString().slice(0, 10), subject: subject.slug }), null, { subject: subject.slug })
+      const moved = transitions(built.rows, subject.prior?.cited_pages)
+      citedPages = sheetCounts(built.rows, checked, moved)
+      log('cited_pages', { subject: subject.slug, rows: citedPages.rows, own: citedPages.own, platform: citedPages.platform, checked: citedPages.checked, link: citedPages.link, name: citedPages.name, none: citedPages.none, acquired: moved?.acquired.length ?? null, lost: moved?.lost.length ?? null })
     }
   }
   // The digest judges and drafts with no taste; the approved voice rules are
@@ -325,26 +361,49 @@ export async function runSubject(subject: ContextSubject, shared: Shared, deps: 
     : null
   if (panel) log('panel', { subject: subject.slug, ...panel.summary.states, sampled: panel.summary.sampled, sample_skipped_cap: panel.summary.sample_skipped_cap ?? 0, won_now: panel.summary.won_now.length, lost_now: panel.summary.lost_now.length, tracked: panel.summary.tracked.length, history: panel.summary.history })
   // The optional packet fields, each only when Control Center lists it.
-  const finish = (kits: readonly Kit[] | undefined): AeoPacket => {
+  const finish = (kits: readonly Kit[] | undefined, outcomes?: ReadonlyMap<string, PacketOutcome>): AeoPacket => {
     if (!features.length) return packet
     const done = attachFeatures(packet, {
       features, details: diag.details, evidence: diag.evidence, panels: panel?.panels, neverSay: subject.never_say ?? [],
       ...(diagnosing ? { diagnoses, kits, hosts: diag.audit.hosts } : {}),
+      ...(outcomes ? { outcomes } : {}),
+      ...(sheet ? { citedPages: sheet.rows } : {}),
     })
     if (done.kitsDropped) log('kits_not_in_packet', { subject: subject.slug, dropped: done.kitsDropped })
+    if (done.rowsDropped) log('cited_pages_not_in_packet', { subject: subject.slug, dropped: done.rowsDropped })
     return done.packet
   }
   const panelOut = panel ? { panel: panel.summary } : {}
-  if (!diagnosing) return { packet: finish(undefined), details, domains, extras, open, features, ...panelOut }
+  const more: SubjectMore = {
+    ...(brand ? { brand: brandSummary(brand) } : {}),
+    ...(citedPages ? { cited_pages: citedPages } : {}),
+  }
+  if (!diagnosing) return { packet: finish(undefined), details, domains, extras, open, features, ...panelOut, ...(Object.keys(more).length ? { more } : {}) }
   // Stage 62: the win kits, for a venture whose product is not held.
   const held = await withFallback('held', () => isHeld(subject, subjectsConfig()), true, { subject: subject.slug })
   // A question the packet says is not worth chasing gets no kit.
   const walled = new Set(digest.not_worth_chasing.map(w => w.query_id))
   const targets = requestTargets(asks)
-  const kits = held ? [] : await withFallback('kits', () => buildKits({
+  const built = held ? [] : await withFallback('kits', () => buildKits({
     subject, queries, diagnoses, evidence: diag.evidence, details: diag.details, cited: diag.entries, audit: diag.audit, domains, engines, config: subjectsConfig(), walled,
     ...(targets.size ? { targets } : {}),
   }), [], { subject: subject.slug })
+  // The sheet tells each kit which off-site places already mention us (stage 48).
+  const questionWords = new Map(proposed.map(q => [q.query_id, q.norm] as const))
+  const annotated = sheet ? await withFallback('kit_mentions', () => annotateOffSite(built, sheet as Sheet, questionWords), built, { subject: subject.slug }) : built
+  // Stage 63: a venture's outcomes, from the search signals Control Center serves,
+  // for the page it shipped or a kit targets; a kit's evidence gains the reading.
+  let outcomes: Map<string, PacketOutcome> | undefined
+  let kits = annotated
+  if (subject.kind === 'venture') {
+    const signals = readSignals(subject.search_signals)
+    const pagesTracked = outcomeTargets(queries, shipped, annotated, normaliseQuery)
+    outcomes = outcomesFor(pagesTracked, signals, deps.now)
+    more.outcomes = outcomeCounts(outcomes, signals)
+    const read = outcomes
+    kits = annotated.map(k => { const o = read.get(k.query_id); return o ? withEvidence(k, outcomeLine(o), subject.never_say ?? []) : k })
+    log('outcomes', { subject: subject.slug, pages: more.outcomes.pages, gsc: more.outcomes.served.gsc, bing: more.outcomes.served.bing, ga4: more.outcomes.served.ga4, clarity: more.outcomes.served.clarity })
+  }
   const top = kits[0] ? await withFallback('kit_render', () => kitCandidate(kits[0]), null, { subject: subject.slug }) : null
   const backups = top ? await withFallback('kit_render', () => kits.slice(1, 1 + KIT_BACKUPS_MAX).map(kitCandidate), [], { subject: subject.slug }) : []
   const classes = gapCounts(diagnoses)
@@ -357,7 +416,9 @@ export async function runSubject(subject: ContextSubject, shared: Shared, deps: 
     kit_backups: backups,
     site: site || sharedAudit ? { hosts: diag.audit.hosts.length, pages: diag.audit.pages.length, requests: diag.audit.requests, errors: diag.audit.errors, gates_failed: failedGates(diag.audit), cited_read: citedRead } : null,
   }
-  return { packet: finish(kits), details, domains, extras, open, diagnosis, features, ...panelOut }
+  // A question carries its outcome only when Control Center served the subject's search signals at all.
+  const signalsServed = !!subject.search_signals && typeof subject.search_signals === 'object'
+  return { packet: finish(kits, signalsServed ? outcomes : undefined), details, domains, extras, open, diagnosis, features, ...panelOut, ...(Object.keys(more).length ? { more } : {}) }
 }
 
 function round4(n: number): number { return Math.round(n * 10000) / 10000 }
@@ -379,14 +440,14 @@ export async function runAll(deps: RunDeps, opts: RunOpts): Promise<RunResult> {
   const bundle = opts.dry && !!opts.outPath && selected.length > 1
   for (const subject of selected) {
     try {
-      const { packet, details, domains, extras, open, diagnosis, panel, features } = await runSubject(subject, shared, deps, opts)
+      const { packet, details, domains, extras, open, diagnosis, panel, features, more } = await runSubject(subject, shared, deps, opts)
       const outPath = bundle ? null : opts.outPath ?? defaultOutPath(subject.slug, opts.weekStart)
       const shipped = await ship(deps.cc, packet, { dry: opts.dry, outPath, open, features })
       const asked = requestsFor(subject, deps.requests)
       const served = opts.dry ? [] : servedBy(packet, asked)
       const unserved = opts.dry ? 0 : asked.length - served.length
       if (unserved) log('answer_requests_unserved', { subject: subject.slug, requests: asked.length, unserved, skipped_cap: packet.stats.probes_skipped_cap })
-      results.push({ slug: subject.slug, packet, shipped, domains, details, served, unserved, extras, ...(diagnosis ? { diagnosis } : {}), ...(panel ? { panel } : {}) })
+      results.push({ slug: subject.slug, packet, shipped, domains, details, served, unserved, extras, ...(diagnosis ? { diagnosis } : {}), ...(panel ? { panel } : {}), ...(more ? { more } : {}) })
       log('subject_done', { subject: subject.slug, queries: packet.stats.queries, probes: packet.stats.probes, cost_usd: packet.stats.cost_usd, ledger_usd: deps.ledger.total })
     } catch (e) {
       failures.push({ slug: subject.slug, kind: subject.kind, error: errText(e) })

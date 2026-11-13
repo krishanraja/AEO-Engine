@@ -12,6 +12,7 @@
  */
 import { canonicalJson, sha256Hex } from '../lib/canonical.js'
 import type { SourceType } from '../lib/sourceType.js'
+import type { Mention } from './citedPages.js'
 
 /** Why a question is not won (src/pipeline/52-diagnose.ts), checked in this order. */
 export const GAP_CLASSES = ['won', 'cited_not_first', 'retrieved_not_cited', 'not_retrieved', 'no_page', 'unknown'] as const
@@ -47,7 +48,14 @@ export interface KitTarget { kind: TargetKind; url: string | null; host: string;
 export interface KitSiteFix { gate: string; host: string; url: string | null; fix: string; owner_repo: string | null }
 /** `url` is null when the page cited first cannot be carried (an email or a handle in it): its host stands for it. */
 export interface KitBeat { url: string | null; host: string; engine: string; position: number; features: CitedFeatures }
-export interface KitOffSite { host: string; source_type: SourceType; engines: string[] }
+/**
+ * A third-party place where the assistants look and we are absent. With the
+ * cited-pages sheet (src/pipeline/48-cited-pages.ts), `mention` and
+ * `mention_ok` say whether the pages cited on that host for this question
+ * already mention the venture, so its engine skips one that does; in the
+ * packet only when Control Center lists the cited_pages feature.
+ */
+export interface KitOffSite { host: string; source_type: SourceType; engines: string[]; mention?: Mention; mention_ok?: boolean | null }
 
 /** A win kit (src/pipeline/62-kits.ts), the shape the packet's `kits[]` carries. */
 export interface Kit {

@@ -229,3 +229,27 @@ export function appShellOf(html: string): boolean {
   for (const m of src.matchAll(/<script\b[^<>]*>[\s\S]*?(?:<\/script\s*>|$)/gi)) scripts += m[0].length
   return src.length > 0 && scripts * 2 > src.length
 }
+
+/**
+ * Every <a href> in the page's visible body (no head, script, style,
+ * template, noscript or svg), as written (relative ones too), each once, at
+ * most `max`. For the cited-pages mention check
+ * (src/pipeline/48-cited-pages.ts), which resolves them against the page.
+ */
+export function linksOf(html: string, max = 2000): string[] {
+  const out: string[] = []
+  // Only what a reader sees: a link a script would write, or one inside a template, is not on the page.
+  const body = visibleHtml(html)
+  for (const t of allTags(body, 'a')) {
+    const href = attr(t, 'href')
+    if (!href || out.includes(href)) continue
+    out.push(href.slice(0, 2000))
+    if (out.length >= max) break
+  }
+  return out
+}
+
+/** The words a reader sees: scripts, styles, templates, the head and tags out, entities decoded, whitespace collapsed. */
+export function visibleTextOf(html: string): string {
+  return textOf(visibleHtml(html))
+}

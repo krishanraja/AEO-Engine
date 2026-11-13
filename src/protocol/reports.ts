@@ -48,6 +48,13 @@ import { fortnightStart, nextScheduledRun, SCHEDULE_LATE_MS, upcomingRun, type R
 import { checkInId, CHECKIN_PREFIX, GAP_CLASSES, KIT_PROPOSAL_PREFIX, kitPlans, kitProposalId, planIdOfCheckIn, type GapClass, type KitCandidate, type KitPlan, type PlanDecision } from '../schema/kit.js'
 import { emptyStates, engineWon, PANEL_STATES, SAMPLES_PER_CONTESTED, WIN_SAMPLES, type TrackedQuestion } from '../schema/panel.js'
 import { buildEngineState, inWords, type RepoState } from './state.js'
+import { sha8 } from '../lib/text.js'
+import { CAPS } from '../config/run.js'
+import type { BrandCheckResult } from '../schema/brand.js'
+import type { CitedPagesCounts } from '../schema/citedPages.js'
+import type { OutcomeCounts } from '../schema/outcome.js'
+import { buildGoLive, goLiveSunday, VERIFY_DONE_EVENT, verifyGoLiveId, verifyIdsIn, verifyIdsLine, verifyPlanProposal, verifyPlanState } from './verify.js'
+import type { VerifyPayload } from '../schema/verify.js'
 
 export const SPEND_PROPOSAL_ID = 'aeo:spend:max-usd-per-run'
 // A win kit's plan id, aeo:kit:<product_slug>:<first 8 of query_id>, and its
@@ -537,6 +544,79 @@ function place(input: ResearchInput): Placed[] {
   ]
 }
 
+/** The events a cited page's mention sends when it changes (src/pipeline/48-cited-pages.ts). */
+export const MENTION_ACQUIRED_EVENT = 'mention_acquired'
+export const MENTION_LOST_EVENT = 'mention_lost'
+/** A brand check's suggestion: aeo:brand:<product>:<sha8 of the question>, stable across runs. */
+export const BRAND_PREFIX = 'aeo:brand:'
+export const BRAND_FIXED_EVENT = 'brand_check_passed'
+export const brandProposalId = (product: string, question: string) => `${BRAND_PREFIX}${product}:${sha8(question.trim().replace(/\s+/g, ' ').toLowerCase())}`
+
+/**
+ * The questions a verify run would re-ask: each venture's tracked questions
+ * (shipped, or a kit in flight), held ventures included, since a verify run
+ * only measures; those not yet won first, shipped before kit, then by id. At
+ * most CAPS.VERIFY_MAX_QUESTIONS.
+ */
+export function verifyCandidates(placed: ReadonlyArray<{ s: SubjectSummary }>, max: number = CAPS.VERIFY_MAX_QUESTIONS): string[] {
+  const rows = placed.flatMap(p => (p.s.ok && p.s.kind === 'venture' ? p.s.panel?.tracked ?? [] : []))
+  const seen = new Set<string>()
+  return rows
+    .filter(t => t.tiers.includes('shipped') || t.tiers.includes('kit'))
+    .sort((a, b) => Number(a.panel.state === 'won') - Number(b.panel.state === 'won') || Number(!a.tiers.includes('shipped')) - Number(!b.tiers.includes('shipped')) || a.query_id.localeCompare(b.query_id))
+    .map(t => t.query_id.toLowerCase())
+    .filter(id => (seen.has(id) ? false : (seen.add(id), true)))
+    .slice(0, max)
+}
+
+/** "AI referrals: N sessions to M answer pages in 28 days", GA4 and Clarity apart; unknown when neither was served. */
+export function referralsPart(o: OutcomeCounts | undefined): string {
+  if (!o) return 'AI referrals: unknown (no search signals served)'
+  if (!o.pages) return 'AI referrals: no answer page tracked yet (no shipped page and no kit target page)'
+  const one = (name: string, r: OutcomeCounts['ga4']) => (r ? `${name} ${plural(r.sessions, 'session')} to ${plural(r.pages, 'answer page')}` : null)
+  const parts = [one('GA4', o.ga4), one('Clarity', o.clarity)].filter(Boolean)
+  if (!parts.length) return 'AI referrals: unknown (no AI-referral readings served)'
+  return `AI referrals: ${parts.join(', ')} in ${o.days} days (counted apart, never summed)`
+}
+
+/** One venture's counts: its cited pages, AI referrals and brand checks, as sentences. Null with nothing measured. */
+export function ventureMeasures(label: string, c: CitedPagesCounts | undefined, o: OutcomeCounts | undefined, b: SubjectSummary['brand_checks']): string | null {
+  const parts: string[] = []
+  if (c) parts.push(`Cited pages: ${c.rows} tracked, ${c.link + c.name} mention ${label}, ${c.to_check} to check${c.mention_ok_false ? `, ${c.mention_ok_false} carrying a phrase a brand check forbids` : ''}`)
+  parts.push(referralsPart(o))
+  if (b && b.checks) parts.push(`Brand checks: ${b.passed} of ${b.answered} passed${b.checks > b.answered ? ` (${b.checks - b.answered} not answered)` : ''}`)
+  return parts.length ? `${parts.join('. ')}.` : null
+}
+
+/** A failed brand check, as one strategy suggestion: the venture, the question and which phrases failed on which engine, never an answer's words. */
+export function brandProposal(product: string, r: BrandCheckResult, expiresAt: Date): Proposal {
+  const failing = r.engines.filter(e => !e.pass)
+  const lines = [
+    `Brand check failed for ${product}`,
+    `Question: ${r.question}`,
+    '',
+    ...r.engines.map(e => (e.pass ? `- ${e.engine}: passed` : `- ${e.engine}: ${[...e.must_not.map(x => `used "${x}", which it must not`), ...e.must.map(x => `left out "${x}", which it must say`)].join('; ')}`)),
+    '',
+    'What to do: make the pages the assistants read say it plainly, the venture\'s own pages first, in its own words. AEO ships nothing: the product\'s build session or its growth engine does, and the next research run asks the check again.',
+  ]
+  const payload = lines.join('\n').replace(/\u2014|\u2013/g, ',').slice(0, 8000)
+  return {
+    proposal_id: brandProposalId(product, r.question),
+    title: `Fix how the assistants describe ${product}`.slice(0, 160),
+    why: `An assistant's answer to one of ${product}'s brand checks broke its rules on ${plural(failing.length, 'engine')}: the phrases are named, never the answer. No kit was proposed this run, so this is the one suggestion on his list.`.slice(0, 1000),
+    kind: 'advice',
+    wall: 'strategy',
+    amount_usd: null,
+    channel: null,
+    objective_key: null,
+    exact_payload: payload,
+    payload_sha256: wordsPayloadSha(payload),
+    evidence: [],
+    close_condition: { event: BRAND_FIXED_EVENT, reference: brandProposalId(product, r.question) },
+    expires_at: expiresAt.toISOString(),
+  }
+}
+
 export function buildResearchReport(input: ResearchInput): EngineReport {
   const placed = place(input)
   const engines = [...new Set(input.summaries.flatMap(s => s.engines))]
@@ -635,6 +715,11 @@ export function buildResearchReport(input: ResearchInput): EngineReport {
   }
   const next = nextScheduledRun(input.observedAt)
   activity.push(line(`Next scheduled research run: ${utc(next)} (Sundays at 04:00 UTC in odd ISO weeks).`))
+  // The questions a verify run would re-ask in the off week (src/protocol/verify.ts):
+  // the ones a venture shipped a page for or a kit Krish approved is in flight
+  // on. The daily report and the plan job read this line back, so it goes early.
+  const verifyLine = verifyIdsLine(verifyCandidates(placed))
+  if (verifyLine) activity.push(line(verifyLine))
 
   // The objective: measured only when this was a full run and every subject
   // that counts reported. A partial count would read as a fall, not a gap.
@@ -715,6 +800,28 @@ export function buildResearchReport(input: ResearchInput): EngineReport {
   }
   if (passedOver && input.scope === 'all' && !input.kitsDelivered) activity.push(line(`${plural(passedOver, 'win kit')} Krish already decided ${passedOver === 1 ? 'was' : 'were'} left off his list.`))
 
+  // A failed brand check on a venture that is not held becomes one strategy
+  // suggestion, only when no kit proposal was made this run, so his list
+  // carries at most one AEO proposal a run besides check-ins. Never one he
+  // already decided; never an answer's words.
+  let brandAsk: Proposal | null = null
+  let brandLine: ActivityLine | null = null
+  if (!kitAsk && input.scope === 'all' && input.decisions !== null) {
+    const decidedIds = new Set((input.decisions ?? []).map(d => d.proposal_id))
+    for (const p of placed) {
+      if (!p.s.ok || p.s.kind !== 'venture' || p.s.held || !p.s.product_slug) continue
+      const failed = (p.s.brand_checks?.results ?? []).find(r => r.pass === false && !decidedIds.has(brandProposalId(p.s.product_slug as string, r.question)))
+      if (!failed) continue
+      brandAsk = brandProposal(p.s.product_slug, failed, next)
+      brandLine = line(`One brand check that failed, for ${p.label}, is on Krish's list as a suggestion; no kit was proposed this run.`)
+      break
+    }
+  }
+  if (brandAsk && brandLine) {
+    proposals.push(brandAsk)
+    activity.push(brandLine)
+  }
+
   // The autonomy loop for kits (GET-GOING Step 1). Each kit plan Krish
   // approved in the last six weeks, oldest first: won, it closes with
   // kit_won; otherwise a check-in says how its question did against the plan.
@@ -780,7 +887,25 @@ export function buildResearchReport(input: ResearchInput): EngineReport {
     for (const c of panel.won_now) { for (const e of c.engines) wonEngines.add(e); firstAll += c.first; samplesAll += c.samples }
     moved.push({ label: p.label, won: panel.won_now.length, lost: panel.lost_now.length })
   }
-  if (events.length > EVENTS_MAX) activity.push(line(`${events.length - EVENTS_MAX} panel events past the report's ${EVENTS_MAX} are counted here only.`))
+  // Mentions acquired and lost on the cited pages since the sheet Control
+  // Center served (src/pipeline/48-cited-pages.ts): one event each, and one
+  // line in counts. Without a served sheet there is no transition.
+  const mentionMoves: Array<{ label: string; acquired: number; lost: number }> = []
+  for (const p of placed) {
+    const c = p.s.ok && p.s.kind === 'venture' ? p.s.cited_pages : undefined
+    if (!c?.acquired && !c?.lost) continue
+    const a = Object.values(c.acquired ?? {}).reduce((n, x) => n + (x ?? 0), 0)
+    const l = Object.values(c.lost ?? {}).reduce((n, x) => n + (x ?? 0), 0)
+    for (let k = 0; k < a; k++) events.push({ event: MENTION_ACQUIRED_EVENT, proposal_id: null, at, evidence_url: evidenceUrl })
+    for (let k = 0; k < l; k++) events.push({ event: MENTION_LOST_EVENT, proposal_id: null, at, evidence_url: evidenceUrl })
+    if (a || l) mentionMoves.push({ label: p.label, acquired: a, lost: l })
+  }
+  if (events.length > EVENTS_MAX) activity.push(line(`${events.length - EVENTS_MAX} ${mentionMoves.length ? 'panel and mention events' : 'panel events'} past the report's ${EVENTS_MAX} are counted here only.`))
+  if (mentionMoves.length) {
+    const a = mentionMoves.reduce((n, m) => n + m.acquired, 0)
+    const l = mentionMoves.reduce((n, m) => n + m.lost, 0)
+    activity.push(line(`Cited-page mentions since the sheet Control Center served (${input.runId}): ${plural(a, 'mention')} acquired, ${l} lost. ${mentionMoves.map(m => `${m.label}: ${m.acquired} acquired, ${m.lost} lost`).join('; ')}.`))
+  }
   if (moved.length) {
     const won = moved.reduce((n, m) => n + m.won, 0)
     const lost = moved.reduce((n, m) => n + m.lost, 0)
@@ -807,10 +932,21 @@ export function buildResearchReport(input: ResearchInput): EngineReport {
     if (g.unknown) parts.push(`${g.unknown} not answered`)
     return parts.join(', ')
   }
+  // Each venture's gap classes, then its cited pages, AI referrals and brand
+  // checks (src/pipeline/48, 63 and 42), counts only and never a URL, on one
+  // line a venture when they fit, so the line count does not grow.
   for (const p of placed) {
-    const g = p.s.ok && p.s.kind === 'venture' ? p.s.gap_classes : undefined
-    if (!g) continue
-    activity.push(line(`Why ${p.label}'s questions are not won: ${classLine(g)}; ${p.s.held ? 'held, so no kit' : `${plural(p.s.kits ?? 0, 'win kit')} prepared`}.`))
+    if (!p.s.ok || p.s.kind !== 'venture') continue
+    const g = p.s.gap_classes
+    const measures = ventureMeasures(p.label, p.s.cited_pages, p.s.outcomes, p.s.brand_checks)
+    const why = g ? `Why ${p.label}'s questions are not won: ${classLine(g)}; ${p.s.held ? 'held, so no kit' : `${plural(p.s.kits ?? 0, 'win kit')} prepared`}.` : null
+    const alone = measures ? `For ${p.label}: ${measures}` : null
+    const both = why && measures ? `${why} ${measures}` : why ?? alone
+    if (both && both.length <= 500) activity.push(line(both))
+    else {
+      if (why) activity.push(line(why))
+      if (alone) activity.push(line(alone))
+    }
   }
   const prospects = placed.filter(p => p.s.ok && p.s.kind === 'prospect' && p.s.gap_classes)
   if (prospects.length) {
@@ -868,6 +1004,14 @@ export function buildResearchReport(input: ResearchInput): EngineReport {
     keep = keep.filter(p => p !== kitAsk)
     lines = lines.filter(a => a !== kitLine)
   }
+  if (brandAsk) {
+    const alone = envelope(input, 'ready', [objective], [], [brandAsk], [], null)
+    if (!validateReport(alone).ok) {
+      extra.push({ reason: 'brand_check_not_proposed', detail: `The brand check proposal for ${brandAsk.proposal_id.split(':')[2]} carried text a report may not carry, so it is not on his list this run.` })
+      keep = keep.filter(p => p !== brandAsk)
+      lines = lines.filter(a => a !== brandLine)
+    }
+  }
   for (const p of keep.filter(x => x.stage === 'check_in')) {
     const alone = envelope(input, 'ready', [objective], [], [p], [], null)
     if (validateReport(alone).ok) continue
@@ -898,6 +1042,56 @@ export interface DirectiveInput extends Envelope {
   lastError: string | null
   /** features.aeo_kits_delivered: the venture engines carry the kits, so an undecided kit plan is no longer carried here. */
   kitsDelivered?: boolean
+  /**
+   * His decisions on the verify plan and its go-lives, read back to
+   * VERIFY_EPOCH so a No is never forgotten (src/protocol/verify.ts). Null:
+   * they could not be read, so nothing about the verify lane is proposed.
+   * Undefined: the daily report reads `decisions` instead.
+   */
+  verifyDecisions?: DecisionLite[] | null
+}
+
+/**
+ * The verify lane's asks on the daily report (src/protocol/verify.ts): the
+ * standing plan, once there is a shipped question or a kit plan he approved,
+ * and never again after his No; and, with the plan approved, on the Thursday
+ * to Saturday before an even-week Sunday, that Sunday's go-live behind
+ * spend. A go-live he has decided is not asked again. Nothing here runs or
+ * spends: the research workflow's plan job does, on his approved decision.
+ */
+export function verifyAsks(i: { decisions: readonly DecisionLite[] | null; last: StoredResearch | null; openKitPlans: number; at: Date; next: Date }): { proposals: Proposal[]; lines: ActivityLine[]; holds: Hold[] } {
+  const out: { proposals: Proposal[]; lines: ActivityLine[]; holds: Hold[] } = { proposals: [], lines: [], holds: [] }
+  // Unread decisions could hide his No: nothing is proposed.
+  if (!i.decisions) return out
+  const plan = verifyPlanState(i.decisions as PlanDecision[])
+  const ids = verifyIdsIn(i.last?.report)
+  if (plan.state === 'declined') { out.lines.push(line('Krish declined the verify plan, so no off-week verify run is proposed, now or later.')); return out }
+  if (plan.state === 'done') return out
+  if (plan.state === 'held') {
+    out.holds.push({ reason: 'amendment_unverified', detail: 'His approval of the verify plan came in an amended version whose digest does not check out, so no verify run is proposed until a decision on it that checks out.' })
+    return out
+  }
+  if (plan.state === 'none' || plan.state === 'stale') {
+    if (!ids.length && !i.openKitPlans) return out
+    out.proposals.push(verifyPlanProposal(i.next))
+    out.lines.push(line(`The standing verify plan is on Krish's list: ${ids.length ? plural(ids.length, 'question') : 'no question yet'} tracked as shipped or a kit in flight by the last full research run, and ${plural(i.openKitPlans, 'kit plan')} he approved.`))
+    return out
+  }
+  const sunday = goLiveSunday(i.at)
+  if (!sunday) return out
+  const id = verifyGoLiveId(sunday)
+  const mine = i.decisions.filter(d => d.proposal_id === id)
+  if (mine.length) {
+    const d = mine.reduce((a, b) => (Date.parse(b.decided_at) > Date.parse(a.decided_at) ? b : a))
+    out.lines.push(line(`Krish ${d.decision} the verify run for ${sunday}${d.decision === 'approved' ? '; it runs once, at that Sunday\'s scheduled slot, only if its digest still matches' : ''}.`))
+    return out
+  }
+  if (!ids.length) { out.lines.push(line(`The last full research run tracked no question as shipped or a kit in flight, so no verify run is proposed for ${sunday}.`)); return out }
+  const go = buildGoLive(sunday, ids, plan.cap, i.last ? { run_id: i.last.run_id } : null)
+  if (!go) { out.lines.push(line(`No question fits the verify plan's cap of ${plan.cap} USD, so no verify run is proposed for ${sunday}.`)); return out }
+  out.proposals.push(go.proposal)
+  out.lines.push(line(`The verify run for ${sunday} is on Krish's list: ${plural(go.payload.query_ids.length, 'question')}, ${go.payload.samples} samples on every engine, up to ${go.payload.amount_usd} USD. It runs only on his yes, and never counts in the share.`))
+  return out
 }
 
 /**
@@ -1046,6 +1240,11 @@ export function buildDirectiveReport(i: DirectiveInput): EngineReport {
     }
   }
 
+  // The verify lane: the standing plan, and an off week's go-live.
+  const verify = verifyAsks({ decisions: i.verifyDecisions === undefined ? (i.decisions === null ? null : [...(i.directive?.decisions_since ?? []), ...(i.decisions ?? [])]) : i.verifyDecisions === null ? null : [...(i.directive?.decisions_since ?? []), ...i.verifyDecisions], last: i.last, openKitPlans: open.length, at: i.observedAt, next })
+  for (const p of verify.proposals) if (!carried.some(c => c.proposal_id === p.proposal_id)) carried.push(p)
+  activity.push(...verify.lines)
+
   const objective = carriedObjective(i, next)
   const status: ReportStatus = objective.availability === 'measured' && i.directive ? 'ready' : 'degraded'
 
@@ -1068,5 +1267,81 @@ export function buildDirectiveReport(i: DirectiveInput): EngineReport {
       acks.push(ack(ctx, i.observedAt, 'blocked', needs))
     }
   }
-  return envelope(i, status, [objective], activity, carried, [], stateFor(i, objective, acks, next))
+  return envelope(i, status, [objective], activity, carried, verify.holds, stateFor(i, objective, acks, next))
 }
+
+// ---------- the verify run's report (src/protocol/verify.ts) ----------
+
+export interface VerifyReportInput extends Envelope {
+  /** The slugs the plan job handed out: the subjects that hold one of the payload's questions. */
+  expected: string[]
+  summaries: RunSummary[]
+  /** The payload the plan job ran, as it wrote it; null when it could not be read. */
+  payload: VerifyPayload | null
+  planError: string | null
+  /** This workflow run's public page: the closing event's evidence. */
+  runPage?: string | null
+}
+
+/**
+ * The verify run's report: the go-live's closing event (`verify_ran`, naming
+ * `aeo:verify:<date>`, with the workflow run as its evidence), question_won
+ * and question_lost for each question whose panel moved against the last
+ * research panel, and one line of counts: the run, the questions asked of
+ * the payload's, the samples and the engines. No objective: a verify run
+ * never measures queries_cited_first, which stays the research run's. No
+ * proposal. Never a question, an answer or a URL.
+ */
+export function buildVerifyReport(input: VerifyReportInput): EngineReport {
+  const placed = place({ ...input, scope: 'all', totalCapUsd: 0 })
+  const activity: ActivityLine[] = []
+  const holds: Hold[] = []
+  const events: ReportEvent[] = []
+  const at = input.observedAt.toISOString()
+  const evidenceUrl = input.runPage && /^https:\/\/\S+$/.test(input.runPage) ? input.runPage.slice(0, 500) : null
+  const engines = [...new Set(input.summaries.flatMap(s => s.engines))]
+  const payload = input.payload
+  const date = payload?.date ?? input.runId.split(':')[1] ?? ''
+  const found = new Set(placed.flatMap(p => (p.s.ok ? p.s.verify?.found ?? [] : [])))
+  const total = payload?.query_ids.length ?? 0
+  const notFound = payload ? payload.query_ids.filter(id => !found.has(id)).length : 0
+  const asked = placed.reduce((n, p) => n + (p.s.ok ? p.s.verify?.asked ?? 0 : 0), 0)
+  const samples = payload?.samples ?? 0
+  const failed = placed.filter(p => !p.s.ok)
+  const capped = placed.reduce((n, p) => n + (p.s.ok ? p.s.probes_skipped_cap ?? 0 : 0) + (p.s.ok ? p.s.panel?.sample_skipped_cap ?? 0 : 0), 0)
+
+  if (input.planError) {
+    activity.push(line(`Verify run ${input.runId}: the plan could not hand out its subjects (${input.planError}), so nothing was asked.`))
+    holds.push({ reason: input.planError.slice(0, 200), detail: 'The verify run asked nothing; the go-live stays open until it expires, and nothing was guessed.' })
+  }
+  for (const p of failed) activity.push(line(`Verify research failed for ${p.label}; nothing was written or guessed for it.`))
+
+  // Panel moves against the last research panel, for the subjects that count.
+  let won = 0
+  let lost = 0
+  for (const p of placed) {
+    const panel = p.counts && p.s.ok ? p.s.panel : undefined
+    if (!panel) continue
+    for (const _ of panel.won_now) { events.push({ event: QUESTION_WON_EVENT, proposal_id: null, at, evidence_url: evidenceUrl }); won++ }
+    for (const _ of panel.lost_now) { events.push({ event: QUESTION_LOST_EVENT, proposal_id: null, at, evidence_url: evidenceUrl }); lost++ }
+  }
+
+  if (!input.planError && payload) {
+    const head = `Verify run ${input.runId}, Krish's go-live ${verifyGoLiveId(date)}: asked ${asked} of ${plural(total, 'question')}${notFound ? ` (${notFound} not found in the last research packets)` : ''}, ${samples} ${samples === 1 ? 'sample' : 'samples'} on each of ${plural(engines.length, 'assistant')} (${engines.join(', ') || 'none'})`
+    const moves = `; against the last research panel ${plural(won, 'question')} became won and ${lost} lost`
+    const tail = `${capped ? `; the cap stopped ${plural(capped, 'ask')}` : ''}. A verify run never counts toward questions cited first.`
+    activity.push(line(`${head}${moves}${tail}`))
+    // Closed once it asked: the evidence is the workflow run, and the counts are the line above.
+    if (asked > 0) events.unshift({ event: VERIFY_DONE_EVENT, proposal_id: verifyGoLiveId(date), at, evidence_url: evidenceUrl })
+    else holds.push({ reason: 'verify_nothing_asked', detail: `None of the go-live's ${plural(total, 'question')} could be asked (not found, the cap, or a failed call), so it is not closed.` })
+  } else if (!payload && !input.planError) {
+    holds.push({ reason: 'verify_payload_unread', detail: 'The verify run could not read the payload its plan job wrote, so nothing was asked.' })
+  }
+  if (events.length > EVENTS_MAX) activity.push(line(`${events.length - EVENTS_MAX} panel events past the report's ${EVENTS_MAX} are counted here only.`))
+
+  const degraded = !!input.planError || failed.length > 0 || !payload
+  const objective = missing(`A verify run does not measure it; the research run of ${utc(nextScheduledRun(input.observedAt))} does.`)
+  const state = stateFor(input, objective, [])
+  return envelope(input, degraded ? 'degraded' : 'ready', [], activity, [], holds, state, [], events)
+}
+

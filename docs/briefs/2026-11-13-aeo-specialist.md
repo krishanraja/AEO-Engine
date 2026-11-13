@@ -41,6 +41,13 @@ The plan in AEO-Engine has seven phases. Phases 0 to 2 need nothing from Control
 3. **`subject.brand_names`:** distinctive names only, such as Heartside, Mindmake and makeyourmindup. AEO detects unlinked mentions of these. Generic words (CTRL, Circle, Pulse, Full Time) stay out.
 4. **`subject.engine_held`:** true while Krish holds that venture's engine (legibility, full-time today). AEO measures held subjects and builds no kits for them.
 5. **Objective `questions_asked`:** register it beside `queries_cited_first` so the share has its denominator.
+6. **`subject.brand_checks`:** `[{question, must_not: [string], must: [string]}]`, a venture's brand-accuracy checks, at most three asked a research run. Full Time is never "betting tips"; Mindmake is not "Mindmaker".
+   - AEO asks each once a research run on every packet engine, charged to its ledger (the Claude Code lane is free).
+   - An answer passes when no `must_not` phrase appears and every `must` phrase does, as whole words in any case, with URLs and bare domains taken out. A check passes when every engine that answered it passed.
+   - AEO reports counts only ("Brand checks: X of Y passed"), keeps each check's pass or fail by engine in its sealed summary with no answer text, and sends nothing in the packet (no field yet).
+   - A failed check on a venture that is not held becomes one `strategy` suggestion (`aeo:brand:<product>:<sha8 of the question>`) only when no kit was proposed that run, naming the venture, the question and the phrases, never the answer.
+   - The `must_not` phrases also mark a cited page that carries one as "refresh needed" (J).
+   - Until Control Center serves `subject.brand_names`, AEO reads distinctive names from `config/subjects.json`: mindmake (Mindmake), heartside (Heartside), publication (makeyourmindup).
 
 ## C. Context additions (`GET /api/aeo/context`)
 
@@ -50,8 +57,10 @@ The plan in AEO-Engine has seven phases. Phases 0 to 2 need nothing from Control
 - **`subject.search_signals`:** read-only data AEO uses to diagnose and to show outcomes. Keys stay in Control Center, and AEO never holds a Search Console, GA4 or Bing credential.
   - `gsc_queries: [{query, page, impressions, clicks, position, date_from, date_to}]` for the subject's hosts, every query, not only striking distance.
   - `bing: {queries: [...], pages: [...], url_info: [{url, indexed, last_crawled}], crawl_issues: [...], keyword_volume: [{query, volume}]}`. The key is `BING_ANALYTICS_API_KEY`, which Krish added on 13 Nov.
-  - `ga4_ai_referrals: [{landing_page, source, sessions, date}]`. Source is one of chatgpt.com, perplexity.ai, copilot.microsoft.com, gemini.google.com, claude.ai.
+  - `ai_referrals: [{landing_page, source, sessions, date, via: 'ga4' | 'clarity'}]`: sessions from an AI assistant to each landing page, from GA4 or from Clarity (G). Source is one of chatgpt.com, perplexity.ai, copilot.microsoft.com, gemini.google.com, claude.ai. A landing page may be a path or a full URL. AEO reads either `via`; when both are present for one page and day it reports each separately and never sums them, because they count differently. AEO still reads the first name, `ga4_ai_referrals` (no `via`), as GA4.
   - Missing means unknown (`null` with a reason), never zero.
+  - What AEO does with them (Phase 5): for each page a venture shipped or a kit targets, Search Console impressions, clicks and average position over the last 28 days (and the 28 days before it shipped, when `shipped_at` is known), Bing `indexed` and last crawl, and AI-referral sessions. It sends them as `queries[].outcome` once `packet_features` lists `outcome` (D), adds one line to that kit's evidence, and reports one count line per venture: "AI referrals: N sessions to M answer pages in 28 days", GA4 and Clarity apart.
+- **`subject.prior.cited_pages[]`:** the cited-pages sheet Control Center holds for the venture, its AEO-owned columns as AEO last sent them (J), so AEO can say when a mention was acquired or lost.
 
 ## D. Packet ingest (AeoPacket v1, additive and optional)
 
@@ -72,6 +81,8 @@ AEO will attach its exact `docs/packet.schema.json` diff when it sends these. Al
   - `kits[]`, up to 10, each the packet schema's kit (`docs/packet.schema.json`, `$defs.kit`): the shape in E, plus `product_slug` and `owned_by_platform`, with each `off_site` item `{host, source_type, engines}` (no `url` or `why` in the packet).
   - `site: {hosts: [{host, gates: [{gate, pass}]}]}`
   - `run_kind: 'research' | 'verify'`
+  - `cited_pages[]`, up to 50: the venture's cited-pages sheet (J), feature `cited_pages`. With it, a kit's `off_site` items may also carry `mention` and `mention_ok`.
+- **`queries[].outcome`:** `{url, gsc: {impressions, clicks, position, from, to, before} | null, bing: {indexed, last_crawled} | null, ai_referrals: {from, to, ga4, clarity} | null}`, feature `outcome` (C). Null is unknown.
 - **Engines enum:** add `gemini`.
 - **`growth_geo_probes`:** new nullable columns for the probe fields above.
 
@@ -128,6 +139,12 @@ Ruling (Krish, 2026-11-13): Claude probes run on the Claude Code subscription to
 2. **Bing reader.** `GetQueryStats`, `GetPageStats`, `GetUrlInfo`, `GetCrawlIssues` and `GetKeywordStats` for the verified sites, read with `BING_ANALYTICS_API_KEY`. Bing's AI Performance report (Copilot citations) has no API today, so do not build for it.
 3. **GA4.** Keep AI-assistant referrers in the `source_medium` breakdown. Today the breakdowns are sparse, and none of these sources appear.
 4. **Index check.** Add a research-desk kind `index_check` for `aeo`, capped daily. It asks Brave Search whether a URL ranks for a question. Claude's search draws on Brave, so this is a free retrieval signal.
+5. **Clarity reader.** Microsoft Clarity's tracking code is on mindmake.co and Clarity is linked to Krish's Google Analytics (Krish, 13 Nov). Its Data Export API is `GET https://www.clarity.ms/export-data/api/v1/project-live-insights` with `Authorization: Bearer <project token>`, `numOfDays` 1, 2 or 3 and up to three dimensions (Browser, Device, Country/Region, OS, Source, Medium, Campaign, Channel, URL); at most 10 requests a project a day and 1,000 rows, no pagination. Its AI channel group (since August 2025) separates ChatGPT, Copilot, Gemini, Claude and Perplexity, as the channels `AIPlatform` and `PaidAIPlatform`.
+   - Call the export once a day per Clarity project, with dimension1 Channel and dimension2 URL and `numOfDays` 1.
+   - Keep the AI-platform rows only: sessions per landing page and day.
+   - The token is a Clarity project API token Krish generates in Clarity's project settings, held only in Control Center's environment, like `BING_ANALYTICS_API_KEY`: one per project, named for example `CLARITY_EXPORT_TOKEN_MINDMAKE`. AEO never holds it, and `check:config` refuses any Clarity name or host in AEO's code and workflows.
+   - The rows feed `search_signals.ai_referrals` with `via: 'clarity'` (C).
+   - Clarity's Bot Activity dashboard needs a supported CDN or server-log integration. Whether Vercel is one is unverified; do not build for it.
 
 ## H. North Star
 
@@ -144,3 +161,20 @@ Ruling (Krish, 2026-11-13): Claude probes run on the Claude Code subscription to
 - A `run_kind: verify` packet re-asks only shipped questions, three samples each, in an off week.
 - It never replaces the research week's readings and is never counted in the share.
 - It runs only on Krish's approved spend go-live `aeo:verify:<date>` whose `payload_sha256` matches. It changes his 15 October fortnightly ruling, so it waits for his yes.
+- Built in AEO (Phase 5): the standing plan `aeo:verify-plan:v1` (`stage: plan`, behind `strategy`), proposed by the daily report once a question is shipped or a kit plan approved, never again after his No; then, while the plan is approved, the go-live `aeo:verify:<the even-week Sunday>` (`stage: go_live`, parent the plan, behind `spend`), proposed Thursday to Saturday before that Sunday, its `exact_payload` canonical JSON of `{amount_usd, date, query_ids, samples}`. The verify report closes it with `verify_ran` and sends `question_won` and `question_lost`; it carries no objective.
+- AEO posts a verify packet only when `packet_features` lists `run_kind`; without it Control Center would count the packet as a research week, so the results go only into the report.
+
+## J. Cited-pages sheet
+
+Ruling (Krish, 2026-11-13): AEO keeps a sheet per venture of the pages AI assistants cite for its questions and checks whether each page already mentions the venture; outreach from the sheet comes later, venture by venture, with his yes.
+
+AEO measures and checks: it never finds a contact, never writes or sends outreach and never negotiates. The outreach columns belong to the venture engines and Control Center.
+
+- **A Control Center table** keyed by `product_slug` and normalised `url` (no fragment, no `utm_*` parameter, the host lower-cased without `www.`, the path kept).
+- **AEO-owned columns,** from the packet's `cited_pages` (D): `page_type`, `questions`, `engines`, `times_cited`, `times_first`, `mention` (`link`, `name`, `none` or `unchecked`), `mention_ok`, `checked_at`, and the flags `platform` and `own`. A row sent with `mention: unchecked` (not read this run) leaves the stored mention as it was.
+- **Venture-owned outreach columns,** written only by the venture's engine or Krish: `contact`, `status`, `last_contacted`, `follow_up_on`, `requested_cost`, `notes`. Status is one of: not started, declined, refresh needed, outreach sent, followed up, negotiating, payment requested, approved, mention acquired.
+- **Rules:** never commit to payment or terms without Krish's approved decision; the engines draft, and Krish approves each send.
+- **Serving:** `subject.prior.cited_pages` in AEO's context (C). The venture standing (E) gains `cited_pages[]` (the top 20, outreach targets only, never a platform or our own page) under `features.ai_answers_detail`, so each venture engine can draft outreach later.
+- **Already mentioned:** a row with a mention (`link` or `name`) and `mention_ok: true` is "already mentioned, skip". `mention_ok: false` (a brand check's `must_not` phrase is on the page, B6) is "refresh needed".
+- **Mention acquired:** set from AEO's `mention_acquired` event (and `mention_lost` when one disappears), never by hand. The events name no URL: the report's protocol event carries only its name, the time and the run's page, and the counts go in a line; Control Center matches the rows by comparing the new sheet with the stored one.
+- **How AEO builds it:** the pages cited for the venture's tracked questions this run (raw inline citations, first sample) and in the four weeks of probes Control Center serves; ranked by times first, times cited, questions, then URL; at most 50 rows. It reads the top 20 outreach targets a run, at most 3 a host, fetch only (GET, no script, robots.txt honoured, an honest User-Agent), reusing any page the pages-cited-first read already fetched; it keeps flags only, never a page's text.

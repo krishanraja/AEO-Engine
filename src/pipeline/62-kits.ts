@@ -301,12 +301,31 @@ export function renderKit(k: Kit): string {
   if (k.h2s.length) lines.push('', 'Sections (H2s), from the searches the assistants ran:', ...k.h2s.map(h => `- ${h}`))
   if (k.beat.length) lines.push('', 'Pages to beat (cited first today):', ...k.beat.map((b, n) => `${n + 1}. ${b.url ?? `a page on ${b.host}`} (${b.host}, ${b.features.source_type}; ${b.engine} position ${b.position}): ${featureLine(b.features)}`))
   if (k.site_fixes.length) lines.push('', 'Site fixes:', ...k.site_fixes.map(f => `- [${f.gate}] ${f.url ?? f.host}: ${f.fix}${f.owner_repo ? ` Ships in ${f.owner_repo}.` : ''}`))
-  if (k.off_site.length) lines.push('', 'Off site, where the assistants look and we are absent:', ...k.off_site.map(o => `- ${o.host} (${o.source_type}), cited by ${o.engines.join(', ')}`))
+  if (k.off_site.length) lines.push('', 'Off site, where the assistants look and we are absent:', ...k.off_site.map(o => `- ${o.host} (${o.source_type}), cited by ${o.engines.join(', ')}${offSiteMention(o)}`))
   lines.push('', `Verify: at the ${k.verify.recheck}, ask ${k.verify.engines.join(', ')} ${k.verify.samples} times each. Success: ${k.verify.success}. Baseline: ${k.verify.baseline}.`)
   if (k.evidence.length) lines.push('', 'Evidence:', ...k.evidence.map(e => `- ${e}`))
   lines.push('', 'AEO ships nothing. The product\'s build session or its growth engine ships this kit, and the next research run checks it.')
   const text = lines.join('\n').replace(/\u2014|\u2013/g, ',')
   return text.length <= PAYLOAD_MAX ? text : `${text.slice(0, PAYLOAD_MAX - 20).replace(/\n[^\n]*$/, '')}\n(cut to fit)`
+}
+
+/** What the cited-pages sheet says of an off-site place, for the kit's text: already mentioned (skip), refresh needed, or not yet. */
+function offSiteMention(o: KitOffSite): string {
+  if (o.mention_ok === false) return '; a page there carries a phrase a brand check forbids: refresh needed'
+  if (o.mention === 'link' || o.mention === 'name') return `; already mentions us (${o.mention === 'link' ? 'a link' : 'by name'}): skip`
+  if (o.mention === 'none') return '; read this run, no mention of us yet'
+  return ''
+}
+
+/**
+ * A kit with one more evidence line (an outcome reading, src/pipeline/63-outcomes.ts),
+ * cleaned like the rest; the line takes the last place when the evidence is full.
+ */
+export function withEvidence(k: Kit, line: string | null, neverSay: readonly string[] = []): Kit {
+  if (!line) return k
+  const clean = cleanLine(line, 200, neverSay)
+  if (!clean) return k
+  return { ...k, evidence: [...k.evidence.slice(0, EVIDENCE_MAX - 1), clean] }
 }
 
 export function kitCandidate(k: Kit): KitCandidate {

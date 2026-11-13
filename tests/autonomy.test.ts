@@ -56,6 +56,9 @@ const candidate = (product: string, n: number, gap: KitCandidate['gap_class'] = 
   exact_payload: `Win kit kit:${product}:${q8(n)} (v1)\nProduct: ${product}\nQuestion: ${QUESTION}\nWhy it is not won: no page of ours answers it (${gap})\nPriority: 3`,
 })
 
+/** The asks a report makes beside the verify lane's (tests/verify.test.ts covers those): the kit plans and their check-ins. */
+const kitAsks = (ps: EngineReport['proposals']) => ps.filter(p => !p.proposal_id.startsWith('aeo:verify'))
+
 function assertValid(r: EngineReport): void {
   assert.deepEqual(schemaErrors(SCHEMA, r), [], 'the report schema')
   assert.deepEqual(validateReport(r), { ok: true })
@@ -225,10 +228,10 @@ test('aeo_kits_delivered: no kit plan from AEO, its check-ins on approved plans 
   const last = { run_id: RUN, accepted_at: NOW.toISOString(), report: before as unknown as Record<string, unknown> }
   const day = new Date('2026-12-07T05:12:00Z')
   const base = { runId: 'aeo:2026-12-07:directive', mode: 'synthetic' as const, observedAt: day, revision: 'abc', capturedAt: day, directive: { directive_id: 'aeo:2026-12-07', chosen_by: 'rule', decisions_since: [] }, directiveError: null, last, lastError: null, decisions: [approved] }
-  assert.deepEqual(buildDirectiveReport(base).proposals.map(p => p.stage), ['plan', 'check_in'])
+  assert.deepEqual(kitAsks(buildDirectiveReport(base).proposals).map(p => p.stage), ['plan', 'check_in'])
   const daily = buildDirectiveReport({ ...base, kitsDelivered: true })
   assertValid(daily)
-  assert.deepEqual(daily.proposals.map(p => p.stage), ['check_in'])
+  assert.deepEqual(kitAsks(daily.proposals).map(p => p.stage), ['check_in'])
 })
 
 test('schema_version is the lowest that carries the fields a report uses', () => {
@@ -260,7 +263,7 @@ test('the daily report renews the check-in a week after the research run, keeps 
 
   const d3 = day('2026-12-09T05:12:00Z')
   assertValid(d3)
-  assert.deepEqual(d3.proposals, [asked], 'within the week: the research run\'s check-in, unchanged')
+  assert.deepEqual(kitAsks(d3.proposals), [asked], 'within the week: the research run\'s check-in, unchanged')
 
   const d7 = day('2026-12-13T05:12:00Z')
   assertValid(d7)

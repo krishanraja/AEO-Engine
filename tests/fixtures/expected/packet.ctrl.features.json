@@ -318,6 +318,27 @@
         "alignment": 1,
         "first_cited_host": "example-writer-tools.com",
         "first_cited_type": "vendor"
+      },
+      "outcome": {
+        "url": "https://ctrl.mindmake.co/answers/personal-ai-writing-style",
+        "gsc": {
+          "impressions": 160,
+          "clicks": 7,
+          "position": 8.5,
+          "from": "2026-08-17",
+          "to": "2026-09-13",
+          "before": null
+        },
+        "bing": {
+          "indexed": true,
+          "last_crawled": "2026-09-10"
+        },
+        "ai_referrals": {
+          "from": "2026-08-17",
+          "to": "2026-09-13",
+          "ga4": 3,
+          "clarity": 2
+        }
       }
     },
     {
@@ -644,6 +665,24 @@
         "alignment": 0.75,
         "first_cited_host": "example-writer-tools.com",
         "first_cited_type": "vendor"
+      },
+      "outcome": {
+        "url": "https://ctrl.mindmake.co/blog/style-guide-for-an-ai-assistant",
+        "gsc": {
+          "impressions": 0,
+          "clicks": 0,
+          "position": null,
+          "from": "2026-08-17",
+          "to": "2026-09-13",
+          "before": null
+        },
+        "bing": null,
+        "ai_referrals": {
+          "from": "2026-08-17",
+          "to": "2026-09-13",
+          "ga4": 0,
+          "clarity": 0
+        }
       }
     },
     {
@@ -1070,6 +1109,27 @@
         "alignment": 0.67,
         "first_cited_host": "help.example-assistant.com",
         "first_cited_type": "reference"
+      },
+      "outcome": {
+        "url": "https://ctrl.mindmake.co/answers/personal-ai-writing-style",
+        "gsc": {
+          "impressions": 160,
+          "clicks": 7,
+          "position": 8.5,
+          "from": "2026-08-17",
+          "to": "2026-09-13",
+          "before": null
+        },
+        "bing": {
+          "indexed": true,
+          "last_crawled": "2026-09-10"
+        },
+        "ai_referrals": {
+          "from": "2026-08-17",
+          "to": "2026-09-13",
+          "ga4": 3,
+          "clarity": 2
+        }
       }
     },
     {
@@ -2053,6 +2113,24 @@
         "alignment": 0.5,
         "first_cited_host": "example-writer-tools.com",
         "first_cited_type": "vendor"
+      },
+      "outcome": {
+        "url": "https://ctrl.mindmake.co/blog/style-guide-for-an-ai-assistant",
+        "gsc": {
+          "impressions": 0,
+          "clicks": 0,
+          "position": null,
+          "from": "2026-08-17",
+          "to": "2026-09-13",
+          "before": null
+        },
+        "bing": null,
+        "ai_referrals": {
+          "from": "2026-08-17",
+          "to": "2026-09-13",
+          "ga4": 0,
+          "clarity": 0
+        }
       }
     },
     {
@@ -2829,14 +2907,18 @@
           "source_type": "unknown",
           "engines": [
             "chatgpt"
-          ]
+          ],
+          "mention": "none",
+          "mention_ok": null
         },
         {
           "host": "docs.example-assistant.com",
           "source_type": "reference",
           "engines": [
             "claude"
-          ]
+          ],
+          "mention": "none",
+          "mention_ok": null
         },
         {
           "host": "help.example-assistant.com",
@@ -2870,7 +2952,7 @@
         "answered on 3 engines: cited on 0, first on 0, a page of ours retrieved on 1",
         "first cited: example-writer-tools.com (vendor)",
         "our best page matches 100 percent of the question's distinctive words",
-        "1 site gates fail across 2 hosts"
+        "outcome, last 28 days: Search Console 160 impressions, 7 clicks, position 8.5; Bing indexed, crawled 2026-09-10; AI referrals GA4 3, Clarity 2"
       ]
     },
     {
@@ -3024,7 +3106,7 @@
         "answered on 3 engines: cited on 0, first on 0, a page of ours retrieved on 0",
         "first cited: example-writer-tools.com (vendor)",
         "our best page matches 75 percent of the question's distinctive words",
-        "1 site gates fail across 2 hosts"
+        "outcome, last 28 days: Search Console 0 impressions, 0 clicks; AI referrals GA4 0, Clarity 0"
       ]
     },
     {
@@ -3139,14 +3221,18 @@
           "source_type": "unknown",
           "engines": [
             "chatgpt"
-          ]
+          ],
+          "mention": "none",
+          "mention_ok": null
         },
         {
           "host": "docs.example-assistant.com",
           "source_type": "reference",
           "engines": [
             "claude"
-          ]
+          ],
+          "mention": "none",
+          "mention_ok": null
         }
       ],
       "verify": {
@@ -3166,7 +3252,7 @@
         "answered on 3 engines: cited on 0, first on 0, a page of ours retrieved on 0",
         "first cited: help.example-assistant.com (reference)",
         "our best page matches 67 percent of the question's distinctive words",
-        "1 site gates fail across 2 hosts"
+        "outcome, last 28 days: Search Console 160 impressions, 7 clicks, position 8.5; Bing indexed, crawled 2026-09-10; AI referrals GA4 3, Clarity 2"
       ]
     },
     {
@@ -3289,14 +3375,18 @@
           "engines": [
             "chatgpt",
             "claude"
-          ]
+          ],
+          "mention": "none",
+          "mention_ok": null
         },
         {
           "host": "example-prompting.com",
           "source_type": "unknown",
           "engines": [
             "chatgpt"
-          ]
+          ],
+          "mention": "none",
+          "mention_ok": null
         }
       ],
       "verify": {
@@ -3316,7 +3406,7 @@
         "answered on 3 engines: cited on 0, first on 0, a page of ours retrieved on 0",
         "first cited: example-writer-tools.com (vendor)",
         "our best page matches 50 percent of the question's distinctive words",
-        "1 site gates fail across 2 hosts"
+        "outcome, last 28 days: Search Console 0 impressions, 0 clicks; AI referrals GA4 0, Clarity 0"
       ]
     },
     {
@@ -3684,14 +3774,18 @@
           "source_type": "unknown",
           "engines": [
             "claude"
-          ]
+          ],
+          "mention": "none",
+          "mention_ok": null
         },
         {
           "host": "docs.example-assistant.com",
           "source_type": "reference",
           "engines": [
             "perplexity"
-          ]
+          ],
+          "mention": "none",
+          "mention_ok": null
         },
         {
           "host": "help.example-assistant.com",
@@ -3819,14 +3913,18 @@
           "source_type": "unknown",
           "engines": [
             "chatgpt"
-          ]
+          ],
+          "mention": "none",
+          "mention_ok": null
         },
         {
           "host": "docs.example-assistant.com",
           "source_type": "reference",
           "engines": [
             "claude"
-          ]
+          ],
+          "mention": "none",
+          "mention_ok": null
         },
         {
           "host": "help.example-assistant.com",
@@ -3962,7 +4060,9 @@
           "engines": [
             "perplexity",
             "chatgpt"
-          ]
+          ],
+          "mention": "none",
+          "mention_ok": null
         },
         {
           "host": "docs.example-assistant.com",
@@ -3970,7 +4070,9 @@
           "engines": [
             "chatgpt",
             "claude"
-          ]
+          ],
+          "mention": "none",
+          "mention_ok": null
         }
       ],
       "verify": {
@@ -4179,5 +4281,292 @@
       }
     ]
   },
-  "run_kind": "research"
+  "run_kind": "research",
+  "cited_pages": [
+    {
+      "url": "https://help.example-assistant.com/style",
+      "host": "help.example-assistant.com",
+      "page_type": "reference",
+      "questions": 15,
+      "engines": [
+        "perplexity",
+        "chatgpt",
+        "claude"
+      ],
+      "times_cited": 22,
+      "times_first": 12,
+      "mention": "unchecked",
+      "mention_ok": null,
+      "checked_at": null,
+      "platform": false,
+      "own": false
+    },
+    {
+      "url": "https://example-writer-tools.com/guide/voice",
+      "host": "example-writer-tools.com",
+      "page_type": "vendor",
+      "questions": 15,
+      "engines": [
+        "perplexity",
+        "chatgpt",
+        "claude"
+      ],
+      "times_cited": 17,
+      "times_first": 12,
+      "mention": "unchecked",
+      "mention_ok": null,
+      "checked_at": null,
+      "platform": false,
+      "own": false
+    },
+    {
+      "url": "https://example-writer-tools.com/blog/2026/train-your-voice",
+      "host": "example-writer-tools.com",
+      "page_type": "vendor",
+      "questions": 15,
+      "engines": [
+        "perplexity",
+        "chatgpt",
+        "claude"
+      ],
+      "times_cited": 21,
+      "times_first": 10,
+      "mention": "none",
+      "mention_ok": null,
+      "checked_at": "2026-09-13",
+      "platform": false,
+      "own": false
+    },
+    {
+      "url": "https://forum.example-dev.org/t/skills/123",
+      "host": "forum.example-dev.org",
+      "page_type": "forum",
+      "questions": 10,
+      "engines": [
+        "perplexity",
+        "chatgpt",
+        "claude"
+      ],
+      "times_cited": 15,
+      "times_first": 10,
+      "mention": "unchecked",
+      "mention_ok": null,
+      "checked_at": null,
+      "platform": false,
+      "own": false
+    },
+    {
+      "url": "https://docs.example-assistant.com/custom-instructions",
+      "host": "docs.example-assistant.com",
+      "page_type": "reference",
+      "questions": 15,
+      "engines": [
+        "perplexity",
+        "chatgpt",
+        "claude"
+      ],
+      "times_cited": 19,
+      "times_first": 9,
+      "mention": "none",
+      "mention_ok": null,
+      "checked_at": "2026-09-13",
+      "platform": false,
+      "own": false
+    },
+    {
+      "url": "https://example-prompting.com/voice-guide",
+      "host": "example-prompting.com",
+      "page_type": "unknown",
+      "questions": 11,
+      "engines": [
+        "perplexity",
+        "chatgpt",
+        "claude"
+      ],
+      "times_cited": 13,
+      "times_first": 6,
+      "mention": "none",
+      "mention_ok": null,
+      "checked_at": "2026-09-13",
+      "platform": false,
+      "own": false
+    },
+    {
+      "url": "https://mindmake.co/ctrl",
+      "host": "mindmake.co",
+      "page_type": "unknown",
+      "questions": 2,
+      "engines": [
+        "chatgpt",
+        "claude"
+      ],
+      "times_cited": 3,
+      "times_first": 2,
+      "mention": "unchecked",
+      "mention_ok": null,
+      "checked_at": null,
+      "platform": false,
+      "own": true
+    },
+    {
+      "url": "https://example-business-review.com/2026/ai-drafting",
+      "host": "example-business-review.com",
+      "page_type": "unknown",
+      "questions": 1,
+      "engines": [
+        "perplexity",
+        "chatgpt",
+        "claude"
+      ],
+      "times_cited": 3,
+      "times_first": 2,
+      "mention": "unchecked",
+      "mention_ok": null,
+      "checked_at": null,
+      "platform": false,
+      "own": false
+    },
+    {
+      "url": "https://example-reviews.com/ai-writing-tools-2026",
+      "host": "example-reviews.com",
+      "page_type": "unknown",
+      "questions": 1,
+      "engines": [
+        "perplexity",
+        "chatgpt",
+        "claude"
+      ],
+      "times_cited": 3,
+      "times_first": 2,
+      "mention": "unchecked",
+      "mention_ok": null,
+      "checked_at": null,
+      "platform": false,
+      "own": false
+    },
+    {
+      "url": "https://example-writer-tools.com/blog/style-rules",
+      "host": "example-writer-tools.com",
+      "page_type": "vendor",
+      "questions": 1,
+      "engines": [
+        "perplexity",
+        "chatgpt",
+        "claude"
+      ],
+      "times_cited": 3,
+      "times_first": 2,
+      "mention": "unchecked",
+      "mention_ok": null,
+      "checked_at": null,
+      "platform": false,
+      "own": false
+    },
+    {
+      "url": "https://example-writer-tools.com/guides/style-drift",
+      "host": "example-writer-tools.com",
+      "page_type": "vendor",
+      "questions": 1,
+      "engines": [
+        "perplexity",
+        "chatgpt",
+        "claude"
+      ],
+      "times_cited": 3,
+      "times_first": 2,
+      "mention": "unchecked",
+      "mention_ok": null,
+      "checked_at": null,
+      "platform": false,
+      "own": false
+    },
+    {
+      "url": "https://docs.example-ai-vendor.com/custom-instructions",
+      "host": "docs.example-ai-vendor.com",
+      "page_type": "reference",
+      "questions": 1,
+      "engines": [
+        "perplexity",
+        "chatgpt",
+        "claude"
+      ],
+      "times_cited": 3,
+      "times_first": 1,
+      "mention": "unchecked",
+      "mention_ok": null,
+      "checked_at": null,
+      "platform": false,
+      "own": false
+    },
+    {
+      "url": "https://example-consultancy.com/insights/executive-ai",
+      "host": "example-consultancy.com",
+      "page_type": "unknown",
+      "questions": 1,
+      "engines": [
+        "perplexity",
+        "chatgpt",
+        "claude"
+      ],
+      "times_cited": 3,
+      "times_first": 1,
+      "mention": "unchecked",
+      "mention_ok": null,
+      "checked_at": null,
+      "platform": false,
+      "own": false
+    },
+    {
+      "url": "https://example-productivity.com/ai/consistent-voice",
+      "host": "example-productivity.com",
+      "page_type": "unknown",
+      "questions": 1,
+      "engines": [
+        "perplexity",
+        "chatgpt",
+        "claude"
+      ],
+      "times_cited": 3,
+      "times_first": 1,
+      "mention": "unchecked",
+      "mention_ok": null,
+      "checked_at": null,
+      "platform": false,
+      "own": false
+    },
+    {
+      "url": "https://example-productivity.com/ai/paid-vs-free",
+      "host": "example-productivity.com",
+      "page_type": "listicle",
+      "questions": 1,
+      "engines": [
+        "perplexity",
+        "chatgpt",
+        "claude"
+      ],
+      "times_cited": 3,
+      "times_first": 1,
+      "mention": "unchecked",
+      "mention_ok": null,
+      "checked_at": null,
+      "platform": false,
+      "own": false
+    },
+    {
+      "url": "https://ctrl.mindmake.co/",
+      "host": "ctrl.mindmake.co",
+      "page_type": "vendor",
+      "questions": 1,
+      "engines": [
+        "claude"
+      ],
+      "times_cited": 1,
+      "times_first": 1,
+      "mention": "unchecked",
+      "mention_ok": null,
+      "checked_at": null,
+      "platform": false,
+      "own": true
+    }
+  ]
 }

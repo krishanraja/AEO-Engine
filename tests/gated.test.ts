@@ -15,6 +15,7 @@ import {
   packetFeatures, validatePacket, type AeoPacket,
 } from '../src/schema/packet.js'
 import { PANEL_STATES } from '../src/schema/panel.js'
+import { MENTIONS } from '../src/schema/citedPages.js'
 import { parseAnswerRequests, parseFeatures } from '../src/schema/report.js'
 import { featuredRun, strip } from './golden.js'
 import { ROOT, readJson } from './helpers.js'
@@ -36,6 +37,8 @@ const FIELDS: Record<string, (p: AeoPacket) => boolean> = {
   kits: p => 'kits' in p,
   site: p => 'site' in p,
   run_kind: p => 'run_kind' in p,
+  outcome: p => p.queries.some(q => 'outcome' in q),
+  cited_pages: p => 'cited_pages' in p || (p.kits ?? []).some(k => k.off_site.some(o => 'mention' in o)),
 }
 
 // ---------- the two golden packets ----------
@@ -55,10 +58,11 @@ test('features on, all listed: the packet matches its own golden, and every gate
   for (const [f, has] of Object.entries(FIELDS)) assert.equal(has(p), true, `${f} present`)
   // The closed v1 part is unchanged underneath: drop the gated fields and it is the features-off packet.
   const bare = structuredClone(p) as unknown as Record<string, unknown>
-  for (const k of ['kits', 'site', 'run_kind']) delete bare[k]
+  for (const k of ['kits', 'site', 'run_kind', 'cited_pages']) delete bare[k]
   for (const q of (bare as unknown as AeoPacket).queries) {
     delete (q as unknown as Record<string, unknown>).panel
     delete (q as unknown as Record<string, unknown>).diagnosis
+    delete (q as unknown as Record<string, unknown>).outcome
     for (const x of q.probes) for (const k of ['retrieved', 'searched', 'fan_out', 'our_position', 'name_mentioned', 'samples']) delete (x as unknown as Record<string, unknown>)[k]
   }
   assert.deepEqual(strip(bare as unknown as AeoPacket), strip(OFF()))
@@ -87,7 +91,7 @@ test('validatePacket refuses every field whose feature is not listed, and takes 
   const none = validatePacket(ON())
   assert.equal(none.ok, false)
   const errs = none.ok ? [] : none.errors
-  for (const k of ['retrieved', 'searched', 'fan_out', 'our_position', 'name_mentioned', 'samples', 'panel', 'diagnosis', 'kits', 'site', 'run_kind']) {
+  for (const k of ['retrieved', 'searched', 'fan_out', 'our_position', 'name_mentioned', 'samples', 'panel', 'diagnosis', 'kits', 'site', 'run_kind', 'outcome', 'cited_pages']) {
     assert.ok(errs.some(e => e.includes(`unexpected key "${k}"`)), `${k} refused`)
   }
   for (const f of Object.keys(FIELDS)) {
@@ -153,6 +157,10 @@ test('the TypeScript enums and the JSON schema agree', () => {
   assert.deepEqual(enumOf(props.run_kind), [...RUN_KINDS])
   const gate = ((((props.site.properties as Record<string, Record<string, unknown>>).hosts.items as Record<string, unknown>).properties as Record<string, Record<string, unknown>>).gates.items as Record<string, unknown>).properties as Record<string, Record<string, unknown>>
   assert.deepEqual(enumOf(gate.gate), [...HOST_GATES])
+  assert.deepEqual(enumOf(defs.mention), [...MENTIONS], 'cited-page mentions')
+  assert.deepEqual(((defs.cited_page.properties as Record<string, Record<string, unknown>>).page_type).$ref, '#/$defs/source_type')
+  assert.deepEqual(defs.cited_page.required, ['url', 'host', 'page_type', 'questions', 'engines', 'times_cited', 'times_first', 'mention', 'mention_ok', 'checked_at', 'platform', 'own'])
+  assert.deepEqual(defs.outcome.required, ['url', 'gsc', 'bing', 'ai_referrals'])
 })
 
 // ---------- the cleaning, and a kit that would break a rule ----------

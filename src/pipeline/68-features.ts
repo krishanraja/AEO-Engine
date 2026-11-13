@@ -9,12 +9,14 @@
  * is dropped, an em dash in a URL is percent-encoded, and a kit that would
  * break a packet rule (a repeated kit_id among them) is left out on its own,
  * so it can never stop the packet shipping. A packet question this run did
- * not ask carries the panel Control Center served for it, unchanged.
+ * not ask carries the panel Control Center served for it, unchanged. A kit's
+ * off-site mention fields go only with the cited_pages feature.
  */
 import type { ProbeDetail } from '../lib/probeDetail.js'
 import { CLEAN, EMAIL_RE, HANDLE_RE, scrubPII } from '../lib/text.js'
 import type { Kit } from '../schema/kit.js'
-import { FAN_OUT_CHARS, FAN_OUT_MAX, KITS_MAX, kitErrors, RETRIEVED_MAX, type AeoPacket, type PacketDiagnosis, type PacketQuery, type Probe } from '../schema/packet.js'
+import { CITED_PAGES_MAX, citedPageErrors, FAN_OUT_CHARS, FAN_OUT_MAX, KITS_MAX, kitErrors, RETRIEVED_MAX, type AeoPacket, type PacketDiagnosis, type PacketOutcome, type PacketQuery, type Probe, type RunKind } from '../schema/packet.js'
+import type { CitedPageRow } from '../schema/citedPages.js'
 import type { Panel } from '../schema/panel.js'
 import type { HostAudit } from './15-site.js'
 import { cleanCitation, type ProbeEvidence } from './40-probe.js'
@@ -32,6 +34,12 @@ export interface FeatureInput {
   /** Our hosts' audit, for a subject that was diagnosed. */
   hosts?: readonly HostAudit[] | null
   neverSay?: readonly string[]
+  /** Each tracked answer page's outcome, by question (src/pipeline/63-outcomes.ts). */
+  outcomes?: ReadonlyMap<string, PacketOutcome>
+  /** The venture's cited-pages sheet (src/pipeline/48-cited-pages.ts). */
+  citedPages?: readonly CitedPageRow[] | null
+  /** What kind of run made the packet: research, or verify (src/pipeline/verify.ts). */
+  runKind?: RunKind
 }
 
 /** What the engine's search returned, as the packet may carry it: cleaned, each once, at most RETRIEVED_MAX. */
@@ -82,7 +90,7 @@ function probeWith(p: Probe, d: ProbeDetail | undefined, ev: ProbeEvidence | und
 }
 
 /** The packet with each listed feature's fields attached, and how many kits were left out for breaking a packet rule. */
-export function attachFeatures(packet: AeoPacket, i: FeatureInput): { packet: AeoPacket; kitsDropped: number } {
+export function attachFeatures(packet: AeoPacket, i: FeatureInput): { packet: AeoPacket; kitsDropped: number; rowsDropped?: number } {
   const listed = new Set(i.features)
   const has = (f: string) => listed.has(f)
   const neverSay = i.neverSay ?? []
@@ -92,7 +100,8 @@ export function attachFeatures(packet: AeoPacket, i: FeatureInput): { packet: Ae
     const probes = q.probes.map(p => probeWith(p, details.find(d => d.engine === p.engine), evidence.find(e => e.engine === p.engine), has, neverSay))
     const panel = has('panel') ? i.panels?.get(q.query_id) : undefined
     const diagnosis = has('diagnosis') ? i.diagnoses?.get(q.query_id) : undefined
-    return { ...q, probes, ...(panel ? { panel: { ...panel } } : {}), ...(diagnosis ? { diagnosis: packetDiagnosis(diagnosis) } : {}) }
+    const outcome = has('outcome') ? i.outcomes?.get(q.query_id) : undefined
+    return { ...q, probes, ...(panel ? { panel: { ...panel } } : {}), ...(diagnosis ? { diagnosis: packetDiagnosis(diagnosis) } : {}), ...(outcome ? { outcome: structuredClone(outcome) } : {}) }
   })
   let kitsDropped = 0
   const out: AeoPacket = { ...packet, queries }
@@ -102,8 +111,10 @@ export function attachFeatures(packet: AeoPacket, i: FeatureInput): { packet: Ae
     // kitted questions can share one; the packet refuses a repeat, so only the
     // first (the higher priority, in the kits' order) goes.
     const kitIds = new Set<string>()
-    const kits = i.kits.filter(k => {
-      const ok = kitErrors(k, ids, packet.engines).length === 0 && !kitIds.has(k.kit_id)
+    // A kit's off-site mention fields go only with the cited_pages feature.
+    const shaped = i.kits.map(k => (has('cited_pages') ? k : { ...k, off_site: k.off_site.map(({ mention: _m, mention_ok: _o, ...o }) => o) }))
+    const kits = shaped.filter(k => {
+      const ok = kitErrors(k, ids, packet.engines, [...listed]).length === 0 && !kitIds.has(k.kit_id)
       if (!ok) kitsDropped++
       else kitIds.add(k.kit_id)
       return ok
@@ -111,6 +122,13 @@ export function attachFeatures(packet: AeoPacket, i: FeatureInput): { packet: Ae
     out.kits = kits.slice(0, KITS_MAX)
   }
   if (has('site') && i.hosts) out.site = { hosts: i.hosts.map(h => ({ host: h.host, gates: h.gates.map(g => ({ gate: g.gate, pass: g.pass })) })) }
-  if (has('run_kind')) out.run_kind = 'research'
-  return { packet: out, kitsDropped }
+  if (has('run_kind')) out.run_kind = i.runKind ?? 'research'
+  let rowsDropped = 0
+  if (has('cited_pages') && i.citedPages) {
+    // A row that would break a packet rule is left out on its own, like a kit.
+    const rows = i.citedPages.slice(0, CITED_PAGES_MAX).map(r => ({ ...r, engines: [...r.engines] }))
+    out.cited_pages = rows.filter(r => citedPageErrors(r, packet.engines).length === 0)
+    rowsDropped = rows.length - out.cited_pages.length
+  }
+  return { packet: out, kitsDropped, rowsDropped }
 }

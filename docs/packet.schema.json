@@ -146,7 +146,9 @@
             "properties": {
               "host": { "type": "string", "minLength": 1, "maxLength": 120 },
               "source_type": { "$ref": "#/$defs/source_type" },
-              "engines": { "type": "array", "maxItems": 8, "items": { "$ref": "#/$defs/engine" } }
+              "engines": { "type": "array", "maxItems": 8, "items": { "$ref": "#/$defs/engine" } },
+              "mention": { "$ref": "#/$defs/mention", "description": "Packet feature cited_pages. Whether the pages cited on this host for this question already mention the venture, from the cited-pages sheet; absent when none of them was read." },
+              "mention_ok": { "oneOf": [{ "type": "boolean" }, { "type": "null" }], "description": "Packet feature cited_pages. False when a brand check's must_not phrase is on one of those pages (refresh needed)." }
             }
           }
         },
@@ -163,6 +165,96 @@
           }
         },
         "evidence": { "type": "array", "maxItems": 6, "items": { "type": "string", "minLength": 1, "maxLength": 200 } }
+      }
+    },
+    "mention": { "type": "string", "enum": ["link", "name", "none", "unchecked"] },
+    "gsc_window": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["impressions", "clicks", "position", "from", "to"],
+      "properties": {
+        "impressions": { "type": "integer", "minimum": 0 },
+        "clicks": { "type": "integer", "minimum": 0 },
+        "position": { "oneOf": [{ "type": "number", "minimum": 0 }, { "type": "null" }] },
+        "from": { "$ref": "#/$defs/ymd" },
+        "to": { "$ref": "#/$defs/ymd" }
+      }
+    },
+    "outcome": {
+      "description": "Packet feature outcome. What Control Center's search signals say about the page a kit targets or a venture shipped for this question, over the last 28 days. Each part is null when its signal was not served: unknown, never zero. AI referrals from GA4 and from Clarity are kept apart, never summed.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["url", "gsc", "bing", "ai_referrals"],
+      "properties": {
+        "url": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "gsc": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["impressions", "clicks", "position", "from", "to", "before"],
+              "properties": {
+                "impressions": { "type": "integer", "minimum": 0 },
+                "clicks": { "type": "integer", "minimum": 0 },
+                "position": { "oneOf": [{ "type": "number", "minimum": 0 }, { "type": "null" }] },
+                "from": { "$ref": "#/$defs/ymd" },
+                "to": { "$ref": "#/$defs/ymd" },
+                "before": { "oneOf": [{ "$ref": "#/$defs/gsc_window" }, { "type": "null" }], "description": "The 28 days before the page shipped, when the shipping day is known." }
+              }
+            },
+            { "type": "null" }
+          ]
+        },
+        "bing": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["indexed", "last_crawled"],
+              "properties": {
+                "indexed": { "oneOf": [{ "type": "boolean" }, { "type": "null" }] },
+                "last_crawled": { "$ref": "#/$defs/ymd_or_null" }
+              }
+            },
+            { "type": "null" }
+          ]
+        },
+        "ai_referrals": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["from", "to", "ga4", "clarity"],
+              "properties": {
+                "from": { "$ref": "#/$defs/ymd" },
+                "to": { "$ref": "#/$defs/ymd" },
+                "ga4": { "oneOf": [{ "type": "integer", "minimum": 0 }, { "type": "null" }] },
+                "clarity": { "oneOf": [{ "type": "integer", "minimum": 0 }, { "type": "null" }] }
+              }
+            },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "cited_page": {
+      "description": "Packet feature cited_pages. One page the assistants cite for the venture's tracked questions, and whether it already mentions the venture (docs/PACKET.md, The cited-pages sheet).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["url", "host", "page_type", "questions", "engines", "times_cited", "times_first", "mention", "mention_ok", "checked_at", "platform", "own"],
+      "properties": {
+        "url": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "host": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "page_type": { "$ref": "#/$defs/source_type" },
+        "questions": { "type": "integer", "minimum": 0 },
+        "engines": { "type": "array", "maxItems": 8, "uniqueItems": true, "items": { "$ref": "#/$defs/engine" } },
+        "times_cited": { "type": "integer", "minimum": 0 },
+        "times_first": { "type": "integer", "minimum": 0 },
+        "mention": { "$ref": "#/$defs/mention" },
+        "mention_ok": { "oneOf": [{ "type": "boolean" }, { "type": "null" }] },
+        "checked_at": { "$ref": "#/$defs/ymd_or_null" },
+        "platform": { "type": "boolean" },
+        "own": { "type": "boolean" }
       }
     },
     "kind": { "type": "string", "enum": ["venture", "prospect", "aspiration"] },
@@ -231,7 +323,8 @@
         "touchpoint_id": { "oneOf": [{ "$ref": "#/$defs/uuid" }, { "type": "null" }] },
         "probes": { "type": "array", "maxItems": 8, "items": { "$ref": "#/$defs/probe" } },
         "panel": { "$ref": "#/$defs/panel" },
-        "diagnosis": { "$ref": "#/$defs/diagnosis" }
+        "diagnosis": { "$ref": "#/$defs/diagnosis" },
+        "outcome": { "$ref": "#/$defs/outcome" }
       }
     }
   },
@@ -417,6 +510,7 @@
         }
       }
     },
-    "run_kind": { "type": "string", "enum": ["research", "verify"], "description": "Packet feature run_kind. A verify run re-asks shipped questions only and is never counted in the share." }
+    "run_kind": { "type": "string", "enum": ["research", "verify"], "description": "Packet feature run_kind. A verify run re-asks shipped questions only and is never counted in the share." },
+    "cited_pages": { "type": "array", "maxItems": 50, "items": { "$ref": "#/$defs/cited_page" }, "description": "Packet feature cited_pages. The venture's cited-pages sheet: the pages the assistants cite for its questions, ranked by times first, then times cited, then questions, then URL. Its own pages and general platforms are kept and flagged, never outreach targets." }
   }
 }

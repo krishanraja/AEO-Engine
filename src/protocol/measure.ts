@@ -23,6 +23,20 @@ import type { ProbeDetail } from '../lib/probeDetail.js'
 import type { AeoPacket, SubjectKind } from '../schema/packet.js'
 import { KIT_BACKUPS_MAX, type GapClass, type KitCandidate, type SiteCounts, type SubjectDiagnosis } from '../schema/kit.js'
 import type { SubjectPanel } from '../schema/panel.js'
+import type { BrandSummary } from '../schema/brand.js'
+import type { CitedPagesCounts } from '../schema/citedPages.js'
+import type { OutcomeCounts } from '../schema/outcome.js'
+
+/**
+ * What a venture's run measured beyond the packet (src/pipeline/run.ts,
+ * SubjectMore): its brand checks, its cited-pages sheet in counts and its
+ * outcomes in counts; and, on a verify run, the payload's questions this
+ * subject found and asked.
+ */
+export interface SubjectMoreSummary { brand?: BrandSummary; cited_pages?: CitedPagesCounts; outcomes?: OutcomeCounts; verify?: VerifySubject }
+
+/** A verify run's subject: the payload's query ids found in its last research packet, and those put to an engine. */
+export interface VerifySubject { found: string[]; asked: number; samples: number }
 
 /**
  * One engine's answers in a subject, as counts: answered, searched, cited no
@@ -114,11 +128,25 @@ export interface SubjectSummary {
    * aspiration, or a summary written before 2026-11-13's panel change.
    */
   panel?: SubjectPanel
+  /**
+   * The brand checks (stage 42): counts, and each check's pass or fail by
+   * engine with the check's own phrases, never an answer. The questions are
+   * sealed like the kit candidate. Absent: none served.
+   */
+  brand_checks?: BrandSummary
+  /** The cited-pages sheet in counts (stage 48). A venture only. */
+  cited_pages?: CitedPagesCounts
+  /** The outcomes in counts (stage 63). A venture only. */
+  outcomes?: OutcomeCounts
+  /** A verify run only: the payload's questions this subject found and asked. */
+  verify?: VerifySubject
 }
 
 /** One research job's output: one subject in the workflow, any number locally. */
 export interface RunSummary {
   v: 1
+  /** A verify run's summary says so; absent is a research run. */
+  kind?: 'research' | 'verify'
   subject_arg: string
   week_start: string
   generated_at: string
@@ -247,7 +275,7 @@ function diagnosisOf(x: SubjectDiagnosis | undefined): Partial<SubjectSummary> {
   }
 }
 
-export function summariseSubject(packet: AeoPacket, domains: readonly string[], served: readonly string[] = [], details: readonly ProbeDetail[] = [], unserved = 0, extras?: SubjectExtras, diagnosis?: SubjectDiagnosis, panel?: SubjectPanel): SubjectSummary {
+export function summariseSubject(packet: AeoPacket, domains: readonly string[], served: readonly string[] = [], details: readonly ProbeDetail[] = [], unserved = 0, extras?: SubjectExtras, diagnosis?: SubjectDiagnosis, panel?: SubjectPanel, more?: SubjectMoreSummary): SubjectSummary {
   const c = countCitedFirst(packet, domains, details)
   const d = countDetails(details, packet.engines)
   const majority = countMajorityFirst(packet, details)
@@ -269,6 +297,10 @@ export function summariseSubject(packet: AeoPacket, domains: readonly string[], 
     ...extrasOf(extras),
     ...diagnosisOf(diagnosis),
     ...(panel && packet.subject.kind !== 'aspiration' ? { panel } : {}),
+    ...(more?.brand ? { brand_checks: more.brand } : {}),
+    ...(more?.cited_pages && packet.subject.kind === 'venture' ? { cited_pages: { ...more.cited_pages } } : {}),
+    ...(more?.outcomes && packet.subject.kind === 'venture' ? { outcomes: more.outcomes } : {}),
+    ...(more?.verify ? { verify: { ...more.verify, found: [...more.verify.found] } } : {}),
   }
 }
 
@@ -332,16 +364,18 @@ export function buildRunSummary(i: {
   capUsd: number
   spentUsd: number
   maxProbeUsd: number
-  results: ReadonlyArray<{ packet: AeoPacket; domains: readonly string[]; served?: readonly string[]; details?: readonly ProbeDetail[]; unserved?: number; extras?: SubjectExtras; diagnosis?: SubjectDiagnosis; panel?: SubjectPanel }>
+  results: ReadonlyArray<{ packet: AeoPacket; domains: readonly string[]; served?: readonly string[]; details?: readonly ProbeDetail[]; unserved?: number; extras?: SubjectExtras; diagnosis?: SubjectDiagnosis; panel?: SubjectPanel; more?: SubjectMoreSummary }>
   failures: ReadonlyArray<{ slug: string; kind: SubjectKind | null }>
   errorCode: string | null
   /** Web search requests the Claude probes reported (UsageMeter.searchesBy('aeo-probe')). */
   searchRequests?: number
   claudeLane?: string
   subscription?: { calls: number; tokens: number }
+  kind?: 'research' | 'verify'
 }): RunSummary {
   return {
     v: 1,
+    ...(i.kind === 'verify' ? { kind: 'verify' as const } : {}),
     subject_arg: i.subjectArg,
     week_start: i.weekStart,
     generated_at: i.now.toISOString(),
@@ -350,7 +384,7 @@ export function buildRunSummary(i: {
     spent_usd: i.spentUsd,
     max_probe_usd: i.maxProbeUsd,
     error_code: i.errorCode,
-    subjects: [...i.results.map(r => summariseSubject(r.packet, r.domains, r.served ?? [], r.details ?? [], r.unserved ?? 0, r.extras, r.diagnosis, r.panel)), ...i.failures.map(f => failedSubject(f.slug, f.kind))],
+    subjects: [...i.results.map(r => summariseSubject(r.packet, r.domains, r.served ?? [], r.details ?? [], r.unserved ?? 0, r.extras, r.diagnosis, r.panel, r.more)), ...i.failures.map(f => failedSubject(f.slug, f.kind))],
     ...(typeof i.searchRequests === 'number' ? { search_requests: i.searchRequests } : {}),
     ...(i.claudeLane ? { claude_lane: i.claudeLane } : {}),
     ...(i.subscription && i.subscription.calls > 0 ? { subscription_calls: i.subscription.calls, subscription_tokens: i.subscription.tokens } : {}),

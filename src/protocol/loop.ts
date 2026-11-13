@@ -21,7 +21,8 @@
 import { GrowthEngineHttp, ProtocolError } from '../clients/growthEngine.js'
 import { errText, log } from '../lib/log.js'
 import { validateReport, type Attempt, type Decision, type Directive, type EngineReport } from '../schema/report.js'
-import { buildDirectiveReport, buildResearchReport, CHECKIN_PREFIX, DECISIONS_LOOKBACK_DAYS, KIT_PROPOSAL_PREFIX, pendingKitOf, researchRunId, STALE_DAYS, type Envelope, type ResearchInput, type StateContext, type StoredResearch } from './reports.js'
+import { buildDirectiveReport, buildResearchReport, buildVerifyReport, CHECKIN_PREFIX, DECISIONS_LOOKBACK_DAYS, KIT_PROPOSAL_PREFIX, pendingKitOf, researchRunId, STALE_DAYS, type Envelope, type ResearchInput, type StateContext, type StoredResearch, type VerifyReportInput } from './reports.js'
+import { VERIFY_EPOCH, VERIFY_PLAN_ID, VERIFY_PREFIX } from './verify.js'
 import { readRepoState } from './state.js'
 
 export type Client = Pick<GrowthEngineHttp, 'postAttempt' | 'getDirective' | 'postReport' | 'getReport' | 'getDecisions' | 'getRecentReports'>
@@ -130,7 +131,7 @@ async function terminal(c: Client, a: Attempt, status: 'succeeded' | 'failed', p
  * Null when they could not be read; a bearer that is refused is thrown, as
  * everywhere else here. Counts only in the log.
  */
-async function decisionsSince(c: Client, now: Date, days: number): Promise<Decision[] | null> {
+export async function decisionsSince(c: Pick<Client, 'getDecisions'>, now: Date, days: number): Promise<Decision[] | null> {
   try {
     return await c.getDecisions(new Date(now.getTime() - days * DAY_MS).toISOString())
   } catch (e) {
@@ -147,7 +148,7 @@ async function decisionsSince(c: Client, now: Date, days: number): Promise<Decis
  * run's own report (a re-run of its report job), so a rebuild reads what the
  * first build read.
  */
-async function lastResearch(c: Client, mode: 'live' | 'synthetic', from: Date, skipRunId?: string): Promise<{ last: StoredResearch | null; error: string | null }> {
+export async function lastResearch(c: Pick<Client, 'getReport'>, mode: 'live' | 'synthetic', from: Date, skipRunId?: string): Promise<{ last: StoredResearch | null; error: string | null }> {
   for (let back = 0; back <= STALE_DAYS; back++) {
     const id = researchRunId(ymd(new Date(from.getTime() - back * DAY_MS)))
     if (id === skipRunId) continue
@@ -218,15 +219,23 @@ export async function runDirective(c: Client, o: DirectiveOpts): Promise<LoopOut
     // decisions_since covers seven days, a kit lives about fourteen, and a
     // kit plan he approved is checked in on for six weeks (PLAN_OPEN_DAYS),
     // so the read goes back as far as the research run's.
+    // One read reaches back to the verify plan's first day too, so his No on
+    // it is never forgotten (src/protocol/verify.ts); the rest of the report
+    // reads the usual window of it.
     phase = 'decisions_read'
-    const decisions = await decisionsSince(c, started, Math.max(STALE_DAYS + 1, DECISIONS_LOOKBACK_DAYS))
+    const window = Math.max(STALE_DAYS + 1, DECISIONS_LOOKBACK_DAYS)
+    const sinceEpoch = Math.ceil((started.getTime() - Date.parse(VERIFY_EPOCH)) / DAY_MS) + 1
+    const all = await decisionsSince(c, started, Math.max(window, sinceEpoch))
+    const cutoff = started.getTime() - window * DAY_MS
+    const decisions = all ? all.filter(d => !(Date.parse(d.decided_at) < cutoff)) : null
+    const verifyDecisions = all ? all.filter(d => d.proposal_id === VERIFY_PLAN_ID || d.proposal_id.startsWith(VERIFY_PREFIX)) : null
 
     phase = 'state'
     const state = await stateContext(c, served, o)
 
     phase = 'report'
     const env: Envelope = { runId, mode: o.mode, observedAt: now(), revision: o.revision, capturedAt: started, state }
-    const report = buildDirectiveReport({ ...env, directive, directiveError, last, lastError, decisions, kitsDelivered: served?.features?.aeo_kits_delivered === true })
+    const report = buildDirectiveReport({ ...env, directive, directiveError, last, lastError, decisions, verifyDecisions, kitsDelivered: served?.features?.aeo_kits_delivered === true })
     const { replayed } = await deliver(c, report)
 
     phase = 'decisions'
@@ -245,8 +254,8 @@ export async function runDirective(c: Client, o: DirectiveOpts): Promise<LoopOut
 export interface ResearchIds { attemptId: string; runId: string; startedAt: string }
 
 /** In the plan job, before the subject list is read. */
-export async function startResearch(c: Client, ids: ResearchIds): Promise<{ ok: boolean; code: string | null }> {
-  const attempt: Attempt = { attempt_id: ids.attemptId, command: 'research', run_id: ids.runId, status: 'started', phase: 'plan', error_code: null, started_at: ids.startedAt }
+export async function startResearch(c: Client, ids: ResearchIds, command: 'research' | 'verify' = 'research'): Promise<{ ok: boolean; code: string | null }> {
+  const attempt: Attempt = { attempt_id: ids.attemptId, command, run_id: ids.runId, status: 'started', phase: 'plan', error_code: null, started_at: ids.startedAt }
   try {
     await c.postAttempt(attempt)
     log('protocol_attempt', { attempt_id: ids.attemptId, status: 'started' })
@@ -310,6 +319,48 @@ export async function finishResearch(c: Client, ids: ResearchIds, input: Omit<Re
     // The report landed; the attempt still says whether the research did.
     const failedWork = input.planError ? input.planError : report.status === 'degraded' ? 'subject_failed' : null
     await terminal(c, attempt, failedWork ? 'failed' : 'succeeded', failedWork ? 'research' : 'done', failedWork, now)
+    return { status: failedWork ? 'failed' : 'succeeded', error_code: failedWork, report, replayed }
+  } catch (e) {
+    const code = codeOf(e, `${phase}_failed`)
+    if (!(e instanceof ProtocolError)) log('protocol_error', { phase, error: errText(e).replace(/Bearer\s+\S+/g, 'Bearer [redacted]') })
+    await terminal(c, attempt, 'failed', phase, code, now)
+    return { status: 'failed', error_code: code, report: null, replayed: null }
+  }
+}
+
+/**
+ * The verify run's report job (src/protocol/verify.ts): the directive for
+ * the engine's state, the verify report, its readback, his decisions and the
+ * terminal attempt. The report is POSTed once; a 409 is read back, never
+ * retried blindly. Its run_id is the verify run's own, apart from the
+ * research run's.
+ */
+export async function finishVerify(c: Client, ids: ResearchIds, input: Omit<VerifyReportInput, 'runId'>, now: () => Date = () => new Date(), o: StateOpts = {}): Promise<LoopOutcome> {
+  const attempt: Attempt = { attempt_id: ids.attemptId, command: 'verify', run_id: ids.runId, status: 'started', phase: 'plan', error_code: null, started_at: ids.startedAt }
+  let phase = 'directive'
+  try {
+    let served: Directive | null = null
+    try {
+      const d = await c.getDirective()
+      served = d.directive
+      log('protocol_directive', directiveLog(d.directive, d.chosen_by))
+    } catch (e) {
+      const code = codeOf(e, 'directive_unavailable')
+      if (code === 'unauthorized' || code === 'forbidden') throw e
+      log('protocol_directive_unavailable', { code })
+    }
+    phase = 'state'
+    // The state lines only: a verify run acks no instruction, which asks for research.
+    const ctx = await stateContext(c, served, o)
+    const state = ctx ? { ...ctx, instruction: null } : null
+    phase = 'report'
+    const report = buildVerifyReport({ ...input, runId: ids.runId, state, runPage: input.runPage ?? o.evidenceUrl ?? null })
+    const { replayed } = await deliver(c, report)
+    phase = 'decisions'
+    await readDecisions(c, report, now())
+    const failedWork = input.planError ? input.planError : report.status === 'degraded' ? 'subject_failed' : null
+    await terminal(c, attempt, failedWork ? 'failed' : 'succeeded', failedWork ? 'verify' : 'done', failedWork, now)
+    log('protocol_verify', { run_id: ids.runId, events: report.events.length, closed: report.events.some(e => e.proposal_id?.startsWith(VERIFY_PREFIX)) })
     return { status: failedWork ? 'failed' : 'succeeded', error_code: failedWork, report, replayed }
   } catch (e) {
     const code = codeOf(e, `${phase}_failed`)

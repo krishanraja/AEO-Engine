@@ -14,13 +14,37 @@ import { FIXTURES } from './helpers.js'
 export const GOLDEN_WEEK = '2026-09-07'
 export const GOLDEN_NOW = new Date('2026-09-13T10:00:00Z')
 
+/**
+ * Synthetic search signals for the venture's two kit target pages (brief
+ * section C), so the outcome field is exercised: Search Console rows inside
+ * and outside the 28 days ending on GOLDEN_NOW, Bing URL information for one
+ * page, and AI referrals from GA4 and from Clarity, kept apart.
+ */
+export const SYNTHETIC_SIGNALS = {
+  gsc_queries: [
+    { query: 'personal ai writing style', page: 'https://ctrl.mindmake.co/answers/personal-ai-writing-style', impressions: 120, clicks: 6, position: 7.5, date_from: '2026-09-01', date_to: '2026-09-07' },
+    { query: 'ai writing style', page: 'https://ctrl.mindmake.co/answers/personal-ai-writing-style/', impressions: 40, clicks: 1, position: 11.5, date_from: '2026-09-08', date_to: '2026-09-12' },
+    { query: 'old reading', page: 'https://ctrl.mindmake.co/answers/personal-ai-writing-style', impressions: 500, clicks: 50, position: 3, date_from: '2026-07-01', date_to: '2026-07-31' },
+    { query: 'style guide for an ai assistant', page: 'https://www.ctrl.mindmake.co/blog/style-guide-for-an-ai-assistant?utm_source=x', impressions: 0, clicks: 0, position: 0, date_from: '2026-09-02', date_to: '2026-09-02' },
+  ],
+  bing: { url_info: [{ url: 'https://ctrl.mindmake.co/answers/personal-ai-writing-style', indexed: true, last_crawled: '2026-09-10T08:00:00Z' }] },
+  ai_referrals: [
+    { landing_page: '/answers/personal-ai-writing-style', source: 'chatgpt.com', sessions: 3, date: '2026-09-09', via: 'ga4' },
+    { landing_page: 'https://ctrl.mindmake.co/answers/personal-ai-writing-style', source: 'perplexity.ai', sessions: 2, date: '2026-09-11', via: 'clarity' },
+    { landing_page: '/answers/personal-ai-writing-style', source: 'chatgpt.com', sessions: 9, date: '2026-07-01', via: 'ga4' },
+  ],
+}
+
 class FeaturedContext extends OfflineControlCenter {
   constructor(dir: string, private readonly features: readonly string[], private readonly edit?: (ctx: AeoContext) => void) { super(dir) }
   override async getContext(): Promise<AeoContext> {
     const ctx = structuredClone(await super.getContext())
     ctx.packet_features = [...this.features]
     const ctrl = ctx.subjects.find(s => s.slug === 'ctrl')
-    if (ctrl) ctrl.brand_names = ['Mindmake']
+    if (ctrl) {
+      ctrl.brand_names = ['Mindmake']
+      ctrl.search_signals = SYNTHETIC_SIGNALS
+    }
     this.edit?.(ctx)
     return ctx
   }

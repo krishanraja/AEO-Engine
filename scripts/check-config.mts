@@ -12,6 +12,7 @@ import { parseSubjectsConfig } from '../src/config/subjects.js'
 import { SITE_FETCH, SITE_USER_AGENT } from '../src/clients/site.js'
 import { CHILD_ENV_KEYS, childEnv } from '../src/clients/claudeCode.js'
 import { ENGINES_ALL, GATED_ENGINES } from '../src/schema/packet.js'
+import { VERIFY_HARD_MAX_USD } from '../src/schema/verify.js'
 
 const failures: string[] = []
 
@@ -28,6 +29,10 @@ for (const [k, v] of Object.entries(PRICE_USD_PER_CALL)) {
 if (CAPS.MAX_PROBED_QUERIES_HARD < CAPS.MAX_PROBED_QUERIES_PER_SUBJECT) failures.push('CAPS.MAX_PROBED_QUERIES_HARD must be at least CAPS.MAX_PROBED_QUERIES_PER_SUBJECT')
 if (CAPS.MAX_PROPOSED_QUERIES < CAPS.MAX_PROBED_QUERIES_HARD) failures.push('CAPS.MAX_PROPOSED_QUERIES must hold the hard probe ceiling, requests included')
 if (!Number.isInteger(CAPS.CLAUDE_API_SEARCH_MAX_USES)) failures.push('CAPS.CLAUDE_API_SEARCH_MAX_USES must be a whole number of searches')
+// The verify lane (src/protocol/verify.ts): a small off-week spend, never above 5 dollars a run.
+if (!(CAPS.VERIFY_MAX_USD > 0 && CAPS.VERIFY_MAX_USD <= 5)) failures.push(`CAPS.VERIFY_MAX_USD must be positive and at most 5, got ${String(CAPS.VERIFY_MAX_USD)}`)
+if (VERIFY_HARD_MAX_USD > 5 || CAPS.VERIFY_MAX_USD > VERIFY_HARD_MAX_USD) failures.push('the verify lane\'s hard ceiling (src/schema/verify.ts) must be at most 5 and at least CAPS.VERIFY_MAX_USD')
+if (!Number.isInteger(CAPS.VERIFY_MAX_QUESTIONS) || CAPS.VERIFY_MAX_QUESTIONS > 10) failures.push('CAPS.VERIFY_MAX_QUESTIONS must be a whole number, at most 10')
 // Gemini inside its free tier, as the code and the workflow enforce it: the
 // per-job share, plus the one answer that can run past it (GeminiClient stops
 // when the queries used plus the most one answer has used would pass the cap,
@@ -118,7 +123,8 @@ for (const root of ['src', 'docs', 'config']) {
 const noFlags = ['--' + 'bare', 'dangerously' + '-skip-permissions']
 // Search data reaches this engine only through Control Center: no workflow or
 // source file names a search or analytics credential of its own.
-const noSearchKeys = ['BING_ANALYTICS_API_KEY', 'GA4_', 'GSC_', 'SEARCH_CONSOLE']
+// Clarity too (Krish, 2026-11-13): its export token and its host stay in Control Center.
+const noSearchKeys = ['BING_ANALYTICS_API_KEY', 'GA4_', 'GSC_', 'SEARCH_CONSOLE', 'CLARITY_', 'clarity.ms']
 for (const root of ['src', '.github/workflows']) {
   for (const file of walk(root)) {
     const text = readFileSync(file, 'utf8')
@@ -173,6 +179,19 @@ try {
   for (const v of nodes) if (v < CLAUDE_CODE_MIN_NODE) failures.push(`${researchWorkflow}: the research job runs Node ${v}; the pinned Claude Code CLI needs Node ${CLAUDE_CODE_MIN_NODE} or later`)
   // Each attempt tells the run which it is, so a retry asks no Gemini.
   if (!/AEO_ATTEMPT="?\$attempt"?/.test(researchJob)) failures.push(`${researchWorkflow}: the research job's attempts do not set AEO_ATTEMPT, so a retry would start a second Gemini free-tier share`)
+  // The verify path (src/protocol/verify.ts) names no secret the research
+  // job does not already hold: the plan job's verify steps and the report job.
+  const secretsIn = (text: string) => new Set([...text.matchAll(/secrets\.([A-Z0-9_]+)/g)].map(m => m[1]))
+  const planJob = wf.match(/\n {2}plan:\n([\s\S]*?)(?=\n {2}[a-z][a-z0-9_-]*:\n|$)/)?.[1] ?? ''
+  const reportJob = wf.match(/\n {2}report:\n([\s\S]*?)(?=\n {2}[a-z][a-z0-9_-]*:\n|$)/)?.[1] ?? ''
+  const verifySteps = planJob.split(/\n(?=\s*- (?:name|uses|if|run):)/).filter(step => /verify/i.test(step))
+  if (!verifySteps.some(step => /npm run --silent verify -- decide/.test(step))) failures.push(`${researchWorkflow}: the plan job does not read Krish's decision on the verify run (npm run verify -- decide)`)
+  const held = secretsIn(researchJob)
+  for (const name of new Set([...verifySteps.flatMap(step => [...secretsIn(step)]), ...secretsIn(reportJob)])) {
+    if (!held.has(name)) failures.push(`${researchWorkflow}: the verify path names ${name}, which the research job does not hold`)
+  }
+  if (!/--mode verify --verify-payload out\/verify-payload\.json/.test(researchJob)) failures.push(`${researchWorkflow}: the research job does not run a verify with the plan job's payload`)
+  if (!/attempts="1"/.test(researchJob)) failures.push(`${researchWorkflow}: a verify run must make one attempt; a verify spend is never retried blindly`)
 } catch {
   failures.push(`${researchWorkflow} is missing`)
 }
@@ -182,4 +201,4 @@ if (failures.length) {
   for (const f of failures) console.error(`- ${f}`)
   process.exit(1)
 }
-console.log(`check:config passed: engines ${ENGINES.join(', ')}; caps positive; subscription kinds at 0; Gemini inside its free tier on one attempt a job; childEnv an allowlist; ${ownDomainsFile} and ${subjectsFile} valid; the site reader fetches only (no browser package, redirect manual, a budget, an honest User-Agent); no em dash in src/, docs/ or config/; no permission-skipping flag and no search key in src/ or the workflows; the directive workflow holds no paid key or token; the research workflow uploads no packet, reads our hosts once in its site job, pins the CLI and runs it on the Node it needs.`)
+console.log(`check:config passed: engines ${ENGINES.join(', ')}; caps positive; subscription kinds at 0; Gemini inside its free tier on one attempt a job; childEnv an allowlist; ${ownDomainsFile} and ${subjectsFile} valid; the site reader fetches only (no browser package, redirect manual, a budget, an honest User-Agent); no em dash in src/, docs/ or config/; no permission-skipping flag and no search key in src/ or the workflows; the directive workflow holds no paid key or token; the research workflow uploads no packet, reads our hosts once in its site job, pins the CLI and runs it on the Node it needs; the verify lane is capped at ${CAPS.VERIFY_MAX_USD} dollars (at most 5), runs once and names no secret the research job does not hold.`)

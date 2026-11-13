@@ -175,6 +175,21 @@ export const CAPS = {
   THIRD_PARTY_MAX_PAGES_PER_HOST: 3,
   /** A page of ours answers a question when this share of the question's words is in its title and H1. */
   PAGE_MATCH_MIN: 0.35,
+  /**
+   * The verify lane (src/protocol/verify.ts): the most an off-week verify run
+   * may ask Krish to spend, in whole dollars, and the most questions it
+   * re-asks. check:config holds the amount positive and at most 5.
+   */
+  VERIFY_MAX_USD: 3,
+  VERIFY_MAX_QUESTIONS: 10,
+  /** Brand-accuracy checks a subject asks a research run, each once on every packet engine (src/pipeline/42-brand.ts). */
+  BRAND_CHECKS_PER_SUBJECT: 3,
+  /** The cited-pages sheet (src/pipeline/48-cited-pages.ts): rows a venture keeps, pages checked for a mention a run, and per host. */
+  CITED_PAGES_PER_SUBJECT: 50,
+  MENTION_CHECKS_PER_SUBJECT: 20,
+  MENTION_CHECKS_PER_HOST: 3,
+  /** The outcome window on Control Center's search signals (src/pipeline/63-outcomes.ts), in days. */
+  OUTCOME_WINDOW_DAYS: 28,
 } as const
 
 /**

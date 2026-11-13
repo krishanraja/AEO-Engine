@@ -39,6 +39,9 @@ function input(subjects: SubjectSummary[], over: Partial<ResearchInput> = {}): R
   return { runId: 'aeo:2026-11-22:research', mode: 'synthetic', observedAt: NOW, revision: 'abc', capturedAt: new Date('2026-11-22T04:00:00Z'), scope: 'all', expected: subjects.map(s => s.slug), summaries: subjects.map(s => summary([s])), totalCapUsd: 25, planError: null, ...over }
 }
 
+/** The asks beside the verify lane's (tests/verify.test.ts covers those): an approved kit plan makes the standing verify plan due. */
+const kitAsks = (ps: EngineReport['proposals']) => ps.filter(p => !p.proposal_id.startsWith('aeo:verify'))
+
 function assertValid(r: EngineReport): void {
   assert.deepEqual(schemaErrors(SCHEMA, r), [], 'schema')
   assert.deepEqual(validateReport(r), { ok: true })
@@ -85,8 +88,9 @@ test('research report: exactly one kit, the highest priority across ventures tha
   assert.equal(kits[0].proposal_id, 'aeo:kit:heartside:aaaaaaa3')
   const lines = r.activity.map(a => a.line)
   assert.ok(lines.includes('One win kit is on Krish\'s list, for heartside; the next research run checks it.'))
-  assert.ok(lines.includes('Why heartside\'s questions are not won: 1 won, 2 cited not first, 3 retrieved not cited, 4 with a page not retrieved, 15 with no page; 9 win kits prepared.'))
-  assert.ok(lines.includes('Why legibility\'s questions are not won: 1 won, 2 cited not first, 3 retrieved not cited, 4 with a page not retrieved, 15 with no page; held, so no kit.'))
+  // Each venture's line goes on with its AI referrals (src/protocol/reports.ts, ventureMeasures).
+  assert.ok(lines.includes('Why heartside\'s questions are not won: 1 won, 2 cited not first, 3 retrieved not cited, 4 with a page not retrieved, 15 with no page; 9 win kits prepared. AI referrals: unknown (no search signals served).'))
+  assert.ok(lines.includes('Why legibility\'s questions are not won: 1 won, 2 cited not first, 3 retrieved not cited, 4 with a page not retrieved, 15 with no page; held, so no kit. AI referrals: unknown (no search signals served).'))
   assert.ok(lines.includes('Why the questions of 1 prospect are not won by Mindmake\'s pages: 1 won, 2 cited not first, 3 retrieved not cited, 4 with a page not retrieved, 15 with no page.'))
   const text = JSON.stringify({ ...r, proposals: r.proposals.filter(p => !kits.includes(p)) })
   assert.ok(!text.includes(QUESTION), 'the question only inside the kit')
@@ -144,7 +148,8 @@ test('daily report: carries the kit until he decides, drops it on a decline or a
 
   const approved = buildDirectiveReport({ ...dayBase(new Date('2026-11-24T05:12:00Z')), directive: directive([{ proposal_id: kit.proposal_id, decision: 'approved', decided_at: '2026-11-23T09:00:00Z', payload_sha256: kit.payload_sha256 }]), last })
   assertValid(approved)
-  assert.deepEqual(approved.proposals, [])
+  assert.deepEqual(kitAsks(approved.proposals), [])
+  assert.deepEqual(approved.proposals.map(p => p.proposal_id), ['aeo:verify-plan:v1'], 'an approved kit plan makes the standing verify plan due')
   assert.ok(approved.activity.some(a => /Krish approved "Win '.*' for ctrl" on 2026-11-23\. This engine still changes nothing behind a wall; a kit ships through the product's build session or its growth engine, never from here\./.test(a.line)))
 
   const older = buildDirectiveReport({ ...dayBase(new Date('2026-11-24T05:12:00Z')), directive: directive([{ proposal_id: kit.proposal_id, decision: 'declined', decided_at: '2026-11-23T09:00:00Z', payload_sha256: '0'.repeat(64) }]), last })
@@ -177,7 +182,7 @@ test('stand-in: the research report lands with one kit, the next day\'s report c
     s.decisions = [{ proposal_id: kits[0].proposal_id, decision: 'approved', decided_at: '2026-11-23T05:00:00Z', payload_sha256: kits[0].payload_sha256 }]
     const daily = await captureStderr(() => runDirective(c, { mode: 'synthetic', revision: 'abc', attemptId: 'aeo:2026-11-23:directive:2.1', now: () => day, wake: 'w2' }))
     assert.equal(daily.result.status, 'succeeded')
-    assert.deepEqual(daily.result.report?.proposals, [], 'dropped: his decision is read before the report, even before the directive serves it')
+    assert.deepEqual(kitAsks(daily.result.report?.proposals ?? []), [], 'dropped: his decision is read before the report, even before the directive serves it')
     assert.match(daily.text, /"event":"protocol_decisions".*"kits_approved":1,"check_ins_declined":0,"acted_on":0/)
     assert.ok(!daily.text.includes(QUESTION))
   } finally {

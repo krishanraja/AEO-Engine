@@ -73,7 +73,36 @@ export interface PriorWeek {
   watch_list: Array<{ query_id?: string; query: string; why?: string }>
   queries: PriorQuery[]
   recommendations: Array<{ title?: string; target_query?: string; query_id?: string }>
+  /**
+   * Optional (brief section J): the cited-pages sheet Control Center holds
+   * for this venture, its AEO-owned columns as this engine last sent them.
+   * Read loosely by normalised URL (src/pipeline/48-cited-pages.ts); without
+   * it no mention is said to have been acquired or lost.
+   */
+  cited_pages?: Array<{ url?: unknown; mention?: unknown }>
 }
+
+/**
+ * Control Center's search signals for a subject (brief section C), read
+ * loosely (src/pipeline/63-outcomes.ts). Keys stay in Control Center; this
+ * engine holds no Search Console, Bing, GA4 or Clarity credential. Missing
+ * is unknown, never zero.
+ */
+export interface SearchSignals {
+  gsc_queries?: Array<{ query?: unknown; page?: unknown; impressions?: unknown; clicks?: unknown; position?: unknown; date_from?: unknown; date_to?: unknown }> | null
+  bing?: { queries?: unknown; pages?: unknown; url_info?: Array<{ url?: unknown; indexed?: unknown; last_crawled?: unknown }> | null; crawl_issues?: unknown; keyword_volume?: unknown } | null
+  /** AI-assistant referrals, each row from GA4 or Clarity (`via`); never summed across the two, which count differently. */
+  ai_referrals?: Array<{ landing_page?: unknown; source?: unknown; sessions?: unknown; date?: unknown; via?: unknown }> | null
+  /** The first shape the brief named: GA4 rows only, read as via ga4. */
+  ga4_ai_referrals?: Array<{ landing_page?: unknown; source?: unknown; sessions?: unknown; date?: unknown }> | null
+}
+
+/**
+ * One brand-accuracy check (brief section B6): a question, phrases an answer
+ * must never use about the brand, and phrases it must use. Control Center
+ * serves them; read loosely (src/pipeline/42-brand.ts).
+ */
+export interface BrandCheckSpec { question: string; must_not: string[]; must: string[] }
 
 export interface ContextSubject {
   id: string
@@ -107,6 +136,10 @@ export interface ContextSubject {
    * mention. Absent or empty: unknown, and every probe's name_mentioned is null.
    */
   brand_names?: string[]
+  /** Optional: read-only search signals for outcomes (brief section C). Absent: every outcome is unknown. */
+  search_signals?: SearchSignals | null
+  /** Optional: brand-accuracy checks (brief section B6), at most three asked a research run. */
+  brand_checks?: BrandCheckSpec[] | null
 }
 
 export interface AeoContext {
