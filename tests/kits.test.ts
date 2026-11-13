@@ -44,22 +44,25 @@ function assertValid(r: EngineReport): void {
   assert.deepEqual(validateReport(r), { ok: true })
 }
 
-test('kit proposal: prepared, behind strategy, on queries_cited_first, closed by kit_shipped, and accepted by both validators', () => {
+test('kit proposal: a plan, prepared, behind strategy, on queries_cited_first, closed by kit_won, and accepted by both validators', () => {
   const p = kitProposal(candidate('heartside', 4.8), new Date('2026-12-06T04:00:00Z'))
   assert.equal(p.proposal_id, `${KIT_PROPOSAL_PREFIX}heartside:aaaaaaa1`)
   assert.equal(p.kind, 'prepared')
   assert.equal(p.wall, 'strategy')
   assert.equal(p.title, `Win '${QUESTION}' for heartside`)
   assert.equal(p.objective_key, 'queries_cited_first')
-  assert.deepEqual(p.close_condition, { event: 'kit_shipped', reference: 'https://heartside.example/answers/x' })
+  assert.deepEqual(p.close_condition, { event: 'kit_won', reference: 'https://heartside.example/answers/x' })
   assert.equal(p.expires_at, '2026-12-06T04:00:00.000Z')
   assert.equal(p.payload_sha256, wordsPayloadSha(p.exact_payload))
   assert.equal(p.amount_usd, null)
   assert.equal(p.channel, null)
-  assert.ok(!('stage' in p), 'no stage: it is not an autonomous step, so a 1.0.0 report carries it')
+  // A kit is a plan for one question (GET-GOING Step 1): stage plan, no parent, and never a go-live from AEO.
+  assert.equal(p.stage, 'plan')
+  assert.ok(!('parent_proposal_id' in p))
   const r = buildResearchReport(input([sub('heartside', 'venture', { kits: 4, kit_candidate: candidate('heartside', 4.8) })]))
   assertValid(r)
-  assert.equal(r.schema_version, '1.0.0')
+  assert.equal(r.schema_version, '1.1.0', 'the lowest version that carries a stage')
+  assert.ok(!r.proposals.some(x => x.stage === 'go_live'))
   // A host reference (no page of ours) carries no evidence link; an empty one closes on nothing named.
   const host = kitProposal({ ...candidate('ctrl', 1), target_kind: 'new_page', reference: 'ctrl.example' }, NOW)
   assert.deepEqual(host.evidence, [])
@@ -175,7 +178,7 @@ test('stand-in: the research report lands with one kit, the next day\'s report c
     const daily = await captureStderr(() => runDirective(c, { mode: 'synthetic', revision: 'abc', attemptId: 'aeo:2026-11-23:directive:2.1', now: () => day, wake: 'w2' }))
     assert.equal(daily.result.status, 'succeeded')
     assert.deepEqual(daily.result.report?.proposals, [], 'dropped: his decision is read before the report, even before the directive serves it')
-    assert.match(daily.text, /"event":"protocol_decisions".*"kits_approved":1,"acted_on":0/)
+    assert.match(daily.text, /"event":"protocol_decisions".*"kits_approved":1,"check_ins_declined":0,"acted_on":0/)
     assert.ok(!daily.text.includes(QUESTION))
   } finally {
     await s.close()
@@ -193,12 +196,13 @@ test('research report: a kit Krish already decided never comes back as a fresh a
   for (const decision of ['declined', 'approved']) {
     const r = buildResearchReport(input(subjects, { decisions: [decline('aeo:kit:heartside:aaaaaaa3', '2026-11-10T09:00:00Z', decision)] }))
     assertValid(r)
-    assert.deepEqual(r.proposals.map(p => p.proposal_id), ['aeo:kit:heartside:aaaaaaa4'], `${decision}: the venture's next kit`)
+    // An approved plan is in flight, so it gets its check-in beside the next kit; a declined one gets nothing.
+    assert.deepEqual(r.proposals.map(p => p.proposal_id), decision === 'approved' ? ['aeo:kit:heartside:aaaaaaa4', 'aeo:checkin:heartside:aaaaaaa3'] : ['aeo:kit:heartside:aaaaaaa4'], `${decision}: the venture's next kit`)
     assert.ok(r.activity.some(a => a.line === '1 win kit Krish already decided was left off his list.'))
   }
   const all = buildResearchReport(input(subjects, { decisions: ['aeo:kit:heartside:aaaaaaa3', 'aeo:kit:heartside:aaaaaaa4', 'aeo:kit:ctrl:aaaaaaa2'].map(id => decline(id)) }))
   assertValid(all)
-  assert.deepEqual(all.proposals, [], 'every candidate decided: none')
+  assert.deepEqual(all.proposals, [], 'every candidate declined: none, and no check-in')
 })
 
 test('research report: no kit when his decisions could not be read, and none from a run of one subject', () => {

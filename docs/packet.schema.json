@@ -2,14 +2,169 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/krishanraja/AEO-Engine/docs/packet.schema.json",
   "title": "AeoPacket v1",
-  "description": "One week of answer-engine research for one subject. Written by AEO-Engine, read by Control Center's POST /api/aeo/ingest. Every string is plain English with no em dashes; no email address, no @handle, no call participant name anywhere.",
+  "description": "One week of answer-engine research for one subject. Written by AEO-Engine, read by Control Center's POST /api/aeo/ingest. Every string is plain English with no em dashes; no email address, no @handle, no call participant name anywhere. Every field not in `required` and marked 'Packet feature' is optional and sent only when Control Center lists that feature in the context's packet_features (docs/PACKET.md, Gated fields); a field whose feature is not listed is never sent.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "run_id", "command_id", "subject", "week_start", "generated_at", "engines", "themes_status", "themes", "calls", "queries", "strongest_signal", "recommendations", "watch_list", "competitor_gap", "playbook", "approach_hook", "stats"],
   "$defs": {
     "uuid": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$" },
     "ymd": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
-    "engine": { "type": "string", "enum": ["perplexity", "chatgpt", "claude", "grok"] },
+    "engine": { "type": "string", "enum": ["perplexity", "chatgpt", "claude", "grok", "gemini"], "description": "gemini only when packet_features lists engine_gemini (packet feature engine_gemini); the other four always." },
+    "ymd_or_null": { "oneOf": [{ "$ref": "#/$defs/ymd" }, { "type": "null" }] },
+    "gap_class": { "type": "string", "enum": ["won", "cited_not_first", "retrieved_not_cited", "not_retrieved", "no_page", "unknown"] },
+    "source_type": { "type": "string", "enum": ["listicle", "forum", "video", "review", "news", "directory", "reference", "vendor", "unknown"] },
+    "samples": {
+      "description": "Packet feature samples. A contested question's repeat samples on one engine, this answer included: n answered, first with our first citation, cited with ours anywhere. Each of first and cited is at most n.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["n", "first", "cited"],
+      "properties": {
+        "n": { "type": "integer", "minimum": 1, "maximum": 3 },
+        "first": { "type": "integer", "minimum": 0, "maximum": 3 },
+        "cited": { "type": "integer", "minimum": 0, "maximum": 3 }
+      }
+    },
+    "panel": {
+      "description": "Packet feature panel. Where the question stands, run after run. Every date is a research week, the packet's week_start. state: won (first on 2 of 3 samples on at least one engine when sampled, else on its one sample), contested (first on some sample, under that bar), cited, retrieved, absent, unknown (no engine answered). A history field this engine cannot know is null, never guessed.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "first_seen", "last_asked", "won_at", "lost_at", "streak"],
+      "properties": {
+        "state": { "type": "string", "enum": ["won", "contested", "cited", "retrieved", "absent", "unknown"] },
+        "first_seen": { "$ref": "#/$defs/ymd_or_null" },
+        "last_asked": { "$ref": "#/$defs/ymd" },
+        "won_at": { "$ref": "#/$defs/ymd_or_null" },
+        "lost_at": { "$ref": "#/$defs/ymd_or_null" },
+        "streak": { "oneOf": [{ "type": "integer", "minimum": 1 }, { "type": "null" }] }
+      }
+    },
+    "diagnosis": {
+      "description": "Packet feature diagnosis. Why the question is not won, from the first sample's answers and a fetch-only read of our pages (docs/PACKET.md, Why a question is not won).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["gap_class", "our_best_url", "alignment", "first_cited_host", "first_cited_type"],
+      "properties": {
+        "gap_class": { "$ref": "#/$defs/gap_class" },
+        "our_best_url": { "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 500 }, { "type": "null" }] },
+        "alignment": { "type": "number", "minimum": 0, "maximum": 1 },
+        "first_cited_host": { "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 120 }, { "type": "null" }] },
+        "first_cited_type": { "oneOf": [{ "$ref": "#/$defs/source_type" }, { "type": "null" }] }
+      }
+    },
+    "cited_features": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["url", "host", "source_type", "read", "title_matches_question", "answer_first_words", "words", "h2_count", "dated", "server_rendered"],
+      "properties": {
+        "url": { "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 500 }, { "type": "null" }] },
+        "host": { "type": "string", "maxLength": 120 },
+        "source_type": { "$ref": "#/$defs/source_type" },
+        "read": { "type": "boolean" },
+        "title_matches_question": { "oneOf": [{ "type": "boolean" }, { "type": "null" }] },
+        "answer_first_words": { "oneOf": [{ "type": "integer", "minimum": 0 }, { "type": "null" }] },
+        "words": { "oneOf": [{ "type": "integer", "minimum": 0 }, { "type": "null" }] },
+        "h2_count": { "oneOf": [{ "type": "integer", "minimum": 0 }, { "type": "null" }] },
+        "dated": { "oneOf": [{ "type": "boolean" }, { "type": "null" }] },
+        "server_rendered": { "oneOf": [{ "type": "boolean" }, { "type": "null" }] }
+      }
+    },
+    "kit": {
+      "description": "Packet feature kits. One win kit (src/schema/kit.ts): the page to make or fix so an assistant cites it first. Its query_id is one of this packet's queries.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kit_id", "v", "product_slug", "query_id", "question", "gap_class", "priority", "owned_by_platform", "target", "title", "capsule", "h2s", "beat", "site_fixes", "off_site", "verify", "evidence"],
+      "properties": {
+        "kit_id": { "type": "string", "pattern": "^kit:[a-z0-9-]{1,40}:[0-9a-f]{8}$" },
+        "v": { "const": 1 },
+        "product_slug": { "type": "string", "enum": ["ctrl", "circle", "pulse", "full-time", "mindmake", "heartside", "legibility", "publication"] },
+        "query_id": { "$ref": "#/$defs/uuid" },
+        "question": { "type": "string", "minLength": 1, "maxLength": 400 },
+        "gap_class": { "$ref": "#/$defs/gap_class" },
+        "priority": { "type": "number", "minimum": 0 },
+        "owned_by_platform": { "type": "boolean" },
+        "target": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "url", "host", "suggested_path"],
+          "properties": {
+            "kind": { "type": "string", "enum": ["new_page", "update_page", "off_site_only"] },
+            "url": { "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 500 }, { "type": "null" }] },
+            "host": { "type": "string", "maxLength": 120 },
+            "suggested_path": { "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 120 }, { "type": "null" }] }
+          }
+        },
+        "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "capsule": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["rules", "must_cover"],
+          "properties": {
+            "rules": { "type": "array", "maxItems": 10, "items": { "type": "string", "minLength": 1, "maxLength": 200 } },
+            "must_cover": { "oneOf": [{ "type": "array", "maxItems": 10, "items": { "type": "string", "minLength": 1, "maxLength": 200 } }, { "type": "null" }] }
+          }
+        },
+        "h2s": { "type": "array", "maxItems": 6, "items": { "type": "string", "minLength": 1, "maxLength": 120 } },
+        "beat": {
+          "type": "array",
+          "maxItems": 3,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["url", "host", "engine", "position", "features"],
+            "properties": {
+              "url": { "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 500 }, { "type": "null" }] },
+              "host": { "type": "string", "minLength": 1, "maxLength": 120 },
+              "engine": { "$ref": "#/$defs/engine" },
+              "position": { "type": "integer", "minimum": 1 },
+              "features": { "$ref": "#/$defs/cited_features" }
+            }
+          }
+        },
+        "site_fixes": {
+          "type": "array",
+          "maxItems": 12,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["gate", "host", "url", "fix", "owner_repo"],
+            "properties": {
+              "gate": { "type": "string", "minLength": 1, "maxLength": 60 },
+              "host": { "type": "string", "maxLength": 120 },
+              "url": { "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 500 }, { "type": "null" }] },
+              "fix": { "type": "string", "minLength": 1, "maxLength": 400 },
+              "owner_repo": { "oneOf": [{ "type": "string", "minLength": 1, "maxLength": 120 }, { "type": "null" }] }
+            }
+          }
+        },
+        "off_site": {
+          "type": "array",
+          "maxItems": 5,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["host", "source_type", "engines"],
+            "properties": {
+              "host": { "type": "string", "minLength": 1, "maxLength": 120 },
+              "source_type": { "$ref": "#/$defs/source_type" },
+              "engines": { "type": "array", "maxItems": 8, "items": { "$ref": "#/$defs/engine" } }
+            }
+          }
+        },
+        "verify": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["engines", "samples", "success", "recheck", "baseline"],
+          "properties": {
+            "engines": { "type": "array", "maxItems": 8, "items": { "$ref": "#/$defs/engine" } },
+            "samples": { "const": 3 },
+            "success": { "type": "string", "minLength": 1, "maxLength": 200 },
+            "recheck": { "type": "string", "minLength": 1, "maxLength": 120 },
+            "baseline": { "$ref": "#/$defs/gap_class" }
+          }
+        },
+        "evidence": { "type": "array", "maxItems": 6, "items": { "type": "string", "minLength": 1, "maxLength": 200 } }
+      }
+    },
     "kind": { "type": "string", "enum": ["venture", "prospect", "aspiration"] },
     "evidence": {
       "type": "object",
@@ -32,7 +187,13 @@
         "answer_snapshot": { "type": "string", "maxLength": 1800 },
         "we_cited": { "type": "boolean" },
         "citations": { "type": "array", "maxItems": 8, "items": { "type": "string", "maxLength": 500 } },
-        "cost_usd": { "type": "number", "minimum": 0 }
+        "cost_usd": { "type": "number", "minimum": 0 },
+        "retrieved": { "type": "array", "maxItems": 20, "items": { "type": "string", "minLength": 1, "maxLength": 500 }, "description": "Packet feature probe_detail. What the engine's search returned, cited or not, cleaned like citations." },
+        "searched": { "type": "boolean", "description": "Packet feature probe_detail. Whether the engine searched the web for this answer." },
+        "fan_out": { "type": "array", "maxItems": 8, "items": { "type": "string", "minLength": 1, "maxLength": 200 }, "description": "Packet feature probe_detail. The engine's own search queries, cleaned." },
+        "our_position": { "oneOf": [{ "type": "integer", "minimum": 1 }, { "type": "null" }], "description": "Packet feature probe_detail. 1-based position of our first inline citation, or null." },
+        "name_mentioned": { "oneOf": [{ "type": "boolean" }, { "type": "null" }], "description": "Packet feature name_mentions. The answer names the subject outside any URL; null when the subject has no distinctive name." },
+        "samples": { "oneOf": [{ "$ref": "#/$defs/samples" }, { "type": "null" }], "description": "Packet feature samples. Null when the question was asked once." }
       }
     },
     "query": {
@@ -68,7 +229,9 @@
         "trend": { "type": "string", "enum": ["new", "up", "flat", "down"] },
         "status": { "type": "string", "enum": ["watch", "recommend", "drop"] },
         "touchpoint_id": { "oneOf": [{ "$ref": "#/$defs/uuid" }, { "type": "null" }] },
-        "probes": { "type": "array", "maxItems": 8, "items": { "$ref": "#/$defs/probe" } }
+        "probes": { "type": "array", "maxItems": 8, "items": { "$ref": "#/$defs/probe" } },
+        "panel": { "$ref": "#/$defs/panel" },
+        "diagnosis": { "$ref": "#/$defs/diagnosis" }
       }
     }
   },
@@ -219,6 +382,41 @@
         "transcripts": { "type": "integer", "minimum": 0 },
         "digest_writer": { "type": "string", "enum": ["claude", "fallback"] }
       }
-    }
+    },
+    "kits": { "type": "array", "maxItems": 10, "items": { "$ref": "#/$defs/kit" }, "description": "Packet feature kits. The venture's win kits, highest priority first. Never for a held venture, a prospect or an aspiration." },
+    "site": {
+      "description": "Packet feature site. Each of our hosts' gates, pass or fail, from the fetch-only site audit.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["hosts"],
+      "properties": {
+        "hosts": {
+          "type": "array",
+          "maxItems": 10,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["host", "gates"],
+            "properties": {
+              "host": { "type": "string", "minLength": 1, "maxLength": 120 },
+              "gates": {
+                "type": "array",
+                "maxItems": 12,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["gate", "pass"],
+                  "properties": {
+                    "gate": { "type": "string", "enum": ["search_bots_allowed", "user_bots_allowed", "homepage_200", "homepage_server_rendered", "homepage_single_h1", "sitemap_present"] },
+                    "pass": { "type": "boolean" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "run_kind": { "type": "string", "enum": ["research", "verify"], "description": "Packet feature run_kind. A verify run re-asks shipped questions only and is never counted in the share." }
   }
 }

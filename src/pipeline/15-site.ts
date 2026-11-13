@@ -38,9 +38,10 @@ import { isGeneralPlatform } from '../lib/platforms.js'
 import { EMPTY_ROBOTS, isAllowed, parseRobots, SEARCH_BOTS, USER_BOTS, verdicts, type BotToken, type Robots } from '../lib/robots.js'
 import { readSitemaps } from '../lib/sitemap.js'
 import type { ContextSubject } from '../schema/context.js'
+import { HOST_GATES, type HostGate } from '../schema/kit.js'
 
-export const HOST_GATES = ['search_bots_allowed', 'user_bots_allowed', 'homepage_200', 'homepage_server_rendered', 'homepage_single_h1', 'sitemap_present'] as const
-export type HostGate = (typeof HOST_GATES)[number]
+// The gate list lives with the kit shapes (src/schema/kit.ts), so the packet's `site` feature reads the same one.
+export { HOST_GATES, type HostGate }
 
 export interface GateResult { gate: HostGate; pass: boolean; detail: string }
 export interface HostAudit { host: string; gates: GateResult[] }

@@ -10,9 +10,11 @@ import { subjectsConfig, isHeld } from '../config/subjects.js'
 import type { Ledger } from '../lib/cost.js'
 import { errText, log } from '../lib/log.js'
 import type { UsageMeter } from '../lib/usage.js'
-import type { AeoContext, ContextSubject } from '../schema/context.js'
-import { inPacket, openGatedEngines, type AeoPacket, type Engine, type GatedEngine } from '../schema/packet.js'
+import type { AeoContext, ContextSubject, ShippedDeclaration } from '../schema/context.js'
+import { inPacket, openGatedEngines, packetFeatures, type AeoPacket, type Engine, type GatedEngine } from '../schema/packet.js'
 import type { AnswerRequest } from '../schema/report.js'
+import type { KitPlan } from '../schema/kit.js'
+import type { SubjectPanel } from '../schema/panel.js'
 import { normaliseQuery } from '../lib/text.js'
 import type { Taste } from '../schema/report.js'
 import { krishHitsDomains, loadContext } from './00-context.js'
@@ -20,12 +22,16 @@ import { classifyTranscripts, gatherTranscripts, themesForSubject, type Attribut
 import { gapFor } from './20-gap.js'
 import { proposeQueries } from './30-propose.js'
 import { probeLimitFor, probeQueries, type ProbeEvidence, type ProbeOutcome } from './40-probe.js'
+import { resample } from './41-samples.js'
+import { panelFor, panelQuestions, sampleSet, selectPanel, shippedOf, type PanelContext } from './55-panel.js'
+import { attachFeatures } from './68-features.js'
+import { brandNamesOf } from '../lib/names.js'
 import type { ProbeDetail } from '../lib/probeDetail.js'
 import { EMPTY_AUDIT, failedGates, siteAudit, type HostAuditResult, type SiteAudit } from './15-site.js'
 import { firstCitedEntries, matchPages, readFirstCited, thirdPartyPerHost, type CitedEntry, type PageMatch } from './45-pages.js'
 import { scoreQueries, rowPriority } from './50-score.js'
 import { diagnoseAll, type Diagnosis } from './52-diagnose.js'
-import { buildKits, gapCounts, kitCandidate } from './62-kits.js'
+import { buildKits, gapCounts, kitCandidate, type Kit } from './62-kits.js'
 import { KIT_BACKUPS_MAX, type SubjectDiagnosis } from '../schema/kit.js'
 import { withFallback } from './stage.js'
 import { writeDigest } from './60-digest.js'
@@ -83,6 +89,12 @@ export interface RunDeps {
    * never requested here: a host many subjects share is read once a run.
    */
   sharedAudit?: ReadonlyMap<string, HostAuditResult>
+  /**
+   * The kit plans Krish approved and has not stopped or closed (src/schema/kit.ts,
+   * kitPlans), read from his decisions before the run. Their questions are
+   * probed and re-sampled as kits in flight (stage 55). Undefined or empty: none.
+   */
+  kitPlans?: readonly KitPlan[]
 }
 
 export interface RunOpts {
@@ -101,7 +113,7 @@ export interface RunOpts {
  * many of this subject's requests were not asked in full (the spend cap, a
  * failed call or the probe limit stopped a question), a count only.
  */
-export interface SubjectResult { slug: string; packet: AeoPacket; shipped: ShipResult; domains: string[]; details?: ProbeDetail[]; served?: string[]; unserved?: number; extras?: ProbeExtras; diagnosis?: SubjectDiagnosis }
+export interface SubjectResult { slug: string; packet: AeoPacket; shipped: ShipResult; domains: string[]; details?: ProbeDetail[]; served?: string[]; unserved?: number; extras?: ProbeExtras; diagnosis?: SubjectDiagnosis; panel?: SubjectPanel }
 
 export type { SubjectDiagnosis }
 
@@ -116,7 +128,7 @@ export type ProbeExtras = Pick<ProbeOutcome, 'probes_skipped_limit' | 'probes_li
 }
 
 /** One subject's packet and the measurement that travels beside it. */
-export interface SubjectRun { packet: AeoPacket; details: ProbeDetail[]; domains: string[]; extras?: ProbeExtras; open?: GatedEngine[]; diagnosis?: SubjectDiagnosis }
+export interface SubjectRun { packet: AeoPacket; details: ProbeDetail[]; domains: string[]; extras?: ProbeExtras; open?: GatedEngine[]; diagnosis?: SubjectDiagnosis; panel?: SubjectPanel; features?: string[] }
 
 /** A per-question map kept to the packet's engines. */
 function packetOnly<T extends { engine: string }>(m: ReadonlyMap<string, readonly T[]> | undefined, engines: ReadonlySet<string>): Map<string, T[]> {
@@ -158,6 +170,21 @@ export function requestsFor(subject: Pick<ContextSubject, 'kind' | 'product_slug
   return (requests ?? []).filter(r => r.product_slug === subject.product_slug)
 }
 
+/** The pages a subject's requests (1.23.0, answer_requests_v2) said were shipped, as declarations. Pure. */
+export function requestShipped(requests: readonly AnswerRequest[]): ShippedDeclaration[] {
+  return requests.flatMap(r => (r.shipped ?? []).map(x => ({ ...(x.query_id ? { query_id: x.query_id } : {}), ...(x.question ? { question: x.question } : {}), url: x.url, shipped_at: x.shipped_at })))
+}
+
+/** The page each requested question is to be won with (1.23.0 targets), by the question's normalised words. The first named wins. Pure. */
+export function requestTargets(requests: readonly AnswerRequest[]): Map<string, string> {
+  const out = new Map<string, string>()
+  for (const r of requests) for (const t of r.target_urls ?? []) {
+    const k = normaliseQuery(t.question)
+    if (k && !out.has(k)) out.set(k, t.url)
+  }
+  return out
+}
+
 /** The requests a packet served: every one of a request's questions is in it and was put to at least one assistant. Pure. */
 export function servedBy(packet: Pick<AeoPacket, 'queries'>, requests: readonly AnswerRequest[]): string[] {
   const asked = new Set(packet.queries.filter(q => q.probes.length > 0).map(q => normaliseQuery(q.query)))
@@ -174,20 +201,35 @@ export async function runSubject(subject: ContextSubject, shared: Shared, deps: 
   // A gated engine (gemini) is asked, and its probes stay out of the packet
   // until the context's packet_features open it (src/schema/packet.ts).
   const open = openGatedEngines(ctx.packet_features)
+  // The optional packet fields Control Center accepts (src/schema/packet.ts, PACKET_FEATURES).
+  const features = packetFeatures(ctx.packet_features)
   const engines = deps.engines.map(e => e.engine).filter(e => inPacket(e, open)) as Engine[]
   const gated = deps.engines.map(e => e.engine).filter(e => !inPacket(e, open))
   log('subject_start', { subject: subject.slug, kind: subject.kind, hit_domains: domains.length })
 
   const themes = await themesForSubject(deps.model, subject, shared.gathered, shared.attribution, deps.ledger)
   const gap = gapFor(subject, domains)
-  const requested = requestsFor(subject, deps.requests).flatMap(r => r.questions)
+  const asks = requestsFor(subject, deps.requests)
+  const requested = asks.flatMap(r => r.questions)
   if (requested.length) log('answer_requests', { subject: subject.slug, questions: requested.length })
-  const proposed = await proposeQueries(deps.model, deps.ledger, subject, ctx, themes.themes, gap, deps.mintId, requested)
+  const proposedOwn = await proposeQueries(deps.model, deps.ledger, subject, ctx, themes.themes, gap, deps.mintId, requested)
+  // Stage 55, the panel, for a subject that counts (a venture or a prospect):
+  // the questions a venture shipped a page for, the kits in flight and last
+  // run's wins are asked even when the proposal left them out, and the
+  // probing order is the panel's tiers. An aspiration keeps today's order.
+  const counts = subject.kind !== 'aspiration'
+  const shipped = counts ? shippedOf(subject, requestShipped(asks)) : []
+  const kitPrefixes = subject.kind === 'venture' && subject.product_slug ? (deps.kitPlans ?? []).filter(p => p.product_slug === subject.product_slug).map(p => p.q8) : []
+  const panelCtx: PanelContext = { prior: subject.prior, probes4w: subject.probes_4w, shipped, kitPrefixes }
+  const proposed = counts ? panelQuestions(proposedOwn, subject, panelCtx, deps.mintId) : proposedOwn
+  const selection = counts ? selectPanel(proposed, panelCtx) : null
+  if (selection) log('panel_selected', { subject: subject.slug, ...selection.counts, limit: selection.limit, added: proposed.length - proposedOwn.length })
   // Every requested question is probed, with a few of the engine's own beside
   // them, within the hard ceiling (CAPS, 40-probe.ts probeLimitFor) and the
-  // subject's USD share. The share keeps back what the digest, and the voice
+  // subject's USD share; the panel's protected tiers stretch the limit up to
+  // that ceiling too. The share keeps back what the digest, and the voice
   // pass when a rule is approved, will be charged after the probes.
-  const limit = probeLimitFor(proposed.filter(q => q.requested).length)
+  const limit = selection ? selection.limit : probeLimitFor(proposed.filter(q => q.requested).length)
   const reserve = deps.ledger.priceOf('digest') + (deps.taste?.approved_voice_rules?.length ? deps.ledger.priceOf('voice') : 0)
   const shadow = deps.shadow ? { client: deps.shadow, questions: CAPS.COMPARE_API_QUESTIONS_PER_SUBJECT } : undefined
   // The diagnosis is about OUR pages: a venture's, or Mindmake's and Krish's
@@ -199,7 +241,14 @@ export async function runSubject(subject: ContextSubject, shared: Shared, deps: 
   const site = diagnosing ? deps.site ?? null : null
   const sharedAudit = diagnosing ? deps.sharedAudit : undefined
   const auditing = site || sharedAudit ? withFallback('site_audit', () => siteAudit(subject, site, domains, CAPS.SITE_MAX_PAGES_PER_SUBJECT, sharedAudit), EMPTY_AUDIT, { subject: subject.slug }) : Promise.resolve(EMPTY_AUDIT)
-  const outcome = await probeQueries(deps.engines, proposed, domains, deps.ledger, subject.never_say ?? [], limit, reserve, { open, shadow })
+  const brandNames = brandNamesOf(subject.brand_names)
+  const outcome = await probeQueries(deps.engines, selection ? selection.ordered : proposed, domains, deps.ledger, subject.never_say ?? [], limit, reserve, { open, shadow, brandNames, ...(selection ? { preordered: true } : {}) })
+  // Repeat samples (stage 41): a contested question is asked twice more on
+  // every packet engine that answered it, inside the cap and the digest's
+  // reserve. Picked on the packet engines' answers only: a gated engine's
+  // citation never makes a question contested.
+  const toSample = selection ? sampleSet(selection, outcome.detailsByQuery, CAPS.MAX_SAMPLED_QUESTIONS_PER_SUBJECT, new Set<string>(engines)) : []
+  const sampled = toSample.length ? await withFallback('samples', () => resample(deps.engines, outcome, toSample, domains, deps.ledger, reserve, { open }), null, { subject: subject.slug }) : null
   const diag = await diagnoseSubject(subject, domains, proposed, outcome, engines, auditing)
   const queries = scoreQueries(proposed, outcome, themes.themes, subject, domains, diagnosing ? diag.diagnoses : undefined)
   // The pages cited first are read now, the highest-priority questions first,
@@ -264,13 +313,37 @@ export async function runSubject(subject: ContextSubject, shared: Shared, deps: 
     ...(outcome.compare ? { compare: outcome.compare } : {}),
     ...(gated.length ? { gated_engines: gated } : {}),
   }
-  if (!diagnosing) return { packet, details, domains, extras, open }
+  // The panel, after the probes and their samples: each asked question's
+  // state, moved forward from last run's when Control Center serves it.
+  const gapOf = new Map([...diagnoses.values()].map(d => [d.query_id, d.gap_class] as const))
+  const panel = selection
+    ? await withFallback('panel', () => panelFor({
+      selection, asked: outcome.asked ?? new Set(), details: diag.details, prior: subject.prior, week: opts.weekStart, gapClasses: diagnosing ? gapOf : undefined, shipped, kitPrefixes,
+      sampledIds: new Set(toSample.map(q => q.query_id)), partial: outcome.partial, probes4w: subject.probes_4w,
+      sampled: sampled?.questions ?? 0, sampleAnswers: sampled?.answers ?? 0, sampleSkippedCap: sampled?.skipped_cap ?? 0,
+    }), null, { subject: subject.slug })
+    : null
+  if (panel) log('panel', { subject: subject.slug, ...panel.summary.states, sampled: panel.summary.sampled, sample_skipped_cap: panel.summary.sample_skipped_cap ?? 0, won_now: panel.summary.won_now.length, lost_now: panel.summary.lost_now.length, tracked: panel.summary.tracked.length, history: panel.summary.history })
+  // The optional packet fields, each only when Control Center lists it.
+  const finish = (kits: readonly Kit[] | undefined): AeoPacket => {
+    if (!features.length) return packet
+    const done = attachFeatures(packet, {
+      features, details: diag.details, evidence: diag.evidence, panels: panel?.panels, neverSay: subject.never_say ?? [],
+      ...(diagnosing ? { diagnoses, kits, hosts: diag.audit.hosts } : {}),
+    })
+    if (done.kitsDropped) log('kits_not_in_packet', { subject: subject.slug, dropped: done.kitsDropped })
+    return done.packet
+  }
+  const panelOut = panel ? { panel: panel.summary } : {}
+  if (!diagnosing) return { packet: finish(undefined), details, domains, extras, open, features, ...panelOut }
   // Stage 62: the win kits, for a venture whose product is not held.
   const held = await withFallback('held', () => isHeld(subject, subjectsConfig()), true, { subject: subject.slug })
   // A question the packet says is not worth chasing gets no kit.
   const walled = new Set(digest.not_worth_chasing.map(w => w.query_id))
+  const targets = requestTargets(asks)
   const kits = held ? [] : await withFallback('kits', () => buildKits({
     subject, queries, diagnoses, evidence: diag.evidence, details: diag.details, cited: diag.entries, audit: diag.audit, domains, engines, config: subjectsConfig(), walled,
+    ...(targets.size ? { targets } : {}),
   }), [], { subject: subject.slug })
   const top = kits[0] ? await withFallback('kit_render', () => kitCandidate(kits[0]), null, { subject: subject.slug }) : null
   const backups = top ? await withFallback('kit_render', () => kits.slice(1, 1 + KIT_BACKUPS_MAX).map(kitCandidate), [], { subject: subject.slug }) : []
@@ -284,7 +357,7 @@ export async function runSubject(subject: ContextSubject, shared: Shared, deps: 
     kit_backups: backups,
     site: site || sharedAudit ? { hosts: diag.audit.hosts.length, pages: diag.audit.pages.length, requests: diag.audit.requests, errors: diag.audit.errors, gates_failed: failedGates(diag.audit), cited_read: citedRead } : null,
   }
-  return { packet, details, domains, extras, open, diagnosis }
+  return { packet: finish(kits), details, domains, extras, open, diagnosis, features, ...panelOut }
 }
 
 function round4(n: number): number { return Math.round(n * 10000) / 10000 }
@@ -306,14 +379,14 @@ export async function runAll(deps: RunDeps, opts: RunOpts): Promise<RunResult> {
   const bundle = opts.dry && !!opts.outPath && selected.length > 1
   for (const subject of selected) {
     try {
-      const { packet, details, domains, extras, open, diagnosis } = await runSubject(subject, shared, deps, opts)
+      const { packet, details, domains, extras, open, diagnosis, panel, features } = await runSubject(subject, shared, deps, opts)
       const outPath = bundle ? null : opts.outPath ?? defaultOutPath(subject.slug, opts.weekStart)
-      const shipped = await ship(deps.cc, packet, { dry: opts.dry, outPath, open })
+      const shipped = await ship(deps.cc, packet, { dry: opts.dry, outPath, open, features })
       const asked = requestsFor(subject, deps.requests)
       const served = opts.dry ? [] : servedBy(packet, asked)
       const unserved = opts.dry ? 0 : asked.length - served.length
       if (unserved) log('answer_requests_unserved', { subject: subject.slug, requests: asked.length, unserved, skipped_cap: packet.stats.probes_skipped_cap })
-      results.push({ slug: subject.slug, packet, shipped, domains, details, served, unserved, extras, ...(diagnosis ? { diagnosis } : {}) })
+      results.push({ slug: subject.slug, packet, shipped, domains, details, served, unserved, extras, ...(diagnosis ? { diagnosis } : {}), ...(panel ? { panel } : {}) })
       log('subject_done', { subject: subject.slug, queries: packet.stats.queries, probes: packet.stats.probes, cost_usd: packet.stats.cost_usd, ledger_usd: deps.ledger.total })
     } catch (e) {
       failures.push({ slug: subject.slug, kind: subject.kind, error: errText(e) })

@@ -97,6 +97,13 @@ export const CAPS = {
   /** Questions of the engine's own choosing still probed after a venture's requested ones. */
   MIN_EXPLORATION_QUERIES: 5,
   /**
+   * Contested questions a subject re-asks twice more on every engine that
+   * answered, so one noisy answer is never read as a win (src/pipeline/41-samples.ts).
+   * At 8 questions and 3 engines that is 48 extra asks a subject at most,
+   * each charged to the ledger inside the cap (the Claude Code lane is free).
+   */
+  MAX_SAMPLED_QUESTIONS_PER_SUBJECT: 8,
+  /**
    * The Claude Code lane's turn limit for one probe (--max-turns): a search or
    * two, the answer, and room for a search that comes back empty.
    */

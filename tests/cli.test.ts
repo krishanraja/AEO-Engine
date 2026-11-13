@@ -81,7 +81,13 @@ test('offline dry run writes packets that validate and ctrl matches the expected
   assert.ok(aspiration.recommendations.some(r => r.why_you_can_win === null))
   for (const p of packets) for (const w of p.not_worth_chasing) assert.ok(p.queries.some(q => q.query_id === w.query_id), `${p.subject.slug}: ${w.query_id}`)
   const report = JSON.parse(r.stdout)
-  assert.equal(report.ledger.calls, ctrl.stats.probes + prospect.stats.probes + aspiration.stats.probes + ctrl.stats.probes_failed + 2 + 1 + 3 + 3)
+  // Repeat samples (stage 41) are charged like any probe: the ventures' and
+  // prospects' contested questions, asked twice more on each engine.
+  const resampled = r.stderr.split('\n').filter(l => l.includes('"event":"resampled"')).map(l => JSON.parse(l) as { asks: number; questions: number })
+  const sampleAsks = resampled.reduce((n, x) => n + x.asks, 0)
+  assert.ok(sampleAsks > 0, 'the venture\'s contested questions were re-asked')
+  assert.ok(resampled.every(x => x.questions <= 8), 'at most eight questions a subject')
+  assert.equal(report.ledger.calls, ctrl.stats.probes + prospect.stats.probes + aspiration.stats.probes + ctrl.stats.probes_failed + 2 + 1 + 3 + 3 + sampleAsks)
 })
 
 test('the usd cap stops probing and counts every unprobed pair', () => {

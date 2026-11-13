@@ -29,20 +29,15 @@ import { CLEAN, normaliseQuery, scrubPII, tokensOf } from '../lib/text.js'
 import { isHeld, ownerRepoOf, type SubjectsConfig } from '../config/subjects.js'
 import type { ProbeDetail } from '../lib/probeDetail.js'
 import type { ContextSubject } from '../schema/context.js'
-import type { KitCandidate, TargetKind } from '../schema/kit.js'
+import type { CitedFeatures, Kit, KitBeat, KitCandidate, KitOffSite, KitSiteFix, KitTarget, TargetKind } from '../schema/kit.js'
 import type { PacketQuery } from '../schema/packet.js'
 import { auditHosts, failedGates, SERVER_RENDERED_MIN_WORDS, type AuditPage, type SiteAudit } from './15-site.js'
 import type { ProbeEvidence } from './40-probe.js'
-import { answersFirst, carryable, type CitedEntry, type CitedFeatures } from './45-pages.js'
+import { answersFirst, carryable, type CitedEntry } from './45-pages.js'
 import { GAP_LABEL, KIT_CLASSES, kitPriority, type Diagnosis, type GapClass } from './52-diagnose.js'
 
-export type { KitCandidate, TargetKind }
-
-export interface KitTarget { kind: TargetKind; url: string | null; host: string; suggested_path: string | null }
-export interface KitSiteFix { gate: string; host: string; url: string | null; fix: string; owner_repo: string | null }
-/** `url` is null when the page cited first cannot be carried (an email or a handle in it): its host stands for it. */
-export interface KitBeat { url: string | null; host: string; engine: string; position: number; features: CitedFeatures }
-export interface KitOffSite { host: string; source_type: SourceType; engines: string[] }
+// The kit's shape lives in src/schema/kit.ts, where the packet's `kits` feature reads it too.
+export type { Kit, KitBeat, KitCandidate, KitOffSite, KitSiteFix, KitTarget, TargetKind }
 
 export const CAPSULE_RULES = [
   '40 to 60 words',
@@ -53,28 +48,6 @@ export const CAPSULE_RULES = [
 ] as const
 
 export const VERIFY_SUCCESS = 'cited first on 2 of 3 samples on at least one engine'
-
-export interface Kit {
-  kit_id: string
-  v: 1
-  product_slug: string
-  query_id: string
-  question: string
-  gap_class: GapClass
-  priority: number
-  /** General platforms own the first citation (the diagnosis): why an off-site kit is off site. */
-  owned_by_platform: boolean
-  target: KitTarget
-  /** The question in the buyer's words, at most TITLE_MAX characters. */
-  title: string
-  capsule: { rules: string[]; must_cover: null }
-  h2s: string[]
-  beat: KitBeat[]
-  site_fixes: KitSiteFix[]
-  off_site: KitOffSite[]
-  verify: { engines: string[]; samples: 3; success: string; recheck: string; baseline: GapClass }
-  evidence: string[]
-}
 
 export const TITLE_MAX = 70
 export const H2_MAX = 120
@@ -190,6 +163,12 @@ export interface KitInput {
   config: SubjectsConfig
   /** The questions the digest walled as not worth chasing (packet.not_worth_chasing): no kit for them. */
   walled?: ReadonlySet<string>
+  /**
+   * The page a venture named for a question (a 1.23.0 request's targets), by
+   * the question's normalised words. A URL on one of our domains becomes the
+   * kit's target page; any other is passed over.
+   */
+  targets?: ReadonlyMap<string, string>
 }
 
 function featureLine(f: CitedFeatures): string {
@@ -246,8 +225,14 @@ export function buildKits(i: KitInput): Kit[] {
     // the venture has a site, and platforms do not own the first citation.
     const off_site = offSiteFrom(evidence, i.domains)
     const ourUrl = d.our_best_url ?? d.our_cited_url
+    // The page the venture named for this question wins, when it is ours: an
+    // audited page is updated, a page not yet there is written at that address.
+    const named = venturePage(i.targets?.get(normaliseQuery(q.query)), i.domains)
     let target: KitTarget
-    if (ourUrl) target = { kind: 'update_page', url: ourUrl, host: hostOf(ourUrl), suggested_path: null }
+    if (named) {
+      const audited = i.audit.pages.some(p => p.url === named && p.status === 200)
+      target = audited || named === ourUrl ? { kind: 'update_page', url: named, host: hostOf(named), suggested_path: null } : { kind: 'new_page', url: named, host: hostOf(named), suggested_path: pathOf(named) }
+    } else if (ourUrl) target = { kind: 'update_page', url: ourUrl, host: hostOf(ourUrl), suggested_path: null }
     else if (ourHost && !d.owned_by_platform) target = { kind: 'new_page', url: null, host: ourHost, suggested_path: suggestedPath(q.query) }
     else target = { kind: 'off_site_only', url: null, host: off_site[0]?.host ?? '', suggested_path: null }
 
@@ -281,9 +266,20 @@ export function buildKits(i: KitInput): Kit[] {
   return kits.sort((a, b) => b.priority - a.priority || a.query_id.localeCompare(b.query_id))
 }
 
+/** A venture's named page, when it is a carryable URL on one of our domains; else null. */
+export function venturePage(url: string | undefined, domains: readonly string[]): string | null {
+  if (!url) return null
+  const c = carryable(url)
+  return c && domains.some(d => urlMatchesDomain(c, d)) ? c : null
+}
+
+function pathOf(url: string): string | null {
+  try { return new URL(url).pathname.slice(0, 120) || '/' } catch { return null }
+}
+
 const TARGET_LINE: Record<TargetKind, (k: Kit) => string> = {
   update_page: k => `Update the page ${k.target.url} on ${k.target.host}.`,
-  new_page: k => `Write a new page on ${k.target.host} at ${k.target.suggested_path}.`,
+  new_page: k => (k.target.url ? `Write a new page at ${k.target.url}, the address the venture named.` : `Write a new page on ${k.target.host} at ${k.target.suggested_path}.`),
   off_site_only: k => `${k.owned_by_platform ? 'No page of ours can win this alone: general platforms own the first citation.' : 'This venture has no site of its own to put a page on.'} Be present where it is answered${k.target.host ? `, starting with ${k.target.host}` : ''}.`,
 }
 

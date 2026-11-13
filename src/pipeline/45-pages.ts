@@ -29,6 +29,7 @@ import { extractPage, type PageFacts } from '../lib/html.js'
 import { log } from '../lib/log.js'
 import { classifySource, type SourceType } from '../lib/sourceType.js'
 import { tokensOf } from '../lib/text.js'
+import type { CitedFeatures } from '../schema/kit.js'
 import type { ProbeEngine } from '../schema/packet.js'
 import { ANSWER_FIRST_MAX_WORDS, SERVER_RENDERED_MIN_WORDS, type AuditPage } from './15-site.js'
 import { cleanCitation, isGroundingRedirect, type ProbeEvidence } from './40-probe.js'
@@ -99,22 +100,8 @@ export function matchPages(queries: ReadonlyArray<{ query_id: string; query: str
   return out
 }
 
-export interface CitedFeatures {
-  /** Null when the cited URL carries an email or a handle: the host and type are kept, the URL is not. */
-  url: string | null
-  host: string
-  source_type: SourceType
-  /** Whether the page was read. When false, every feature below is null. */
-  read: boolean
-  /** Half or more of the question's words are in the page's title. */
-  title_matches_question: boolean | null
-  /** Words in the first paragraph under its H1. */
-  answer_first_words: number | null
-  words: number | null
-  h2_count: number | null
-  dated: boolean | null
-  server_rendered: boolean | null
-}
+/** What one page cited first does (src/schema/kit.ts, where the packet's kit shape reads it too). */
+export type { CitedFeatures }
 
 /** `url` is null when the page cited first cannot be carried (an email or a handle in it); such an entry is never read. */
 export interface CitedEntry { engine: ProbeEngine; position: number; url: string | null; host: string; source_type: SourceType; features: CitedFeatures }

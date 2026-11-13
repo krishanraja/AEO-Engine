@@ -41,6 +41,7 @@ import { writePacket } from './pipeline/70-ship.js'
 import { buildRunSummary } from './protocol/measure.js'
 import { GrowthEngineHttp, ProtocolError } from './clients/growthEngine.js'
 import type { AnswerRequest, Taste } from './schema/report.js'
+import { kitPlans, PLAN_OPEN_DAYS, type KitPlan, type PlanDecision } from './schema/kit.js'
 
 export interface CliArgs {
   subject: string
@@ -233,12 +234,63 @@ export async function readAnswerRequests(env: NodeJS.ProcessEnv, client?: Pick<G
   }
 }
 
+/** What a research job reads from today's directive: Krish's voice rules, the venture requests, and the kit plans he approved. */
+export interface DirectiveInputs { taste: Taste | null; requests: AnswerRequest[]; kitPlans: KitPlan[] }
+
+/**
+ * One read of today's directive through the growth engine door, and one of
+ * his decisions back over the six weeks a kit plan stays open (both free
+ * GETs): his approved voice rules (1.5.0), the venture engines' open
+ * requests (1.22.0), and the kit plans he approved and has not stopped or
+ * closed (src/schema/kit.ts), whose questions this run probes and re-samples
+ * as kits in flight. Never fatal: anything unread is unknown or none. Logs
+ * carry counts only, never a rule, a question or a plan's words.
+ */
+export async function readDirectiveInputs(env: NodeJS.ProcessEnv, client?: Pick<GrowthEngineHttp, 'getDirective' | 'getDecisions'>, now: Date = new Date()): Promise<DirectiveInputs> {
+  const none: DirectiveInputs = { taste: null, requests: [], kitPlans: [] }
+  const c = client ?? (env.CONTROL_CENTER_ENGINE_TOKEN ? new GrowthEngineHttp(env.CONTROL_CENTER_PROTOCOL_URL || env.CONTROL_CENTER_URL, env.CONTROL_CENTER_ENGINE_TOKEN) : null)
+  if (!c) {
+    log('directive_taste', { state: 'unknown', reason: 'not_configured' })
+    log('answer_requests', { state: 'unknown', reason: 'not_configured' })
+    log('kit_plans', { state: 'unknown', reason: 'not_configured' })
+    return none
+  }
+  let directive
+  try {
+    directive = (await c.getDirective()).directive
+  } catch (e) {
+    const reason = e instanceof ProtocolError ? e.code : 'directive_unavailable'
+    log('directive_taste', { state: 'unknown', reason })
+    log('answer_requests', { state: 'unknown', reason })
+    log('kit_plans', { state: 'unknown', reason })
+    return none
+  }
+  const taste = directive.taste ?? null
+  log('directive_taste', taste ? { state: taste.approved_voice_rules.length ? 'approved' : 'none_approved', rules: taste.approved_voice_rules.length } : { state: 'unknown', reason: 'absent' })
+  const requests = directive.answer_requests ?? []
+  log('answer_requests', { state: 'read', requests: requests.length, questions: requests.reduce((n, r) => n + r.questions.length, 0) })
+  let decisions: PlanDecision[] = [...(directive.decisions_since ?? [])]
+  try {
+    decisions = [...decisions, ...(await c.getDecisions(new Date(now.getTime() - (PLAN_OPEN_DAYS + 1) * 86_400_000).toISOString()))]
+  } catch (e) {
+    log('kit_plans_decisions_unavailable', { code: e instanceof ProtocolError ? e.code : 'decisions_unavailable' })
+  }
+  const plans = kitPlans(decisions, now)
+  log('kit_plans', { state: 'read', open: plans.open.length, stopped: plans.stopped.length, done: plans.done.length, held: plans.held.length })
+  return { taste, requests, kitPlans: plans.open }
+}
+
 export async function main(argv: readonly string[] = process.argv.slice(2)): Promise<number> {
   const args = parseArgs(argv)
   const deps = buildDeps(args)
-  // Offline runs stay offline: fixtures carry no directive, so taste is unknown and no request is open.
-  if (!args.offline) deps.taste = await readTaste(process.env)
-  if (!args.offline) deps.requests = await readAnswerRequests(process.env)
+  // Offline runs stay offline: fixtures carry no directive, so taste is
+  // unknown, no request is open and no kit plan is in flight.
+  if (!args.offline) {
+    const read = await readDirectiveInputs(process.env)
+    deps.taste = read.taste
+    deps.requests = read.requests
+    deps.kitPlans = read.kitPlans
+  }
   if (args.siteIn) deps.sharedAudit = readSharedAudit(args.siteIn, process.env)
   const opts: RunOpts = { subject: args.subject, weekStart: args.week, dry: args.dry, outPath: args.out, commandId: args.commandId }
   log('run_start', { subject: args.subject, week_start: args.week, dry: args.dry, offline: args.offline, engines: deps.engines.map(e => e.engine), claude_lane: deps.claudeLane ?? null, cap_usd: args.capUsd, command_id: args.commandId })

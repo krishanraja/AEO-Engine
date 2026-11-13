@@ -15,9 +15,13 @@ export function writePacket(path: string, body: unknown): void {
   writeFileSync(path, JSON.stringify(body, null, 2) + '\n')
 }
 
-/** `open`: the gated engines the context's packet_features let into the packet (validatePacket). */
-export async function ship(cc: ControlCenterClient, packet: AeoPacket, opts: { dry: boolean; outPath: string | null; open?: readonly GatedEngine[] }): Promise<ShipResult> {
-  const v = validatePacket(packet, opts.open ?? [])
+/**
+ * `features`: the packet features the context lists (validatePacket); each
+ * optional field, gemini included, is accepted only when listed. `open`, the
+ * older form, names only the gated engines and is read when `features` is absent.
+ */
+export async function ship(cc: ControlCenterClient, packet: AeoPacket, opts: { dry: boolean; outPath: string | null; open?: readonly GatedEngine[]; features?: readonly string[] }): Promise<ShipResult> {
+  const v = opts.features ? validatePacket(packet, { features: opts.features }) : validatePacket(packet, opts.open ?? [])
   if (!v.ok) throw new Error(`packet invalid for ${packet.subject.slug}: ${v.errors.slice(0, 12).join('; ')}`)
   if (opts.dry) {
     if (!opts.outPath) return { mode: 'held' }

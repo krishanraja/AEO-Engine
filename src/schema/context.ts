@@ -1,5 +1,6 @@
 /** The shape of GET /api/aeo/context as Control Center serves it. */
 import type { Engine, ProductSlug, QueryStatus, SubjectKind, Trend } from './packet.js'
+import type { Panel } from './panel.js'
 
 export interface RoomTarget {
   id: string
@@ -45,6 +46,26 @@ export interface PriorQuery {
   demand_score: number
   status: QueryStatus
   trend: Trend
+  /**
+   * The panel this engine sent for the question last run (the packet's
+   * `panel` feature), once Control Center serves it back. Optional and read
+   * loosely (src/pipeline/55-panel.ts): absent, null or misshapen means the
+   * history before this run is unknown, and nothing is guessed.
+   */
+  panel?: Panel | null
+}
+
+/**
+ * A page a venture said it shipped for one of its questions (Control
+ * Center's venture declarations, or a 1.23.0 request's `shipped`). Optional,
+ * read loosely: names the question by query_id or by its words.
+ */
+export interface ShippedDeclaration {
+  query_id?: string
+  question?: string
+  url: string
+  shipped_at: string | null
+  by?: string
 }
 
 export interface PriorWeek {
@@ -78,6 +99,14 @@ export interface ContextSubject {
    * present it wins: a held venture is measured and gets no win kit.
    */
   engine_held?: boolean
+  /** Optional: the pages this venture said it shipped for its questions. They are probed first, after its requests. */
+  shipped?: ShippedDeclaration[]
+  /**
+   * Optional: the subject's distinctive names (Heartside, Mindmake), never a
+   * generic word. An answer that names one, outside any URL, is a name
+   * mention. Absent or empty: unknown, and every probe's name_mentioned is null.
+   */
+  brand_names?: string[]
 }
 
 export interface AeoContext {
@@ -110,7 +139,8 @@ export interface AeoContext {
    * What Control Center's packet ingest accepts beyond the closed v1 shape,
    * read as optional: absent means none. `engine_gemini` lets Gemini's probes
    * into the packet (src/schema/packet.ts, GATED_ENGINES); until it is listed
-   * they are counted only in the sealed run summary.
+   * they are counted only in the sealed run summary. Every other optional
+   * field (PACKET_FEATURES) is sent only when its feature is listed.
    */
   packet_features?: string[]
 }

@@ -27,6 +27,7 @@ import {
   ENGINE,
   OBJECTIVE_KEY,
   sealReport,
+  STAGES_VERSION,
   STATE_VERSION,
   stateLineOk,
   validateReport,
@@ -39,16 +40,20 @@ import {
   type InstructionRef,
   type ObjectiveReading,
   type Proposal,
+  type ReportEvent,
   type ReportStatus,
+  type SchemaVersion,
 } from '../schema/report.js'
 import { fortnightStart, nextScheduledRun, SCHEDULE_LATE_MS, upcomingRun, type RunSummary, type SubjectSummary } from './measure.js'
-import type { KitCandidate } from '../schema/kit.js'
+import { checkInId, CHECKIN_PREFIX, GAP_CLASSES, KIT_PROPOSAL_PREFIX, kitPlans, kitProposalId, planIdOfCheckIn, type GapClass, type KitCandidate, type KitPlan, type PlanDecision } from '../schema/kit.js'
+import { emptyStates, engineWon, PANEL_STATES, SAMPLES_PER_CONTESTED, WIN_SAMPLES, type TrackedQuestion } from '../schema/panel.js'
 import { buildEngineState, inWords, type RepoState } from './state.js'
 
 export const SPEND_PROPOSAL_ID = 'aeo:spend:max-usd-per-run'
-/** A win kit's proposal id: aeo:kit:<product_slug>:<first 8 of query_id>, stable across runs for one question. */
-export const KIT_PROPOSAL_PREFIX = 'aeo:kit:'
-export const kitProposalId = (productSlug: string, queryId: string) => `${KIT_PROPOSAL_PREFIX}${productSlug}:${queryId.slice(0, 8)}`
+// A win kit's plan id, aeo:kit:<product_slug>:<first 8 of query_id>, and its
+// check-in's, aeo:checkin:<product_slug>:<first 8>, live in src/schema/kit.ts
+// with the rule that reads his decisions on them.
+export { CHECKIN_PREFIX, checkInId, KIT_PROPOSAL_PREFIX, kitProposalId }
 export const SPEND_TARGET = 'AEO_MAX_USD_PER_RUN'
 /** A fortnightly engine reads as stale after 15 days (ENGINE-PROTOCOL.md, Health). */
 export const STALE_DAYS = 15
@@ -60,8 +65,12 @@ export const STALE_DAYS = 15
  */
 export const DECISIONS_LOOKBACK_DAYS = 60
 
-/** A decision as the reports read it: the id, his answer, when, and the payload it was made on. */
-export type DecisionLite = Pick<Decision, 'proposal_id' | 'decided_at' | 'payload_sha256'> & { decision: string }
+/**
+ * A decision as the reports read it: the id, his answer, when, and the
+ * payload it was made on; and, when he amended it, his version and its
+ * digest (1.1.0), which a kit plan's check-in reads as his redirect.
+ */
+export type DecisionLite = Pick<Decision, 'proposal_id' | 'decided_at' | 'payload_sha256'> & { decision: string } & Partial<Pick<Decision, 'stage' | 'amended' | 'amended_sha256' | 'exact_payload' | 'amount_usd'>>
 
 /** One decision per proposal: the latest by decided_at, from any number of lists (the directive's seven days, a longer GET). */
 export function latestDecisions(...lists: ReadonlyArray<readonly DecisionLite[] | null | undefined>): Map<string, DecisionLite> {
@@ -171,7 +180,19 @@ export function needsResearch(given: InstructionRef, at: Date, next: Date): stri
   return ackLine(`${head} ${researchTail(given, at, next)}`, `${head} Press ${START_BY_HAND}.`)
 }
 
-function envelope(e: Envelope, status: ReportStatus, objectives: ObjectiveReading[], activity: ActivityLine[], proposals: Proposal[], holds: Hold[], state: EngineState | null = null, served: readonly string[] = []): EngineReport {
+/**
+ * The version a report sends: the lowest that carries every field it uses
+ * (the protocol's "Versions" rule). answers_served is 1.22.0, the engine's
+ * state 1.20.0, a proposal's stage or parent 1.1.0; otherwise 1.0.0.
+ */
+export function versionFor(r: { answers_served?: unknown; state: boolean; proposals: readonly Proposal[] }): SchemaVersion {
+  if (r.answers_served) return ANSWERS_VERSION
+  if (r.state) return STATE_VERSION
+  if (r.proposals.some(p => 'stage' in p || 'parent_proposal_id' in p)) return STAGES_VERSION
+  return '1.0.0'
+}
+
+function envelope(e: Envelope, status: ReportStatus, objectives: ObjectiveReading[], activity: ActivityLine[], proposals: Proposal[], holds: Hold[], state: EngineState | null = null, served: readonly string[] = [], events: readonly ReportEvent[] = []): EngineReport {
   const extra: EngineState & { answers_served?: string[] } = {}
   // 1.22.0: the venture requests this run asked, only where the directive serves them.
   if (e.answers && served.length) extra.answers_served = [...served].slice(0, ANSWERS_SERVED_MAX)
@@ -179,8 +200,9 @@ function envelope(e: Envelope, status: ReportStatus, objectives: ObjectiveReadin
   if (state?.obsessions?.length) extra.obsessions = state.obsessions
   if (state?.next_steps?.length) extra.next_steps = state.next_steps
   if (state?.instruction_acks?.length) extra.instruction_acks = state.instruction_acks
+  const sent = proposals.slice(0, 10)
   return sealReport({
-    schema_version: extra.answers_served ? ANSWERS_VERSION : state ? STATE_VERSION : '1.0.0',
+    schema_version: versionFor({ answers_served: extra.answers_served, state: !!state, proposals: sent }),
     engine_id: ENGINE.engine_id,
     product_slug: ENGINE.product_slug,
     run_id: e.runId,
@@ -190,8 +212,8 @@ function envelope(e: Envelope, status: ReportStatus, objectives: ObjectiveReadin
     status,
     objectives,
     activity: activity.slice(0, 40),
-    proposals: proposals.slice(0, 10),
-    events: [],
+    proposals: sent,
+    events: events.slice(0, EVENTS_MAX),
     holds: holds.slice(0, 40),
     ...extra,
   })
@@ -234,14 +256,18 @@ const KIT_WHY: Record<KitCandidate['gap_class'], string> = {
 /**
  * The one win kit this research run puts on Krish's list (Ruling, Krish,
  * 2026-11-13: until Control Center carries kits to the venture engines, AEO
- * proposes one kit a run itself). Prepared, behind strategy: AEO never
- * publishes, so it is never a post; his yes sends it to the product's build
- * session or its growth engine to ship, and AEO acts on nothing.
+ * proposes one kit a run itself). A kit is a plan for one question (protocol
+ * 1.1.0, `stage: plan`, GET-GOING Step 1): prepared, behind strategy, with
+ * the kit itself as the plan he can change. AEO never publishes, so it never
+ * proposes a go-live for it: his yes sends it to the product's build session
+ * or its growth engine to ship, and AEO checks in on it after each research
+ * run until the question is won (`kit_won` closes it) or he stops it.
  */
 export function kitProposal(k: KitCandidate, expiresAt: Date): Proposal {
   const reference = k.reference.trim() || null
   const why = `${KIT_WHY[k.gap_class]} The kit says what to change and why, from this run's answers and a fetch-only read of the pages involved. AEO ships nothing: the product's build session or its growth engine does, and the next research run checks whether it is cited first.`
   return {
+    stage: 'plan',
     proposal_id: kitProposalId(k.product_slug, k.query_id),
     title: `Win '${k.title}' for ${k.product_slug}`.slice(0, 160),
     why: why.slice(0, 1000),
@@ -253,9 +279,198 @@ export function kitProposal(k: KitCandidate, expiresAt: Date): Proposal {
     exact_payload: k.exact_payload,
     payload_sha256: wordsPayloadSha(k.exact_payload),
     evidence: reference && /^https:\/\/\S+$/.test(reference) ? [{ label: 'The page the kit changes', url: reference.slice(0, 500) }] : [],
-    close_condition: { event: 'kit_shipped', reference: reference ? reference.slice(0, 500) : null },
+    close_condition: { event: KIT_WON_EVENT, reference: reference ? reference.slice(0, 500) : null },
     expires_at: expiresAt.toISOString(),
   }
+}
+
+// ---------- the autonomy loop for kits: check-ins and events (GET-GOING Step 1) ----------
+
+/** The event that closes a kit plan: its question is won by the repeat-sample rule. */
+export const KIT_WON_EVENT = 'kit_won'
+export const QUESTION_WON_EVENT = 'question_won'
+export const QUESTION_LOST_EVENT = 'question_lost'
+/** The event a check-in names: Krish answered it, which only he does. */
+export const CHECK_IN_EVENT = 'check_in_answered'
+/** Check-ins one report carries, oldest plan first. */
+export const CHECKINS_MAX = 3
+/** AGENTS.md: at least one check-in a week while a plan is open, so the daily report renews one this many days after the last research run. */
+export const CHECKIN_WEEK_DAYS = 7
+export const EVENTS_MAX = 40
+
+/** How close each gap class is to a first citation, for "against the plan". Unknown has no place. */
+const GAP_RANK: Record<GapClass, number | null> = { won: 5, cited_not_first: 4, retrieved_not_cited: 3, not_retrieved: 2, no_page: 1, unknown: null }
+const GAP_WORDS: Record<GapClass, string> = {
+  won: 'won, cited first',
+  cited_not_first: 'cited, not first',
+  retrieved_not_cited: 'retrieved, not cited',
+  not_retrieved: 'our page is not retrieved',
+  no_page: 'no page of ours answers it',
+  unknown: 'no engine answered',
+}
+
+const isGap = (v: string): v is GapClass => (GAP_CLASSES as readonly string[]).includes(v)
+
+/**
+ * The gap class a plan's own text names: a check-in's "Gap class at approval"
+ * line first (carried forward run to run), else a kit's "Why it is not won:
+ * ... (class)" line. Null when the text names none. Only this engine's own
+ * rendering is read, never a guess from anything else.
+ */
+export function gapClassIn(text: string | null | undefined): GapClass | null {
+  const t = String(text ?? '')
+  const carried = /^- Gap class at approval: ([a-z_]+)\b/m.exec(t)
+  if (carried && isGap(carried[1])) return carried[1]
+  const kit = /^Why it is not won: .*\(([a-z_]+)\)\s*$/m.exec(t)
+  return kit && isGap(kit[1]) ? kit[1] : null
+}
+
+/** The question a plan's own text names (its "Question:" line), or null. */
+export function questionIn(text: string | null | undefined): string | null {
+  const m = /^Question: (.+)$/m.exec(String(text ?? ''))
+  return m ? m[1].trim().slice(0, 400) : null
+}
+
+/** A proposal's payload in a stored report, by id, or null. */
+function payloadIn(report: Record<string, unknown> | null | undefined, id: string): string | null {
+  const proposals = report && Array.isArray(report.proposals) ? (report.proposals as Proposal[]) : []
+  const p = proposals.find(x => x && x.proposal_id === id)
+  return typeof p?.exact_payload === 'string' ? p.exact_payload : null
+}
+
+/**
+ * The line a research report carries the kit plans kit_won closed in, so
+ * every later report reads them as done: Control Center closes the plan on
+ * the event, but no decision says so, and only the last research report is
+ * read back. Each plan id with the day it was closed.
+ */
+export const CLOSED_LINE_HEAD = 'Kit plans closed by kit_won, checked in on no more:'
+const CLOSED_ENTRY_RE = /(aeo:kit:[a-z0-9-]+:[0-9a-f]{8})(?: \((\d{4}-\d{2}-\d{2})\))?/g
+/** At most this many closed plans are carried, newest closure first: a plan stays open six weeks, and a run proposes one kit. */
+const CLOSED_CARRIED_MAX = 10
+
+/**
+ * The kit plans a stored research report says kit_won closed, each with the
+ * day it was closed ('' when not said): the plans its events closed, and those
+ * its closure line carries forward from earlier reports. Only this engine's
+ * own report is read.
+ */
+export function closedByKitWon(report: Record<string, unknown> | null | undefined): Map<string, string> {
+  const out = new Map<string, string>()
+  if (!report) return out
+  for (const e of Array.isArray(report.events) ? report.events : []) {
+    const ev = e as Partial<ReportEvent> | null
+    if (ev?.event === KIT_WON_EVENT && typeof ev.proposal_id === 'string' && ev.proposal_id.startsWith(KIT_PROPOSAL_PREFIX)) out.set(ev.proposal_id, String(ev.at ?? '').slice(0, 10))
+  }
+  for (const a of Array.isArray(report.activity) ? report.activity : []) {
+    const text = typeof a === 'string' ? a : typeof (a as ActivityLine | null)?.line === 'string' ? (a as ActivityLine).line : ''
+    if (!text.startsWith(CLOSED_LINE_HEAD)) continue
+    for (const m of text.slice(CLOSED_LINE_HEAD.length).matchAll(CLOSED_ENTRY_RE)) if (!out.has(m[1])) out.set(m[1], m[2] ?? '')
+  }
+  return out
+}
+
+/** Whether kit_won closed this plan: closed, and not approved again after the day it was closed. */
+export function closedPlan(plan: KitPlan, closed: ReadonlyMap<string, string>): boolean {
+  const day = closed.get(plan.plan_id)
+  if (day === undefined) return false
+  return !day || plan.approved_at.slice(0, 10) <= day
+}
+
+/** The closure line for a report, newest closure first, or null when no plan is closed. */
+function closedLine(closed: ReadonlyMap<string, string>): ActivityLine | null {
+  const entries = [...closed].sort((a, b) => b[1].localeCompare(a[1]) || a[0].localeCompare(b[0])).slice(0, CLOSED_CARRIED_MAX)
+  if (!entries.length) return null
+  return line(`${CLOSED_LINE_HEAD} ${entries.map(([id, day]) => (day ? `${id} (${day})` : id)).join(', ')}.`)
+}
+
+/** One engine's part, in words: "chatgpt (first on 2 of 3 samples)". */
+function engineWords(e: TrackedQuestion['engines'][number]): string {
+  return e.n > 1 ? `${e.engine} (first on ${e.first} of ${e.n} samples, cited on ${e.cited})` : `${e.engine} (${e.first ? 'first' : e.cited ? 'cited, not first' : 'not cited'})`
+}
+
+export interface CheckInFacts {
+  plan: KitPlan
+  question: string | null
+  gapAtApproval: GapClass | null
+  /** This run's measurement of the question, or null when it was not asked. */
+  tracked: TrackedQuestion | null
+  /** Why it was not measured, when `tracked` is null. */
+  notMeasured: string | null
+  runId: string
+  observedAt: Date
+  next: Date
+}
+
+/**
+ * A check-in, as plain text for Krish: how the question did against the plan,
+ * measured this run, with no answer text, and what comes next. At most 8000
+ * characters; his redirect, when he gave one, is quoted last and cut first.
+ */
+export function renderCheckIn(f: CheckInFacts): string {
+  const t = f.tracked
+  const day = dayInWords(f.observedAt)
+  const lines = [
+    `Check-in on the win kit plan ${f.plan.plan_id}`,
+    `Product: ${f.plan.product_slug}`,
+    `Question: ${f.question ?? 'not known to this run (asked by its query id only)'}`,
+    `Approved: ${dayInWords(new Date(f.plan.approved_at))}${f.plan.redirect ? `; redirected by Krish on ${dayInWords(new Date(f.plan.redirect.at))}` : ''}`,
+    '',
+    t ? `Measured by the research run on ${day} (${f.runId}), with no answer text:` : `Not measured by the research run on ${day} (${f.runId}): ${f.notMeasured ?? 'the question was not asked'}.`,
+    `- Gap class at approval: ${f.gapAtApproval ?? 'not known (the plan as approved is not in the reports this run read)'}`,
+  ]
+  let against = 'not measured this run'
+  if (t) {
+    const now = t.gap_class
+    lines.push(`- Gap class now: ${now ? `${now} (${GAP_WORDS[now]})` : 'not diagnosed'}`)
+    lines.push(`- Panel state now: ${t.panel.state}${t.panel.streak !== null ? `, ${t.panel.streak} ${t.panel.streak === 1 ? 'run' : 'runs'} in this state` : ''}${t.panel.won_at ? `; won in the week of ${t.panel.won_at}` : ''}${t.panel.lost_at ? `; lost in the week of ${t.panel.lost_at}` : ''}`)
+    lines.push(`- Assistants that answered: ${t.engines.length}${t.engines.length ? ` (${t.engines.map(engineWords).join('; ')})` : ''}`)
+    lines.push(`- Assistants citing us: ${t.engines.filter(e => e.cited > 0).length}; citing us first: ${t.engines.filter(e => e.first > 0).length}; first on ${WIN_SAMPLES} of ${SAMPLES_PER_CONTESTED} samples: ${t.engines.filter(e => engineWon(e, t.sampled === true)).length}`)
+    lines.push(`- A shipped URL declared: ${t.shipped_url ? `yes, ${t.shipped_url}` : 'no'}`)
+    const a = f.gapAtApproval ? GAP_RANK[f.gapAtApproval] : null
+    const b = now ? GAP_RANK[now] : null
+    against = a === null || b === null ? 'not comparable (a class is not known)' : b > a ? 'closer to a first citation than at approval' : b < a ? 'further from a first citation than at approval' : 'no change since approval'
+  }
+  lines.push('', `Against the plan: ${against}.`)
+  lines.push(`Plan: ${f.plan.redirect ? `Krish's redirect of ${dayInWords(new Date(f.plan.redirect.at))}, quoted below` : `the kit as proposed (${f.plan.plan_id})`}.`)
+  lines.push(`Next: the research run of ${dayInWords(f.next)} asks it again, ${SAMPLES_PER_CONTESTED} times on each assistant; a first citation on ${WIN_SAMPLES} of ${SAMPLES_PER_CONTESTED} samples on one assistant closes the plan with ${KIT_WON_EVENT}. AEO ships nothing: the product's build session or its growth engine does.`)
+  lines.push('His yes keeps the plan going, his change redirects it, and his No stops it for good.')
+  const head = lines.join('\n').replace(/\u2014|\u2013/g, ',')
+  if (!f.plan.redirect?.text) return head.slice(0, 8000)
+  const quoted = `\n\nHis redirect, as he wrote it:\n${f.plan.redirect.text}`.replace(/\u2014|\u2013/g, ',')
+  return (head + quoted).length <= 8000 ? head + quoted : `${(head + quoted).slice(0, 8000 - 20)}\n(cut to fit)`
+}
+
+/** A check-in on a kit plan: behind strategy, naming its plan, his "On track?". */
+export function checkInProposal(plan: KitPlan, payload: string, question: string | null, expiresAt: Date, evidenceUrl: string | null = null): Proposal {
+  const words = question ? question.replace(/\s+/g, ' ') : null
+  const short = words && words.length > 100 ? `${words.slice(0, 100).replace(/\s+\S*$/, '')}...` : words
+  return {
+    stage: 'check_in',
+    parent_proposal_id: plan.plan_id,
+    proposal_id: checkInId(plan.plan_id),
+    title: (short ? `On track? Win '${short}' for ${plan.product_slug}` : `On track? The win kit plan for ${plan.product_slug}`).slice(0, 160),
+    why: `How the question did against the kit plan Krish approved on ${dayInWords(new Date(plan.approved_at))}, measured with no answer text. His yes keeps it going, his change redirects it, and his No stops the plan for good.`.slice(0, 1000),
+    kind: 'advice',
+    wall: 'strategy',
+    amount_usd: null,
+    channel: null,
+    objective_key: OBJECTIVE_KEY,
+    exact_payload: payload,
+    payload_sha256: wordsPayloadSha(payload),
+    evidence: evidenceUrl && /^https:\/\/\S+$/.test(evidenceUrl) ? [{ label: 'The research run', url: evidenceUrl.slice(0, 500) }] : [],
+    close_condition: { event: CHECK_IN_EVENT, reference: plan.plan_id },
+    expires_at: expiresAt.toISOString(),
+  }
+}
+
+/** The question this plan is for, in a run's summaries: its venture's tracked question whose id starts with the plan's. */
+function trackedFor(plan: KitPlan, placed: readonly Placed[]): { tracked: TrackedQuestion | null; why: string | null } {
+  const subject = placed.find(p => p.s.kind === 'venture' && p.s.product_slug === plan.product_slug)
+  if (!subject) return { tracked: null, why: `no research job for ${plan.product_slug} reported this run` }
+  if (!subject.s.ok) return { tracked: null, why: `the research for ${plan.product_slug} failed this run` }
+  const tracked = (subject.s.panel?.tracked ?? []).find(t => t.query_id.startsWith(plan.q8)) ?? null
+  return tracked ? { tracked, why: null } : { tracked: null, why: 'this run\'s research did not track its question (it was not asked, or the plan was not read before the research)' }
 }
 
 /** The spend ask's payload: the amount and the variable it would change. */
@@ -285,6 +500,16 @@ export interface ResearchInput extends Envelope {
    * it is still a candidate, else carries it as it is, and never adds a second.
    */
   pendingKit?: Proposal | null
+  /**
+   * The last full research report (the one pendingKit came from), or null.
+   * A kit plan's check-in reads the class the plan was made at from it: the
+   * kit's own text, or the last check-in's, carried forward run to run.
+   */
+  lastReport?: Record<string, unknown> | null
+  /** features.aeo_kits_delivered: the venture engines carry the kits, so no kit plan is proposed here; check-ins on approved plans go on. */
+  kitsDelivered?: boolean
+  /** This workflow run's public page, the run evidence a check-in and an event name. */
+  runPage?: string | null
 }
 
 interface Placed { s: SubjectSummary; label: string; counts: boolean; noSummary: boolean }
@@ -367,6 +592,25 @@ export function buildResearchReport(input: ResearchInput): EngineReport {
   if (freeTier) activity.push(line(`Gemini's free-tier share for this run was used up, so ${plural(freeTier, 'Gemini ask')} ${freeTier === 1 ? 'was' : 'were'} skipped.`))
   if (weekStart && weekStart < METHOD_NOTE_BEFORE_WEEK) activity.push(line(METHOD_NOTE))
 
+  // Beside "any assistant" (the objective), how many questions a majority of
+  // the assistants that answered cited first, on the first sample; and the
+  // panel: each question's state with repeat samples on the contested ones.
+  // Counts only, over the subjects that count.
+  const countedOk = placed.filter(p => p.counts && p.s.ok)
+  const majority = countedOk.filter(p => typeof p.s.cited_first_majority === 'number')
+  if (majority.length) activity.push(line(`Cited first by a majority of the assistants that answered: ${plural(majority.reduce((n, p) => n + (p.s.cited_first_majority ?? 0), 0), 'question')}; by any assistant: ${plural(majority.reduce((n, p) => n + (p.s.cited_first ?? 0), 0), 'question')} (first sample only, so readings stay comparable).`))
+  const paneled = countedOk.filter(p => p.s.panel)
+  if (paneled.length) {
+    const states = emptyStates()
+    for (const p of paneled) for (const k of PANEL_STATES) states[k] += p.s.panel?.states[k] ?? 0
+    const sampled = paneled.reduce((n, p) => n + (p.s.panel?.sampled ?? 0), 0)
+    const answers = paneled.reduce((n, p) => n + (p.s.panel?.sample_answers ?? 0), 0)
+    const capped = paneled.reduce((n, p) => n + (p.s.panel?.sample_skipped_cap ?? 0), 0)
+    const stopped = capped ? `; the spend cap stopped ${plural(capped, 're-ask')}, and an assistant left on one answer of a re-sampled question cannot win it alone` : ''
+    activity.push(line(`Panel across the counted subjects: ${PANEL_STATES.map(k => `${states[k]} ${k}`).join(', ')}. ${plural(sampled, 'contested question')} ${sampled === 1 ? 'was' : 'were'} re-asked up to twice more on each assistant that answered (${plural(answers, 'more answer')})${stopped}; won means first on ${WIN_SAMPLES} of ${SAMPLES_PER_CONTESTED} samples on one assistant.`))
+    if (paneled.some(p => p.s.panel?.history === false)) activity.push(line('Control Center does not serve last run\'s panel back yet, so each question\'s history (won, lost, streak) stays unknown and no panel move is reported; a question first asked this run starts with its first week.'))
+  }
+
   const skipped = placed.reduce((n, p) => n + (p.s.probes_skipped_cap ?? 0), 0)
   if (skipped > 0) {
     activity.push(line(`The spend cap stopped ${plural(skipped, 'question and assistant pair')} from being asked.`))
@@ -443,7 +687,11 @@ export function buildResearchReport(input: ResearchInput): EngineReport {
   const passedOver = new Set(candidates.filter(k => decided.has(kitProposalId(k.product_slug, k.query_id))).map(k => kitProposalId(k.product_slug, k.query_id))).size
   let kitAsk: Proposal | null = null
   let kitLine: ActivityLine | null = null
-  if (candidates.length && input.scope !== 'all') {
+  if (input.kitsDelivered) {
+    // The venture engines carry the kits now (features.aeo_kits_delivered):
+    // no kit plan from here, and the check-ins below go on.
+    if (candidates.length) activity.push(line('The venture engines carry the win kits now, so this engine proposes no kit plan itself; its check-ins on the plans Krish approved go on.'))
+  } else if (candidates.length && input.scope !== 'all') {
     // A run of one subject is started by hand between the full runs; a kit
     // from it would sit beside the full run's with nothing to take either back.
     activity.push(line('A run of one subject puts no win kit on Krish\'s list; the full research run does.'))
@@ -465,7 +713,91 @@ export function buildResearchReport(input: ResearchInput): EngineReport {
     proposals.push(kitAsk)
     activity.push(kitLine)
   }
-  if (passedOver && input.scope === 'all') activity.push(line(`${plural(passedOver, 'win kit')} Krish already decided ${passedOver === 1 ? 'was' : 'were'} left off his list.`))
+  if (passedOver && input.scope === 'all' && !input.kitsDelivered) activity.push(line(`${plural(passedOver, 'win kit')} Krish already decided ${passedOver === 1 ? 'was' : 'were'} left off his list.`))
+
+  // The autonomy loop for kits (GET-GOING Step 1). Each kit plan Krish
+  // approved in the last six weeks, oldest first: won, it closes with
+  // kit_won; otherwise a check-in says how its question did against the plan.
+  // His No on a check-in stopped its plan for good; his change redirects it.
+  // Only a full run checks in, from his decisions read before this report.
+  const events: ReportEvent[] = []
+  const at = input.observedAt.toISOString()
+  const evidenceUrl = input.runPage && /^https:\/\/\S+$/.test(input.runPage) ? input.runPage.slice(0, 500) : null
+  if (input.scope === 'all' && input.decisions) {
+    const plans = kitPlans(input.decisions, input.observedAt)
+    // kit_won closes a plan: one an earlier report closed gets no check-in and no second kit_won.
+    const closedEarlier = closedByKitWon(input.lastReport)
+    const closed = new Map<string, string>()
+    const wonNow: string[] = []
+    if (plans.stopped.length) activity.push(line(`${plural(plans.stopped.length, 'kit plan')} Krish stopped with a No on a check-in ${plans.stopped.length === 1 ? 'gets' : 'get'} no more check-ins.`))
+    for (const plan of plans.held) holds.push({ reason: 'amendment_unverified', detail: `His approval of ${plan.plan_id} came in an amended version whose digest does not check out, so the plan is held: no check-ins and no kit in flight until a decision on it that checks out.` })
+    let checkIns = 0
+    let waiting = 0
+    for (const plan of plans.open) {
+      if (closedPlan(plan, closedEarlier)) { closed.set(plan.plan_id, closedEarlier.get(plan.plan_id) ?? ''); continue }
+      if (plan.unverified) holds.push({ reason: 'amendment_unverified', detail: `His newest change to ${plan.plan_id} did not match its digest, so it is not acted on; ${plan.redirect ? 'his earlier change that checks out stands' : 'the plan stands as he approved it'}.` })
+      const { tracked, why: notMeasured } = trackedFor(plan, placed)
+      if (tracked?.panel.state === 'won') {
+        events.push({ event: KIT_WON_EVENT, proposal_id: plan.plan_id, at, evidence_url: evidenceUrl })
+        closed.set(plan.plan_id, at.slice(0, 10))
+        const first = tracked.engines.filter(e => engineWon(e, tracked.sampled === true))
+        wonNow.push(`${plan.product_slug}, cited first by ${first.map(e => `${e.engine} on ${e.first} of ${e.n} ${e.n === 1 ? 'sample' : 'samples'}`).join(', ') || 'an assistant'}`)
+        continue
+      }
+      if (checkIns >= CHECKINS_MAX) { waiting++; continue }
+      const kitText = payloadIn(input.lastReport, plan.plan_id)
+      const lastCheckIn = payloadIn(input.lastReport, checkInId(plan.plan_id))
+      const question = tracked?.question ?? questionIn(lastCheckIn) ?? questionIn(plan.redirect?.text) ?? questionIn(kitText)
+      const gapAtApproval = gapClassIn(lastCheckIn) ?? gapClassIn(kitText) ?? gapClassIn(plan.redirect?.text)
+      const payload = renderCheckIn({ plan, question, gapAtApproval, tracked, notMeasured, runId: input.runId, observedAt: input.observedAt, next })
+      proposals.push(checkInProposal(plan, payload, question, next, evidenceUrl))
+      checkIns++
+    }
+    if (wonNow.length) activity.push(line(`${plural(wonNow.length, 'kit plan')} won this run and closed with ${KIT_WON_EVENT} (run ${input.runId}): ${wonNow.join('; ')}.`))
+    const carried = closedLine(closed)
+    if (carried) activity.push(carried)
+    if (checkIns) activity.push(line(`${plural(checkIns, 'check-in')} on the kit plans Krish approved ${checkIns === 1 ? 'is' : 'are'} on his list, oldest plan first.`))
+    if (waiting) activity.push(line(`${plural(waiting, 'more open kit plan')} ${waiting === 1 ? 'waits' : 'wait'} for a later check-in (at most ${CHECKINS_MAX} a report).`))
+  } else if (input.scope === 'all' && input.decisions === null) {
+    holds.push({ reason: 'check_in_not_proposed', detail: 'His decisions could not be read before this report, so no check-in is proposed: a plan he stopped could be checked in on again.' })
+  }
+
+  // Panel moves this run, for the subjects that count: a question that became
+  // won (first on 2 of 3 samples on one assistant, or its one sample) or was
+  // lost. One event each, as the report schema allows (kit_won first), and
+  // one line for them all with the run's evidence: engines and sample counts
+  // only. The count of events past the report's limit goes first, so the
+  // 40-line cap can never cut it.
+  const moved: Array<{ label: string; won: number; lost: number }> = []
+  const wonEngines = new Set<string>()
+  let firstAll = 0
+  let samplesAll = 0
+  for (const p of placed) {
+    const panel = p.counts && p.s.ok ? p.s.panel : undefined
+    if (!panel || (!panel.won_now.length && !panel.lost_now.length)) continue
+    for (const _ of panel.won_now) events.push({ event: QUESTION_WON_EVENT, proposal_id: null, at, evidence_url: evidenceUrl })
+    for (const _ of panel.lost_now) events.push({ event: QUESTION_LOST_EVENT, proposal_id: null, at, evidence_url: evidenceUrl })
+    for (const c of panel.won_now) { for (const e of c.engines) wonEngines.add(e); firstAll += c.first; samplesAll += c.samples }
+    moved.push({ label: p.label, won: panel.won_now.length, lost: panel.lost_now.length })
+  }
+  if (events.length > EVENTS_MAX) activity.push(line(`${events.length - EVENTS_MAX} panel events past the report's ${EVENTS_MAX} are counted here only.`))
+  if (moved.length) {
+    const won = moved.reduce((n, m) => n + m.won, 0)
+    const lost = moved.reduce((n, m) => n + m.lost, 0)
+    const head = `Panel moves this run (${input.runId}): ${plural(won, 'question')} became won${won ? ` (first on ${firstAll} of ${samplesAll} answers${wonEngines.size ? `, by ${[...wonEngines].join(', ')}` : ''})` : ''}, ${plural(lost, 'question')} lost.`
+    // By subject, as many as fit one line.
+    let text = `${head} By subject:`
+    let shown = 0
+    for (const m of moved) {
+      const part = `${shown ? ';' : ''} ${m.label}: ${m.won} won, ${m.lost} lost`
+      const rest = moved.length - shown - 1
+      if ((text + part).length + (rest ? ` and ${rest} more.`.length : 1) > 500) break
+      text += part
+      shown++
+    }
+    text += shown < moved.length ? `${shown ? ';' : ''} and ${moved.length - shown} more.` : '.'
+    activity.push(line(text))
+  }
 
   // Why the questions are not won, by gap class (counts only): each venture
   // by name, the prospects together (their "ours" is Mindmake's pages).
@@ -522,16 +854,27 @@ export function buildResearchReport(input: ResearchInput): EngineReport {
     } else acks.push(ack(ctx, input.observedAt, 'started', `A paid research run finished on ${day} with this instruction open: ${researched} of ${placed.length} subjects researched. It probes Control Center's subject list, never the instruction's words.`))
   }
   const state = stateFor(input, objective, acks)
-  const report = envelope(input, degraded ? 'degraded' : 'ready', [objective], activity, proposals, holds, state, served)
-  // A kit is built from pages and answers this engine does not write. If its
-  // words would make the report one Control Center refuses, the kit is held
-  // back and the report still lands: the fortnight's reading matters more
-  // than one kit.
-  if (kitAsk && !validateReport(report).ok) {
-    const held: Hold = { reason: 'kit_not_proposed', detail: `The top win kit, for ${kitAsk.proposal_id.split(':')[2]}, carried text a report may not carry, so it is not on his list this run.` }
-    return envelope(input, degraded ? 'degraded' : 'ready', [objective], activity.filter(a => a !== kitLine), proposals.filter(p => p !== kitAsk), [...holds, held], state, served)
+  const report = envelope(input, degraded ? 'degraded' : 'ready', [objective], activity, proposals, holds, state, served, events)
+  if (validateReport(report).ok) return report
+  // A kit or a check-in is built from pages, answers and his own words that
+  // this engine does not write. If one would make the report one Control
+  // Center refuses, it is held back and the report still lands: the
+  // fortnight's reading matters more than one ask.
+  const extra = [...holds]
+  let keep = proposals
+  let lines = activity
+  if (kitAsk) {
+    extra.push({ reason: 'kit_not_proposed', detail: `The top win kit, for ${kitAsk.proposal_id.split(':')[2]}, carried text a report may not carry, so it is not on his list this run.` })
+    keep = keep.filter(p => p !== kitAsk)
+    lines = lines.filter(a => a !== kitLine)
   }
-  return report
+  for (const p of keep.filter(x => x.stage === 'check_in')) {
+    const alone = envelope(input, 'ready', [objective], [], [p], [], null)
+    if (validateReport(alone).ok) continue
+    extra.push({ reason: 'check_in_not_proposed', detail: `The check-in on ${p.parent_proposal_id ?? 'a kit plan'} carried text a report may not carry, so it is not on his list this run.` })
+    keep = keep.filter(x => x !== p)
+  }
+  return envelope(input, degraded ? 'degraded' : 'ready', [objective], lines, keep, extra, state, served, events)
 }
 
 /** The research run_id the dispatch looks for: one full run a day. */
@@ -541,7 +884,7 @@ export interface StoredResearch { run_id: string; accepted_at: string; report: R
 
 export interface DirectiveInput extends Envelope {
   /** `instruction` (1.20.0) is Krish's open instruction by id; the report acts on it only through `state`, when the directive serves the engine's state. */
-  directive: { directive_id: string; chosen_by: string; decisions_since: Array<{ proposal_id: string; decision: string; decided_at: string; payload_sha256: string | null }>; instruction?: InstructionRef | null } | null
+  directive: { directive_id: string; chosen_by: string; decisions_since: DecisionLite[]; instruction?: InstructionRef | null } | null
   /**
    * His decisions read with a GET before this report, back past the last
    * research report: the directive's decisions_since covers seven days and a
@@ -553,6 +896,55 @@ export interface DirectiveInput extends Envelope {
   /** The newest full research report found, or null. */
   last: StoredResearch | null
   lastError: string | null
+  /** features.aeo_kits_delivered: the venture engines carry the kits, so an undecided kit plan is no longer carried here. */
+  kitsDelivered?: boolean
+}
+
+/**
+ * The weekly check-in the daily report renews while a plan is open
+ * (AGENTS.md: at least once a week), CHECKIN_WEEK_DAYS or more after the last
+ * research run. Nothing is measured between research runs, so it carries that
+ * run's check-in under a header naming the week; the same week renders the
+ * same words, so it waits on his list without coming back to him every day.
+ */
+/** Whole UTC calendar days from a to b: the daily wake on the seventh day after a research run counts seven, whatever the hours. */
+export function daysBetween(a: Date, b: Date): number {
+  const day = (d: Date) => Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
+  return Math.round((day(b) - day(a)) / DAY_MS)
+}
+
+export function weeklyCheckIn(plan: KitPlan, research: { run_id: string; observed_at: Date; report: Record<string, unknown> }, at: Date, next: Date): { payload: string; question: string | null } {
+  const days = daysBetween(research.observed_at, at)
+  const week = Math.max(1, Math.floor(days / CHECKIN_WEEK_DAYS))
+  const from = new Date(research.observed_at.getTime() + week * CHECKIN_WEEK_DAYS * DAY_MS)
+  const body = payloadIn(research.report, checkInId(plan.plan_id))
+  const kitText = payloadIn(research.report, plan.plan_id)
+  const question = questionIn(body) ?? questionIn(plan.redirect?.text) ?? questionIn(kitText)
+  const head = `Weekly check-in for the week from ${dayInWords(from)}: nothing is measured between research runs, so the figures are those of the research run on ${dayInWords(research.observed_at)} (${research.run_id}); the next research run is ${dayInWords(next)}.`
+  // Why the last research report carries no check-in on it, by cause: he
+  // approved it after that run, or the run held it back under its limit of
+  // check-ins, or the run carried none on it for another reason.
+  const checkIns = Array.isArray(research.report.proposals) ? (research.report.proposals as Proposal[]).filter(p => p && typeof p.proposal_id === 'string' && p.proposal_id.startsWith(CHECKIN_PREFIX)).length : 0
+  const why = Date.parse(plan.approved_at) > research.observed_at.getTime()
+    ? 'No research run has measured it since he approved it.'
+    : checkIns >= CHECKINS_MAX
+      ? `The research run on ${dayInWords(research.observed_at)} held its check-in back: a report carries at most ${CHECKINS_MAX}, oldest plan first. The next research run reports it.`
+      : `The research run on ${dayInWords(research.observed_at)} carried no check-in on it, so its figures are not in the report this run reads; the next research run reports them.`
+  const rest = body ?? [
+    `Check-in on the win kit plan ${plan.plan_id}`,
+    `Product: ${plan.product_slug}`,
+    `Question: ${question ?? 'not known to this run (asked by its query id only)'}`,
+    `Approved: ${dayInWords(new Date(plan.approved_at))}`,
+    `- Gap class at approval: ${gapClassIn(kitText) ?? gapClassIn(plan.redirect?.text) ?? 'not known (the plan as approved is not in the reports this run read)'}`,
+    why,
+    `Next: the research run of ${dayInWords(next)} asks it ${SAMPLES_PER_CONTESTED} times on each assistant; a first citation on ${WIN_SAMPLES} of ${SAMPLES_PER_CONTESTED} samples on one assistant closes the plan with ${KIT_WON_EVENT}.`,
+    'His yes keeps the plan going, his change redirects it, and his No stops it for good.',
+  ].join('\n')
+  const newer = plan.redirect && Date.parse(plan.redirect.at) > research.observed_at.getTime() && plan.redirect.text
+    ? `\n\nHis redirect of ${dayInWords(new Date(plan.redirect.at))}, which the next research run works to:\n${plan.redirect.text}`
+    : ''
+  const text = `${head}\n\n${rest}${newer}`.replace(/\u2014|\u2013/g, ',')
+  return { payload: text.length <= 8000 ? text : `${text.slice(0, 8000 - 20)}\n(cut to fit)`, question }
 }
 
 function carriedObjective(i: DirectiveInput, nextRun: Date): ObjectiveReading {
@@ -590,10 +982,28 @@ export function buildDirectiveReport(i: DirectiveInput): EngineReport {
   // answers them or they expire. Same id and same payload, so nothing changes
   // unless he has decided.
   const decided = latestDecisions(i.directive?.decisions_since, i.decisions)
+  // The kit plans his decisions leave open, stopped or done (src/schema/kit.ts).
+  const plans = kitPlans([...(i.directive?.decisions_since ?? []), ...(i.decisions ?? [])] as PlanDecision[], i.observedAt)
+  // A plan the last research report closed with kit_won (or carried as closed) is done here too.
+  const wonClosed = closedByKitWon(i.last?.report)
+  const open = plans.open.filter(p => !closedPlan(p, wonClosed))
+  const openPlans = new Set(open.map(p => p.plan_id))
+  const closedPlans = new Set([...plans.stopped, ...plans.done, ...plans.held, ...plans.open.filter(p => !openPlans.has(p.plan_id))].map(p => p.plan_id))
+  // Only a full read of his decisions can say a plan is no longer open; with
+  // the directive's seven days alone, only a stop or a close it shows counts.
+  const plansKnown = Array.isArray(i.decisions)
   const carried: Proposal[] = []
   const lastProposals = i.last && Array.isArray(i.last.report.proposals) ? (i.last.report.proposals as Proposal[]) : []
   for (const p of lastProposals) {
     if (!p || p.wall === 'none') continue
+    // A check-in goes only while its plan is open: his No on any version
+    // stopped it for good, and a won or done plan needs none.
+    if (p.proposal_id.startsWith(CHECKIN_PREFIX)) {
+      const parent = planIdOfCheckIn(p.proposal_id)
+      if (closedPlans.has(parent) || (plansKnown && !openPlans.has(parent))) continue
+    }
+    // The venture engines carry the kits now: an undecided kit plan is not carried.
+    if (i.kitsDelivered && p.proposal_id.startsWith(KIT_PROPOSAL_PREFIX) && !decided.has(p.proposal_id)) continue
     const d = decided.get(p.proposal_id)
     if (d) {
       const same = d.payload_sha256 === p.payload_sha256
@@ -605,6 +1015,35 @@ export function buildDirectiveReport(i: DirectiveInput): EngineReport {
     }
     if (p.expires_at && Date.parse(p.expires_at) <= i.observedAt.getTime()) continue
     carried.push(p)
+  }
+
+  if (i.kitsDelivered && lastProposals.some(p => p?.proposal_id?.startsWith(KIT_PROPOSAL_PREFIX) && !decided.has(p.proposal_id))) {
+    activity.push(line('The venture engines carry the win kits now, so the kit plan Krish has not decided is no longer carried here; its check-ins go on once he approves one.'))
+  }
+
+  // The weekly check-in (AGENTS.md: at least one a week while a plan is
+  // open): a week or more after the last research run, each open plan's
+  // check-in is renewed under that week's header, oldest plan first. One he
+  // already answered for this week is not asked again. On a research Sunday
+  // before today's run has reported, the check-ins wait for it: the research
+  // run checks in itself, hours later, with figures of its own.
+  if (i.last && open.length && !pendingToday) {
+    const observed = new Date(String(i.last.report.observed_at ?? i.last.accepted_at))
+    if (Number.isFinite(observed.getTime()) && daysBetween(observed, i.observedAt) >= CHECKIN_WEEK_DAYS) {
+      let renewed = 0
+      for (const plan of open) {
+        if (renewed >= CHECKINS_MAX) break
+        const weekly = weeklyCheckIn(plan, { run_id: i.last.run_id, observed_at: observed, report: i.last.report }, i.observedAt, next)
+        const proposal = checkInProposal(plan, weekly.payload, weekly.question, next)
+        const answered = decided.get(proposal.proposal_id)
+        const at = carried.findIndex(p => p.proposal_id === proposal.proposal_id)
+        if (answered && answered.payload_sha256 === proposal.payload_sha256) { if (at >= 0) carried.splice(at, 1); continue }
+        if (at >= 0) carried[at] = proposal
+        else carried.push(proposal)
+        renewed++
+      }
+      if (renewed) activity.push(line(`${plural(renewed, 'weekly check-in')} on the kit plans Krish approved ${renewed === 1 ? 'is' : 'are'} on his list, a week or more after the last research run.`))
+    }
   }
 
   const objective = carriedObjective(i, next)

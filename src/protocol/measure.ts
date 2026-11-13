@@ -22,6 +22,7 @@ import { urlMatchesDomain } from '../lib/domains.js'
 import type { ProbeDetail } from '../lib/probeDetail.js'
 import type { AeoPacket, SubjectKind } from '../schema/packet.js'
 import { KIT_BACKUPS_MAX, type GapClass, type KitCandidate, type SiteCounts, type SubjectDiagnosis } from '../schema/kit.js'
+import type { SubjectPanel } from '../schema/panel.js'
 
 /**
  * One engine's answers in a subject, as counts: answered, searched, cited no
@@ -99,6 +100,20 @@ export interface SubjectSummary {
   kit_backups?: KitCandidate[]
   /** The site reader's counts: our hosts and pages read, requests, failures, failed gates, and first-cited pages read. */
   site?: SiteCounts
+  /**
+   * Probed questions where more than half of the packet's engines that
+   * answered gave our first citation, on the first sample: the "majority of
+   * engines" count beside cited_first's "any engine". Absent: not measured.
+   */
+  cited_first_majority?: number
+  /**
+   * The panel (src/schema/panel.ts): each state's count, the questions
+   * re-sampled, what became won or was lost this run (ids and counts), and the
+   * questions tracked for a check-in. The tracked questions' words are the one
+   * part that is not a count, sealed like the kit candidate. Absent: an
+   * aspiration, or a summary written before 2026-11-13's panel change.
+   */
+  panel?: SubjectPanel
 }
 
 /** One research job's output: one subject in the workflow, any number locally. */
@@ -188,6 +203,23 @@ export function countDetails(details: readonly ProbeDetail[], packetEngines?: re
   return { cited_any: citedAny, engines }
 }
 
+/**
+ * Probed questions where a majority of the packet's engines that answered
+ * gave our first citation (first sample only, as cited_first). Null when the
+ * run kept no details.
+ */
+export function countMajorityFirst(packet: AeoPacket, details: readonly ProbeDetail[]): number | null {
+  if (!details.length) return null
+  const engines = new Set<string>(packet.engines)
+  const kept = byQuery(details.filter(d => engines.has(d.engine)))
+  let n = 0
+  for (const q of packet.queries) {
+    const ds = kept.get(q.query_id) ?? []
+    if (ds.length && ds.filter(d => d.first_host_ours).length * 2 > ds.length) n++
+  }
+  return n
+}
+
 /** The extras a summary carries: counts above zero, the gated list when there is one, the compare tally when it ran. */
 function extrasOf(x: SubjectExtras | undefined): Partial<SubjectSummary> {
   if (!x) return {}
@@ -215,9 +247,10 @@ function diagnosisOf(x: SubjectDiagnosis | undefined): Partial<SubjectSummary> {
   }
 }
 
-export function summariseSubject(packet: AeoPacket, domains: readonly string[], served: readonly string[] = [], details: readonly ProbeDetail[] = [], unserved = 0, extras?: SubjectExtras, diagnosis?: SubjectDiagnosis): SubjectSummary {
+export function summariseSubject(packet: AeoPacket, domains: readonly string[], served: readonly string[] = [], details: readonly ProbeDetail[] = [], unserved = 0, extras?: SubjectExtras, diagnosis?: SubjectDiagnosis, panel?: SubjectPanel): SubjectSummary {
   const c = countCitedFirst(packet, domains, details)
   const d = countDetails(details, packet.engines)
+  const majority = countMajorityFirst(packet, details)
   return {
     ...(served.length ? { served: [...served] } : {}),
     ...(unserved > 0 ? { requests_unserved: unserved } : {}),
@@ -232,8 +265,10 @@ export function summariseSubject(packet: AeoPacket, domains: readonly string[], 
     probes_failed: packet.stats.probes_failed,
     probes_skipped_cap: packet.stats.probes_skipped_cap,
     ...(d ? { cited_any: d.cited_any, engines: d.engines } : {}),
+    ...(majority !== null && packet.subject.kind !== 'aspiration' ? { cited_first_majority: majority } : {}),
     ...extrasOf(extras),
     ...diagnosisOf(diagnosis),
+    ...(panel && packet.subject.kind !== 'aspiration' ? { panel } : {}),
   }
 }
 
@@ -297,7 +332,7 @@ export function buildRunSummary(i: {
   capUsd: number
   spentUsd: number
   maxProbeUsd: number
-  results: ReadonlyArray<{ packet: AeoPacket; domains: readonly string[]; served?: readonly string[]; details?: readonly ProbeDetail[]; unserved?: number; extras?: SubjectExtras; diagnosis?: SubjectDiagnosis }>
+  results: ReadonlyArray<{ packet: AeoPacket; domains: readonly string[]; served?: readonly string[]; details?: readonly ProbeDetail[]; unserved?: number; extras?: SubjectExtras; diagnosis?: SubjectDiagnosis; panel?: SubjectPanel }>
   failures: ReadonlyArray<{ slug: string; kind: SubjectKind | null }>
   errorCode: string | null
   /** Web search requests the Claude probes reported (UsageMeter.searchesBy('aeo-probe')). */
@@ -315,7 +350,7 @@ export function buildRunSummary(i: {
     spent_usd: i.spentUsd,
     max_probe_usd: i.maxProbeUsd,
     error_code: i.errorCode,
-    subjects: [...i.results.map(r => summariseSubject(r.packet, r.domains, r.served ?? [], r.details ?? [], r.unserved ?? 0, r.extras, r.diagnosis)), ...i.failures.map(f => failedSubject(f.slug, f.kind))],
+    subjects: [...i.results.map(r => summariseSubject(r.packet, r.domains, r.served ?? [], r.details ?? [], r.unserved ?? 0, r.extras, r.diagnosis, r.panel)), ...i.failures.map(f => failedSubject(f.slug, f.kind))],
     ...(typeof i.searchRequests === 'number' ? { search_requests: i.searchRequests } : {}),
     ...(i.claudeLane ? { claude_lane: i.claudeLane } : {}),
     ...(i.subscription && i.subscription.calls > 0 ? { subscription_calls: i.subscription.calls, subscription_tokens: i.subscription.tokens } : {}),

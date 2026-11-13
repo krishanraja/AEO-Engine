@@ -110,8 +110,10 @@ export class GrowthEngineHttp {
     // His decisions, each read loosely (1.1.0 stage and amendment, 1.6.0 how he
     // carried it out); one that is not a decision is dropped, never fatal.
     directive.decisions_since = parseDecisions(d.decisions_since)
-    // 1.22.0: the venture engines' requests to this specialist, read loosely; a misshapen one is dropped.
-    const requests = parseAnswerRequests(d.answer_requests)
+    // 1.22.0: the venture engines' requests to this specialist, read loosely; a
+    // misshapen one is dropped. With features.answer_requests_v2 a request's
+    // targets and shipped pages are read too (brief section E).
+    const requests = parseAnswerRequests(d.answer_requests, { v2: features?.answer_requests_v2 === true })
     if (requests.length) directive.answer_requests = requests
     else delete directive.answer_requests
     return { chosen_by: asString(j.chosen_by), directive }

@@ -123,8 +123,15 @@ export function stateLineOk(v: unknown, max: number): v is string {
  */
 export interface InstructionRef { id: string; given_at: string; supersedes: string | null }
 
-/** What the directive serves (1.20.0; answer_requests 1.22.0). Absent before 1.20.0, which means: send nothing new. */
-export interface DirectiveFeatures { engine_state: boolean; krish_instruction: boolean; answer_requests?: boolean }
+/**
+ * What the directive serves (1.20.0; answer_requests 1.22.0). Absent before
+ * 1.20.0, which means: send nothing new. Two flags Control Center is asked
+ * for in docs/briefs/2026-11-13-aeo-specialist.md, section E, read only when
+ * true: `answer_requests_v2` (a request carries mode, targets as pages and
+ * shipped pages) and `aeo_kits_delivered` (the venture engines carry the win
+ * kits, so AEO stops proposing kit plans itself and keeps its check-ins).
+ */
+export interface DirectiveFeatures { engine_state: boolean; krish_instruction: boolean; answer_requests?: boolean; answer_requests_v2?: boolean; aeo_kits_delivered?: boolean }
 
 /**
  * 1.22.0: a venture engine's open request to this specialist (directive
@@ -144,9 +151,20 @@ export interface AnswerRequest {
   mode?: string
   /** What the venture named as targets, as it said; only when present. */
   targets?: string[]
+  /**
+   * features.answer_requests_v2: the page the venture means to win each named
+   * question with. A kit for that question takes it as its target page.
+   */
+  target_urls?: Array<{ question: string; url: string }>
+  /** features.answer_requests_v2: the pages the venture shipped, by question or query_id. They are probed first, after the requests. */
+  shipped?: Array<{ question?: string; query_id?: string; url: string; shipped_at: string | null }>
 }
 
 export const REQUEST_NOTE_MAX = 400
+const REQUEST_URL_RE = /^https?:\/\/[^\s"'<>@]+$/i
+const QUERY_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+const requestUrl = (v: unknown): string | null => (typeof v === 'string' && v.trim().length <= 500 && REQUEST_URL_RE.test(v.trim()) ? v.trim() : null)
+const requestQuestion = (v: unknown): string | null => (typeof v === 'string' && v.trim().length >= 8 && v.length <= 300 ? v.trim() : null)
 
 const REQUEST_ID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/
 
@@ -155,7 +173,7 @@ const REQUEST_ID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]
  * says is dropped, never guessed at; absent or not a list is none. A question
  * is kept only when it is 8 to 300 characters.
  */
-export function parseAnswerRequests(raw: unknown): AnswerRequest[] {
+export function parseAnswerRequests(raw: unknown, opts: { v2?: boolean } = {}): AnswerRequest[] {
   if (!Array.isArray(raw)) return []
   const out: AnswerRequest[] = []
   for (const x of raw) {
@@ -173,6 +191,36 @@ export function parseAnswerRequests(raw: unknown): AnswerRequest[] {
     if (Array.isArray(r.targets)) {
       const targets = r.targets.filter((t): t is string => typeof t === 'string' && t.trim().length > 0).map(t => t.trim().slice(0, 200)).slice(0, 25)
       if (targets.length) req.targets = targets
+    }
+    // features.answer_requests_v2 (brief section E): targets as {question, url}
+    // and shipped pages, each read loosely; a misshapen entry is dropped.
+    if (opts.v2) {
+      if (Array.isArray(r.targets)) {
+        const urls: Array<{ question: string; url: string }> = []
+        for (const t of r.targets) {
+          if (!t || typeof t !== 'object' || Array.isArray(t)) continue
+          const question = requestQuestion((t as Record<string, unknown>).question)
+          const url = requestUrl((t as Record<string, unknown>).url)
+          if (question && url) urls.push({ question, url })
+          if (urls.length >= 25) break
+        }
+        if (urls.length) req.target_urls = urls
+      }
+      if (Array.isArray(r.shipped)) {
+        const shipped: NonNullable<AnswerRequest['shipped']> = []
+        for (const x of r.shipped) {
+          if (!x || typeof x !== 'object' || Array.isArray(x)) continue
+          const e = x as Record<string, unknown>
+          const url = requestUrl(e.url)
+          const question = requestQuestion(e.question)
+          const queryId = typeof e.query_id === 'string' && QUERY_ID_RE.test(e.query_id.toLowerCase()) ? e.query_id.toLowerCase() : null
+          if (!url || (!question && !queryId)) continue
+          const at = typeof e.shipped_at === 'string' && !Number.isNaN(Date.parse(e.shipped_at)) ? e.shipped_at : null
+          shipped.push({ ...(question ? { question } : {}), ...(queryId ? { query_id: queryId } : {}), url, shipped_at: at })
+          if (shipped.length >= 25) break
+        }
+        if (shipped.length) req.shipped = shipped
+      }
     }
     out.push(req)
   }
@@ -199,7 +247,13 @@ export function parseFeatures(raw: unknown): DirectiveFeatures | null {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
   const f = raw as Record<string, unknown>
   if (typeof f.engine_state !== 'boolean' || typeof f.krish_instruction !== 'boolean') return null
-  return { engine_state: f.engine_state, krish_instruction: f.krish_instruction, ...(f.answer_requests === true ? { answer_requests: true } : {}) }
+  return {
+    engine_state: f.engine_state,
+    krish_instruction: f.krish_instruction,
+    ...(f.answer_requests === true ? { answer_requests: true } : {}),
+    ...(f.answer_requests_v2 === true ? { answer_requests_v2: true } : {}),
+    ...(f.aeo_kits_delivered === true ? { aeo_kits_delivered: true } : {}),
+  }
 }
 
 export interface EngineReport extends EngineState {

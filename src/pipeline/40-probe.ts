@@ -16,6 +16,7 @@ import { emptyCompare, tallyCompare, type CompareCounts } from '../lib/compare.j
 import type { Ledger } from '../lib/cost.js'
 import { ourHits } from '../lib/domains.js'
 import { errText, log } from '../lib/log.js'
+import { nameMentioned } from '../lib/names.js'
 import { probeDetail, type ProbeDetail } from '../lib/probeDetail.js'
 import { CLEAN, EMAIL_RE, HANDLE_RE, scrubPII } from '../lib/text.js'
 import { inPacket, type Engine, type GatedEngine, type Probe, type ProbeEngine, type QuerySource } from '../schema/packet.js'
@@ -58,6 +59,14 @@ export interface ProbeOutcome {
   typed_urls_dropped?: number
   /** compare mode: the two Claude lanes side by side, counts only. */
   compare?: CompareCounts
+  /** The questions put to at least one engine (charged and asked), answered or not: the panel's "asked". */
+  asked?: Set<string>
+  /**
+   * The asked questions a packet engine did not answer: the spend cap or its
+   * free tier stopped it, or its call failed. The panel reads such a reading
+   * as too short to record a loss (src/pipeline/55-panel.ts, panelFor).
+   */
+  partial?: Set<string>
 }
 
 export interface ProbeOptions {
@@ -69,6 +78,14 @@ export interface ProbeOptions {
    * against the main engine of the same name, and never in the packet.
    */
   shadow?: { client: EngineClient; questions: number }
+  /**
+   * The questions are already in the panel's order (src/pipeline/55-panel.ts,
+   * selectPanel): probe them as given, the first `maxQueries`, rather than
+   * reorder them here.
+   */
+  preordered?: boolean
+  /** The subject's distinctive names: each answer's name_mentioned is read against them (null without). */
+  brandNames?: readonly string[]
 }
 
 /** The ledger kind a probe on this engine is charged to. */
@@ -120,9 +137,14 @@ export function isGroundingRedirect(u: string): boolean {
   try { return new URL(u).hostname.toLowerCase() === REDIRECT_HOST } catch { return false }
 }
 
-/** A citation as the packet may carry it: trimmed and cut, or null when it holds an email, a handle or a grounding redirect. */
+/**
+ * A citation as the packet may carry it: trimmed and cut, or null when it
+ * holds an email, a handle or a grounding redirect. An em dash in a URL is
+ * percent-encoded, as a browser sends it, since the packet refuses any string
+ * that holds one: a raw search result must never stop the packet shipping.
+ */
 export function cleanCitation(u: string): string | null {
-  const s = String(u).trim().slice(0, 500)
+  const s = String(u).trim().replace(/\u2014/g, '%E2%80%94').slice(0, 500)
   EMAIL_RE.lastIndex = 0
   HANDLE_RE.lastIndex = 0
   if (!s || EMAIL_RE.test(s) || HANDLE_RE.test(s) || isGroundingRedirect(s)) return null
@@ -148,14 +170,17 @@ export async function probeQueries(
   const out: ProbeOutcome = {
     probesByQuery: new Map(), detailsByQuery: new Map(), evidenceByQuery: new Map(), probes: 0, probes_failed: 0, probes_skipped_cap: 0,
     probes_skipped_limit: 0, probes_limit_warning: 0, probes_fallback: 0, probes_skipped_free_tier: 0, gated_failed: 0, gated_skipped_cap: 0, typed_urls_dropped: 0,
+    asked: new Set(), partial: new Set(),
   }
+  const asked = out.asked as Set<string>
+  const partial = out.partial as Set<string>
   const details = out.detailsByQuery as Map<string, ProbeDetail[]>
   const evidence = out.evidenceByQuery as Map<string, ProbeEvidence[]>
   const open = opts.open ?? []
   const counted = (e: EngineClient) => inPacket(e.engine, open)
   const shadow = opts.shadow && opts.shadow.questions > 0 ? opts.shadow : null
   if (shadow) out.compare = emptyCompare()
-  const ordered = orderForProbing(proposed).slice(0, maxQueries)
+  const ordered = (opts.preordered ? [...proposed] : orderForProbing(proposed)).slice(0, maxQueries)
   let capHit = false
   // One question at a time, its engines together.
   //
@@ -172,11 +197,14 @@ export async function probeQueries(
     // A question's engines are charged together below, so each is checked
     // against the cap with the ones before it already counted.
     let pending = 0
+    // Set when a packet engine is not asked or does not answer this question.
+    let short = false
     for (const engine of engines) {
       // An engine past its free-tier share asks nothing more this job: it is
       // counted as skipped and never charged for a probe it will not make.
       if (engine.exhausted === true) {
         out.probes_skipped_free_tier = (out.probes_skipped_free_tier ?? 0) + 1
+        if (counted(engine)) short = true
         continue
       }
       const kind = costKindOf(engine)
@@ -185,7 +213,7 @@ export async function probeQueries(
       if ((capHit && !free) || !ledger.canAfford(kind, pending + reserveUsd)) {
         if (!capHit) log('cap_reached', { at_usd: ledger.total, cap_usd: ledger.capUsd })
         capHit = true
-        if (counted(engine)) out.probes_skipped_cap++
+        if (counted(engine)) { out.probes_skipped_cap++; short = true }
         else out.gated_skipped_cap = (out.gated_skipped_cap ?? 0) + 1
         continue
       }
@@ -202,6 +230,7 @@ export async function probeQueries(
       }
     }
     if (!affordable.length) continue
+    asked.add(q.query_id)
 
     const charged = affordable.map(engine => ({ engine, cost: ledger.charge(costKindOf(engine), `probe ${engine.engine}`) }))
     if (shadowAsked && shadow) ledger.charge(costKindOf(shadow.client), `probe ${shadow.client.engine} compare`)
@@ -235,7 +264,10 @@ export async function probeQueries(
         if (typeof a.typed_urls_dropped === 'number' && a.typed_urls_dropped > 0) out.typed_urls_dropped = (out.typed_urls_dropped ?? 0) + a.typed_urls_dropped
         // Measured before cleaning: cleaning drops a URL that carries an
         // email or a handle, which would promote a later source to first.
-        const detail = probeDetail(q.query_id, engine.engine, { text: a.text, citations: raw, searched: a.searched, retrieved: Array.isArray(a.retrieved) ? a.retrieved.map(String) : [] }, krishHitsDomains)
+        const detail: ProbeDetail = {
+          ...probeDetail(q.query_id, engine.engine, { text: a.text, citations: raw, searched: a.searched, retrieved: Array.isArray(a.retrieved) ? a.retrieved.map(String) : [] }, krishHitsDomains),
+          name_mentioned: nameMentioned(a.text, opts.brandNames ?? []),
+        }
         const citations = raw.map(cleanCitation).filter((c): c is string => !!c).slice(0, CAPS.MAX_CITATIONS)
         const probe: Probe = {
           // A gated engine reaches the packet only once the context opened it,
@@ -281,9 +313,9 @@ export async function probeQueries(
     const qEvidence: ProbeEvidence[] = []
     for (const r of settled) {
       const inP = counted(r.engine)
-      if (r.skippedFreeTier) { out.probes_skipped_free_tier = (out.probes_skipped_free_tier ?? 0) + 1; continue }
+      if (r.skippedFreeTier) { out.probes_skipped_free_tier = (out.probes_skipped_free_tier ?? 0) + 1; if (inP) short = true; continue }
       if (!r.ok) {
-        if (inP) out.probes_failed++
+        if (inP) { out.probes_failed++; short = true }
         else out.gated_failed = (out.gated_failed ?? 0) + 1
         continue
       }
@@ -295,6 +327,7 @@ export async function probeQueries(
     if (rows.length) out.probesByQuery.set(q.query_id, rows.map(r => r.probe))
     if (qDetails.length) details.set(q.query_id, qDetails)
     if (qEvidence.length) evidence.set(q.query_id, qEvidence)
+    if (short) partial.add(q.query_id)
   }
   const all = [...details.values()].flat()
   // `requested` counts the requested questions an assistant actually answered,

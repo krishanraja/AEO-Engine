@@ -45,7 +45,7 @@ The plan in AEO-Engine has seven phases. Phases 0 to 2 need nothing from Control
 ## C. Context additions (`GET /api/aeo/context`)
 
 - **`packet_features: string[]`:** the optional packet fields Control Center accepts (D). AEO sends a field only when it is listed.
-- **`subject.prior.queries[].panel`:** the panel state AEO sent last run (D), so the next run can carry `first_seen`, `won_at` and `streak`.
+- **`subject.prior.queries[].panel`:** the panel state AEO sent last run (D), exactly as sent, so the next run can carry `first_seen`, `won_at`, `lost_at` and `streak`.
 - **`subject.shipped[]`:** `{question | query_id, url, shipped_at, by}`, from venture declarations (E).
 - **`subject.search_signals`:** read-only data AEO uses to diagnose and to show outcomes. Keys stay in Control Center, and AEO never holds a Search Console, GA4 or Bing credential.
   - `gsc_queries: [{query, page, impressions, clicks, position, date_from, date_to}]` for the subject's hosts, every query, not only striking distance.
@@ -65,11 +65,11 @@ AEO will attach its exact `docs/packet.schema.json` diff when it sends these. Al
   - `name_mentioned: boolean | null`
   - `samples: {n, first, cited} | null`: repeat samples on contested questions.
 - **`queries[]`:**
-  - `panel: {state, first_seen, won_at, lost_at, streak}`
+  - `panel: {state, first_seen, last_asked, won_at, lost_at, streak}`: `state` is one of `won | contested | cited | retrieved | absent | unknown`; the four dates are `YYYY-MM-DD` research weeks, and `first_seen`, `won_at`, `lost_at` and `streak` may be null (history unknown). Serve it back on `subject.prior.queries[]` exactly as sent, so the next run moves it forward.
   - `diagnosis: {gap_class, our_best_url, alignment, first_cited_host, first_cited_type}`
   - `outcome: {gsc, bing, ai_referrals}`
 - **Top level:**
-  - `kits[]`, up to 10 (shape in E)
+  - `kits[]`, up to 10, each the packet schema's kit (`docs/packet.schema.json`, `$defs.kit`): the shape in E, plus `product_slug` and `owned_by_platform`, with each `off_site` item `{host, source_type, engines}` (no `url` or `why` in the packet).
   - `site: {hosts: [{host, gates: [{gate, pass}]}]}`
   - `run_kind: 'research' | 'verify'`
 - **Engines enum:** add `gemini`.

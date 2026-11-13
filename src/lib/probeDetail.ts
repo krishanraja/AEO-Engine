@@ -14,6 +14,7 @@
  * Counts and flags only. No URL, no answer text, no question.
  */
 import type { ProbeEngine } from '../schema/packet.js'
+import type { SampleCounts } from '../schema/panel.js'
 import { ourHits, ourPosition, urlMatchesDomain } from './domains.js'
 
 export interface ProbeDetail {
@@ -38,6 +39,19 @@ export interface ProbeDetail {
    * that is never retrieved.
    */
   retrieved_ours: boolean
+  /**
+   * The answer names one of the subject's distinctive names outside any URL
+   * (src/lib/names.ts). Null when the subject has none to look for. Absent on
+   * a detail made before 2026-11-13's panel change.
+   */
+  name_mentioned?: boolean | null
+  /**
+   * A contested question's samples on this engine (src/pipeline/41-samples.ts):
+   * this first answer and the re-asks that answered, how many had our first
+   * citation, and how many cited us anywhere. Absent: asked once. Every other
+   * field here is the first sample's, so queries_cited_first stays on it.
+   */
+  samples?: SampleCounts
 }
 
 export interface RawAnswer { text: string; citations: readonly string[]; searched?: boolean; retrieved?: readonly string[] }
