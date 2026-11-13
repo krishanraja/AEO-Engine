@@ -1,7 +1,7 @@
 ---
 repo: krishanraja/AEO-Engine
 product: AEO-Engine
-as_of: 2026-11-12
+as_of: 2026-11-13
 head: a9e3b3b
 lifecycle: building
 production_url: none
@@ -22,10 +22,11 @@ AEO-Engine is the fortnightly answer-engine research machine for Krish Raja's ve
 
 Krish reads the digest on Monday and acts the same week. The packet answers, per venture, "which buyer question are we invisible on, and who is cited instead"; per prospect, "what would this company's leaders see if they asked an assistant about their own problem, and is Mindmake in it"; per aspiration, "which of their pages get cited, and why". For the room_face buyer (a senior leader at a PE or VC backed media, adtech, publishing or data business, quietly behind on what is coming) the machine is proof that one person can run demand research on AI agents with the evidence left in: every number in a digest is measured that run, every unknown stays unknown, and a failed engine call writes nothing rather than a guess. Angles a writer can use: the OS reads its own calls and refuses to name anyone in them; the demand score says out loud that there is no prompt-volume corpus and scores from proxies; the run has a price cap it counts against, not a bill it discovers.
 
-## Where it is right now (as of 2026-11-12)
+## Where it is right now (as of 2026-11-13)
 
 <!-- north-star-state {"week_of": "2026-10-26", "week_target": null, "current": null, "current_as_of": null, "current_source": null, "urgency": 4, "urgency_reason": "not measured yet (baseline comes from the latest packets)"} --> **North Star number: U4, far behind.** Share of tracked buyer questions where Mindmake or one of its products is the first citation: not measured yet (baseline comes from the latest packets), against week one set by the first reading this week, on the way to 50% by 25 January 2027. A bold swing every day; work that does not move the number waits.
 
+- AEO-Engine is the one AI-answers specialist every venture's growth engine calls (Ruling, Krish, 2026-11-12). It reads the venture engines' requests in its directive (protocol 1.22.0, `answer_requests`), asks each product's buyer questions word for word at its research run, and reports `answers_served`; its packets take heartside, legibility and publication. The North Star's denominator is the questions asked that fortnight (1 of 100 = 1% on 8 Nov), recorded in docs/NORTH_STAR.md, and Control Center measures the share (`READERS['aeo-engine']`). The protocol copy in docs/control-center/ is Control Center's at 36df34bc (protocol 1.22.0). (2026-11-13)
 - The protocol copy in `docs/control-center/` is Control Center's whole at 212379e1 (1.21.0; the schemas unchanged since 7c9f8fb1): its voice_check row lists the 16 channels Control Center accepts, and it says a number objective's target comes from the repository's north-star block. Control Center reads no number objective for this engine, so `queries_cited_first` keeps the registry's empty target (Step 3, Krish's). (2026-11-12)
 - An instruction Krish gives this engine is acked blocked with when the research will reach it: the next scheduled run when it comes before the instruction lapses after 7 days, otherwise the lapse date and the press that starts a run by hand (Run workflow on AEO weekly in GitHub Actions), because Control Center no longer draws a Run now press; the calls window is now fourteen days, the fortnight between runs. (2026-11-12)
 - The engine speaks protocol 1.20.0 when Control Center serves it: every report carries its priorities, Krish's quoted aims and its next steps, read from this repository's own docs, and his instruction is read by id only (the client drops his words), acked received then blocked on a paid research run by the daily run and started by a research run, never done. Live since the daily report of 2026-11-12, which Control Center accepted at 1.20.0; no instruction has been given to this engine yet. (2026-11-11)
@@ -54,10 +55,10 @@ Krish reads the digest on Monday and acts the same week. The packet answers, per
 
 ## What is next and what is waiting on Krish
 
-- Next (2026-11-12): After the first instruction Krish gives this engine, read back from Control Center that its received and blocked acks were applied and that the blocked line named the right date; the 1.20.0 report itself was read back on 2026-11-12.
+- Next (2026-11-13): After the research run of Sunday 2026-11-22, read back from Control Center that the venture requests it asked are marked served and that the North Star line reads the new fortnight's share.
 - Waiting on Krish: a target for `queries_cited_first` (`docs/GET-GOING.md`, Step 3); and whether Grok should be asked too, which needs `XAI_API_KEY` set (the live runs ask three assistants).
 - North Star: directive taste moves the second half (pieces worth citing, written in his approved voice); the number is still unmeasured, U4.
-- North Star check (2026-11-12): holds.
+- North Star check (2026-11-13): holds.
 
 ## Read next
 
