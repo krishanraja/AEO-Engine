@@ -22,6 +22,8 @@
 import { canonicalJson, sha256Hex } from '../lib/canonical.js'
 import {
   ACK_LINE_MAX,
+  ANSWERS_SERVED_MAX,
+  ANSWERS_VERSION,
   ENGINE,
   OBJECTIVE_KEY,
   sealReport,
@@ -54,6 +56,8 @@ export interface Envelope {
   capturedAt: Date
   /** 1.20.0: set only when the directive served `features.engine_state`. Absent or null: a 1.0.0 report, as before. */
   state?: StateContext | null
+  /** 1.22.0: true when the directive served `features.answer_requests`, so a research report may say which it asked. */
+  answers?: boolean
 }
 
 /** What a 1.20.0 report is built from, besides the run itself. */
@@ -107,14 +111,16 @@ export function needsResearch(given: InstructionRef, at: Date, next: Date): stri
   return ackLine(`${head} ${researchTail(given, at, next)}`, `${head} Press ${START_BY_HAND}.`)
 }
 
-function envelope(e: Envelope, status: ReportStatus, objectives: ObjectiveReading[], activity: ActivityLine[], proposals: Proposal[], holds: Hold[], state: EngineState | null = null): EngineReport {
-  const extra: EngineState = {}
+function envelope(e: Envelope, status: ReportStatus, objectives: ObjectiveReading[], activity: ActivityLine[], proposals: Proposal[], holds: Hold[], state: EngineState | null = null, served: readonly string[] = []): EngineReport {
+  const extra: EngineState & { answers_served?: string[] } = {}
+  // 1.22.0: the venture requests this run asked, only where the directive serves them.
+  if (e.answers && served.length) extra.answers_served = [...served].slice(0, ANSWERS_SERVED_MAX)
   if (state?.priorities?.length) extra.priorities = state.priorities
   if (state?.obsessions?.length) extra.obsessions = state.obsessions
   if (state?.next_steps?.length) extra.next_steps = state.next_steps
   if (state?.instruction_acks?.length) extra.instruction_acks = state.instruction_acks
   return sealReport({
-    schema_version: state ? STATE_VERSION : '1.0.0',
+    schema_version: extra.answers_served ? ANSWERS_VERSION : state ? STATE_VERSION : '1.0.0',
     engine_id: ENGINE.engine_id,
     product_slug: ENGINE.product_slug,
     run_id: e.runId,
@@ -217,6 +223,12 @@ export function buildResearchReport(input: ResearchInput): EngineReport {
     activity.push(line(`The spend cap stopped ${plural(skipped, 'question and assistant pair')} from being asked.`))
     holds.push({ reason: 'spend_cap_reached', detail: `${plural(skipped, 'question and assistant pair')} were not asked because the run reached its cap; the cap is a ceiling the run counts against.` })
   }
+  // 1.22.0: the venture engines' requests this run asked, by count and product only (never a question).
+  const served = [...new Set(input.summaries.flatMap(s => s.subjects.flatMap(x => (x.ok ? x.served ?? [] : []))))]
+  if (served.length) {
+    const products = [...new Set(placed.filter(p => p.s.ok && (p.s.served ?? []).length).map(p => p.label))]
+    activity.push(line(`Asked ${plural(served.length, 'venture request')} for AI answers, word for word (${products.join(', ')}).`))
+  }
   const next = nextScheduledRun(input.observedAt)
   activity.push(line(`Next scheduled research run: ${utc(next)} (Sundays at 04:00 UTC in odd ISO weeks).`))
 
@@ -282,7 +294,7 @@ export function buildResearchReport(input: ResearchInput): EngineReport {
       acks.push(ack(ctx, input.observedAt, 'blocked', ackLine(`${head} ${tail}`, `${head} ${short}`)))
     } else acks.push(ack(ctx, input.observedAt, 'started', `A paid research run finished on ${day} with this instruction open: ${researched} of ${placed.length} subjects researched. It probes Control Center's subject list, never the instruction's words.`))
   }
-  return envelope(input, degraded ? 'degraded' : 'ready', [objective], activity, proposals, holds, stateFor(input, objective, acks))
+  return envelope(input, degraded ? 'degraded' : 'ready', [objective], activity, proposals, holds, stateFor(input, objective, acks), served)
 }
 
 /** The research run_id the dispatch looks for: one full run a day. */

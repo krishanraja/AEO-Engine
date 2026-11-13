@@ -10,6 +10,8 @@ import { errText, log } from '../lib/log.js'
 import type { UsageMeter } from '../lib/usage.js'
 import type { AeoContext, ContextSubject } from '../schema/context.js'
 import type { AeoPacket } from '../schema/packet.js'
+import type { AnswerRequest } from '../schema/report.js'
+import { normaliseQuery } from '../lib/text.js'
 import type { Taste } from '../schema/report.js'
 import { krishHitsDomains, loadContext } from './00-context.js'
 import { classifyTranscripts, gatherTranscripts, themesForSubject, type Attribution, type Gathered } from './10-transcripts.js'
@@ -46,6 +48,12 @@ export interface RunDeps {
    * null/undefined when unknown. Only the wording-only voice pass (stage 65) reads them.
    */
   taste?: Taste | null
+  /**
+   * 1.22.0: the venture engines' open requests from today's directive
+   * (answer_requests). A venture subject asks its own product's questions
+   * verbatim, first (stage 30). Undefined or empty: none.
+   */
+  requests?: AnswerRequest[]
 }
 
 export interface RunOpts {
@@ -56,8 +64,20 @@ export interface RunOpts {
   commandId: number | null
 }
 
-/** `domains` is the list the probes were read against, kept so the protocol report can count first citations. */
-export interface SubjectResult { slug: string; packet: AeoPacket; shipped: ShipResult; domains: string[] }
+/** `domains` is the list the probes were read against, kept so the protocol report can count first citations. `served`: the venture requests whose every question was asked (1.22.0). */
+export interface SubjectResult { slug: string; packet: AeoPacket; shipped: ShipResult; domains: string[]; served?: string[] }
+
+/** The venture requests a subject answers: a venture subject, its own product's requests only. Pure. */
+export function requestsFor(subject: Pick<ContextSubject, 'kind' | 'product_slug'>, requests: readonly AnswerRequest[] | undefined): AnswerRequest[] {
+  if (subject.kind !== 'venture' || !subject.product_slug) return []
+  return (requests ?? []).filter(r => r.product_slug === subject.product_slug)
+}
+
+/** The requests a packet served: every one of a request's questions is in it and was put to at least one assistant. Pure. */
+export function servedBy(packet: Pick<AeoPacket, 'queries'>, requests: readonly AnswerRequest[]): string[] {
+  const asked = new Set(packet.queries.filter(q => q.probes.length > 0).map(q => normaliseQuery(q.query)))
+  return requests.filter(r => r.questions.every(q => asked.has(normaliseQuery(q)))).map(r => r.request_id)
+}
 export interface RunFailure { slug: string; kind: ContextSubject['kind']; error: string }
 export interface RunResult { results: SubjectResult[]; failures: RunFailure[] }
 
@@ -71,7 +91,9 @@ export async function runSubject(subject: ContextSubject, shared: Shared, deps: 
 
   const themes = await themesForSubject(deps.model, subject, shared.gathered, shared.attribution, deps.ledger)
   const gap = gapFor(subject, domains)
-  const proposed = await proposeQueries(deps.model, deps.ledger, subject, ctx, themes.themes, gap, deps.mintId)
+  const requested = requestsFor(subject, deps.requests).flatMap(r => r.questions)
+  if (requested.length) log('answer_requests', { subject: subject.slug, questions: requested.length })
+  const proposed = await proposeQueries(deps.model, deps.ledger, subject, ctx, themes.themes, gap, deps.mintId, requested)
   const outcome = await probeQueries(deps.engines, proposed, domains, deps.ledger, subject.never_say ?? [])
   const queries = scoreQueries(proposed, outcome, themes.themes, subject, domains)
   // The digest judges and drafts with no taste; the approved voice rules are
@@ -134,7 +156,8 @@ export async function runAll(deps: RunDeps, opts: RunOpts): Promise<RunResult> {
       const packet = await runSubject(subject, shared, deps, opts)
       const outPath = bundle ? null : opts.outPath ?? defaultOutPath(subject.slug, opts.weekStart)
       const shipped = await ship(deps.cc, packet, { dry: opts.dry, outPath })
-      results.push({ slug: subject.slug, packet, shipped, domains: krishHitsDomains(ctx, subject) })
+      const served = opts.dry ? [] : servedBy(packet, requestsFor(subject, deps.requests))
+      results.push({ slug: subject.slug, packet, shipped, domains: krishHitsDomains(ctx, subject), served })
       log('subject_done', { subject: subject.slug, queries: packet.stats.queries, probes: packet.stats.probes, cost_usd: packet.stats.cost_usd, ledger_usd: deps.ledger.total })
     } catch (e) {
       failures.push({ slug: subject.slug, kind: subject.kind, error: errText(e) })

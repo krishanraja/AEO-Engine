@@ -18,7 +18,8 @@ export type Engine = (typeof ENGINES_ALL)[number]
 export const SUBJECT_KINDS = ['venture', 'prospect', 'aspiration'] as const
 export type SubjectKind = (typeof SUBJECT_KINDS)[number]
 
-export const PRODUCT_SLUGS = ['ctrl', 'circle', 'pulse', 'full-time', 'mindmake'] as const
+/** A venture's product. heartside, legibility and publication since 2026-11-12: a venture's engine asks this specialist for its own product's AI answers (protocol 1.22.0). */
+export const PRODUCT_SLUGS = ['ctrl', 'circle', 'pulse', 'full-time', 'mindmake', 'heartside', 'legibility', 'publication'] as const
 export type ProductSlug = (typeof PRODUCT_SLUGS)[number]
 
 export const THEMES_STATUSES = ['ok', 'no_calls', 'no_attributed_calls', 'fireflies_unavailable', 'not_applicable'] as const

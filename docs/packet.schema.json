@@ -84,7 +84,7 @@
         "id": { "$ref": "#/$defs/uuid" },
         "kind": { "$ref": "#/$defs/kind" },
         "slug": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,79}$" },
-        "product_slug": { "oneOf": [{ "type": "string", "enum": ["ctrl", "circle", "pulse", "full-time", "mindmake"] }, { "type": "null" }] }
+        "product_slug": { "oneOf": [{ "type": "string", "enum": ["ctrl", "circle", "pulse", "full-time", "mindmake", "heartside", "legibility", "publication"] }, { "type": "null" }] }
       }
     },
     "week_start": { "$ref": "#/$defs/ymd", "description": "The Monday that owns the week, UTC. Same rule as api/_growth.ts mondayOf." },

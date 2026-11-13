@@ -245,7 +245,7 @@ export async function finishResearch(c: Client, ids: ResearchIds, input: Omit<Re
     phase = 'state'
     const state = await stateContext(c, served, o)
     phase = 'report'
-    const report = buildResearchReport({ ...input, runId: ids.runId, state })
+    const report = buildResearchReport({ ...input, runId: ids.runId, state, answers: served?.features?.answer_requests === true })
     const { replayed } = await deliver(c, report)
     phase = 'decisions'
     await readDecisions(c, report, now())
