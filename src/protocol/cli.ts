@@ -35,6 +35,7 @@ import { unseal } from '../lib/seal.js'
 import { ID_RE } from '../schema/report.js'
 import { finishResearch, finishVerify, runDirective, startResearch } from './loop.js'
 import { HARD_MAX_USD_PER_RUN } from '../config/run.js'
+import { runIndexChecks } from './indexCheck.js'
 import { parseVerifyPayload, type VerifyPayload } from '../schema/verify.js'
 import type { RunSummary } from './measure.js'
 
@@ -121,11 +122,11 @@ export async function main(argv: readonly string[] = process.argv.slice(2), env:
   let parsed: ReturnType<typeof parseFlags>
   try { parsed = parseFlags(argv) } catch (e) { log('protocol_usage', { error: errText(e) }); return 2 }
   const { command, flags } = parsed
-  if (!['directive', 'research-start', 'research-report'].includes(command)) {
-    log('protocol_usage', { error: `unknown command "${command}"; use directive, research-start or research-report` })
+  if (!['directive', 'research-start', 'research-report', 'index-check'].includes(command)) {
+    log('protocol_usage', { error: `unknown command "${command}"; use directive, research-start, research-report or index-check` })
     return 2
   }
-  const required = ['CONTROL_CENTER_URL', 'CONTROL_CENTER_ENGINE_TOKEN', ...(command === 'research-report' ? ['AEO_ENGINE_SECRET'] : [])]
+  const required = ['CONTROL_CENTER_URL', 'CONTROL_CENTER_ENGINE_TOKEN', ...(command === 'research-report' || command === 'index-check' ? ['AEO_ENGINE_SECRET'] : [])]
   const absent = missingEnv(env, required)
   if (absent.length) {
     // Names only. The job fails so a missing secret is never a green run.
@@ -150,6 +151,15 @@ export async function main(argv: readonly string[] = process.argv.slice(2), env:
       const date = new Date().toISOString().slice(0, 10)
       const out = await runDirective(client, { mode: mode(flags), revision, attemptId: `aeo:${date}:directive:${runRef}`, wake: runRef, evidenceUrl })
       return out.status === 'succeeded' ? 0 : 1
+    }
+
+    if (command === 'index-check') {
+      // After the research report: the kits' pages on Brave, at most 10 a
+      // day (src/protocol/indexCheck.ts). Counts only in the log.
+      const { summaries } = readSummaries(flags.summaries ?? 'summaries', env.AEO_ENGINE_SECRET ?? '', env.GITHUB_RUN_ID || 'local')
+      const out = await runIndexChecks(client, summaries, new Date())
+      log('index_check', { ...out })
+      return out.status === 'failed' ? 1 : 0
     }
 
     const ids = { attemptId: need(flags, 'attempt-id', ID_RE), runId: need(flags, 'run-id', ID_RE), startedAt: need(flags, 'started-at') }

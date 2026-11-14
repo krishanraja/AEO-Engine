@@ -223,7 +223,7 @@ test('kits: rendered as plain text for Krish, every section labelled, within 800
   const huge = renderKit({ ...k, h2s: Array.from({ length: 6 }, () => 'x'.repeat(120)), evidence: Array.from({ length: 6 }, () => 'y'.repeat(200)), site_fixes: Array.from({ length: 12 }, () => ({ gate: 'g', host: 'h', url: 'https://ours.example/' + 'p'.repeat(400), fix: 'z'.repeat(300), owner_repo: null })) })
   assert.ok(huge.length <= 8000)
   const c = kitCandidate(k)
-  assert.deepEqual({ ...c, exact_payload: c.exact_payload.length > 0 }, { product_slug: 'ctrl', query_id: qid(1), priority: 4.8, title: k.title, exact_payload: true, gap_class: 'retrieved_not_cited', target_kind: 'update_page', reference: 'https://ours.example/answers/style' })
+  assert.deepEqual({ ...c, exact_payload: c.exact_payload.length > 0 }, { product_slug: 'ctrl', query_id: qid(1), priority: 4.8, title: k.title, exact_payload: true, gap_class: 'retrieved_not_cited', target_kind: 'update_page', reference: 'https://ours.example/answers/style', question: k.question })
   assert.equal(cutAtWord('one two three four', 9), 'one two')
   assert.deepEqual(h2sFrom('Q?', []), [])
 })

@@ -159,6 +159,25 @@ export class GrowthEngineHttp {
     }))
   }
 
+  /**
+   * The research desk (protocol 1.6.0): up to ten requests in one POST, each
+   * answered once (the same request_id replays its stored answer). Only the
+   * index check uses it here (src/protocol/indexCheck.ts).
+   */
+  async postResearch(requests: Array<{ request_id: string; kind: string; subject_ref: string; query: string; why: string }>): Promise<Array<{ request_id: string; kind: string; status: string; requested_at: string }>> {
+    if (requests.length < 1 || requests.length > 10) throw new ProtocolError('research_batch_size', 0)
+    const r = await this.call('research', '/research', { method: 'POST', body: { requests } })
+    if (!r.ok) throw new ProtocolError(codeFor('research', r), r.status)
+    return researchRows(r.json)
+  }
+
+  /** This engine's own research requests, as the desk keeps them. */
+  async listResearch(): Promise<Array<{ request_id: string; kind: string; status: string; requested_at: string }>> {
+    const r = await this.call('research', '/research')
+    if (!r.ok) throw new ProtocolError(codeFor('research', r), r.status)
+    return researchRows(r.json)
+  }
+
   async getDecisions(since: string): Promise<Decision[]> {
     const r = await this.call('decisions', `/decisions?since=${encodeURIComponent(since)}`)
     if (!r.ok) throw new ProtocolError(codeFor('decisions', r), r.status)
@@ -166,4 +185,12 @@ export class GrowthEngineHttp {
     if (j.ok !== true) throw new ProtocolError('decisions_invalid', r.status)
     return parseDecisions(asArray(j.decisions))
   }
+}
+
+function researchRows(json: unknown): Array<{ request_id: string; kind: string; status: string; requested_at: string }> {
+  const j = asRecord(json)
+  if (j.ok !== true || !Array.isArray(j.research)) throw new ProtocolError('research_invalid', 0)
+  return asArray(j.research).map(asRecord).filter(x => typeof x.request_id === 'string').map(x => ({
+    request_id: x.request_id as string, kind: asString(x.kind), status: asString(x.status), requested_at: asString(x.requested_at),
+  }))
 }

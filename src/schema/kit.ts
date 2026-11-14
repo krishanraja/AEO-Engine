@@ -92,6 +92,8 @@ export interface KitCandidate {
   target_kind: TargetKind
   /** The target page's URL, else its host: the close condition's reference. */
   reference: string
+  /** The question in full, as asked (sealed like exact_payload, which already carries it): the index check's question. */
+  question?: string
 }
 
 /** The site reader's counts for one subject. */

@@ -530,3 +530,17 @@ jobs:
             args+=(--kind verify --verify-payload out/verify-payload.json)
           fi
           npm run --silent protocol -- "${args[@]}"
+      # The Brave index check (brief G4): whether Brave ranks each kit's page
+      # for its question. Control Center holds the Brave key and asks Brave;
+      # this asks at most 10 a UTC day, about 0.05 USD (Ruling, Krish,
+      # 2026-11-14), counting the checks already asked today, and holds
+      # while Control Center does not offer index_check. Research runs only,
+      # after the report, and its failure never fails the run.
+      - name: Brave index check
+        if: ${{ always() && needs.plan.outputs.kind != 'verify' }}
+        continue-on-error: true
+        env:
+          CONTROL_CENTER_URL: ${{ vars.CONTROL_CENTER_URL }}
+          CONTROL_CENTER_ENGINE_TOKEN: ${{ secrets.CONTROL_CENTER_ENGINE_TOKEN }}
+          AEO_ENGINE_SECRET: ${{ secrets.AEO_ENGINE_SECRET }}
+        run: npm run --silent protocol -- index-check --summaries summaries
