@@ -276,8 +276,20 @@ test('the gate, end to end: an offline run with a gated gemini keeps the golden 
   assert.ok(report.activity.some(a => a.line === 'gemini: searched on 24 of 24 asks; measured beside the packets, not counted toward questions cited first.'))
   assert.ok(report.activity.some(a => /on 3 assistants/.test(a.line)), 'the packet engines are the assistants counted')
 
-  // Opened by the context: gemini's probes enter the packet and it validates.
-  const open = buildDeps(parseArgs(['--offline', '--fixtures', FIXTURES]), { XAI_API_KEY: '' })
+  // Listed by the context but not ruled in (AEO_GEMINI_COUNTS unset): gemini stays beside the packet (audit aeo-8).
+  const listed = buildDeps(parseArgs(['--offline', '--fixtures', FIXTURES]), { XAI_API_KEY: '' })
+  assert.deepEqual(listed.countGated, [])
+  const lbase = listed.cc as OfflineControlCenter
+  const lget = lbase.getContext.bind(lbase)
+  lbase.getContext = async () => ({ ...(await lget()), packet_features: ['engine_gemini'] })
+  listed.engines.push(new StubEngine('gemini', () => ({ text: 'Synthetic.', citations: ['https://other.example/'], searched: true }), MODELS.gemini))
+  const held = await captureStderr(() => runAll(listed, { subject: 'ctrl', weekStart: '2026-09-07', dry: true, outPath: null, commandId: null }))
+  assert.deepEqual(held.result.results[0].packet.engines, ['perplexity', 'chatgpt', 'claude'], 'a listed feature alone never puts gemini in the share')
+  assert.deepEqual(held.result.results[0].extras?.gated_engines, ['gemini'])
+
+  // Listed by the context and ruled in by Krish: gemini's probes enter the packet and it validates.
+  const open = buildDeps(parseArgs(['--offline', '--fixtures', FIXTURES]), { XAI_API_KEY: '', AEO_GEMINI_COUNTS: 'true' })
+  assert.deepEqual(open.countGated, ['gemini'])
   const base = open.cc as OfflineControlCenter
   const getContext = base.getContext.bind(base)
   base.getContext = async () => ({ ...(await getContext()), packet_features: ['engine_gemini'] })

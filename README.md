@@ -99,7 +99,7 @@ How this engine reads a web page, and the only way it does (`src/clients/site.ts
 
 ## The engines and the Claude lane
 
-Perplexity (sonar), ChatGPT (`gpt-5`, Responses API with web search) and Claude are always asked; Grok joins with `XAI_API_KEY`, and Gemini (`gemini-3.6-flash` with Google Search grounding) with `GEMINI_API_KEY`. Gemini is gated: `gemini` is not in the packet's engine enum, which is joint with Control Center and closed, so its answers are counted only in the sealed summary, beside the packets and never toward `queries_cited_first`, until Control Center's context lists `packet_features: ["engine_gemini"]` (`docs/PACKET.md`, "Gemini, the gated engine").
+Perplexity (sonar), ChatGPT (`gpt-5`, Responses API with web search) and Claude are always asked; Grok joins with `XAI_API_KEY`, and Gemini (`gemini-3.6-flash` with Google Search grounding) with `GEMINI_API_KEY`. Gemini is gated: `gemini` is not in the packet's engine enum, which is joint with Control Center and closed, so its answers are counted only in the sealed summary, beside the packets and never toward `queries_cited_first`, until Control Center's context lists `packet_features: ["engine_gemini"]` and Krish has ruled it into the share, set as the repository variable `AEO_GEMINI_COUNTS=true` (`docs/PACKET.md`, "Gemini, the gated engine"). Production has listed `engine_gemini` since 13 November, so the variable is what holds Gemini out; a key added alone never moves the North Star.
 
 Claude probes run on the Claude Code subscription (Ruling, Krish, 2026-11-13), with the paid API as a switch. `AEO_CLAUDE_LANE`, a repository variable read when a run starts, says which:
 

@@ -43,6 +43,8 @@ import { applyVoice } from './65-voice.js'
 import { ship, writePacket, type ShipResult } from './70-ship.js'
 
 export interface RunDeps {
+  /** Gated engines Krish ruled into the share (AEO_GEMINI_COUNTS). Absent: none, so a gated engine stays beside the packet whatever the context lists. */
+  countGated?: readonly GatedEngine[]
   cc: ControlCenterClient
   /** Null when no Fireflies key is configured; the packet then says so. */
   fireflies: FirefliesClient | null
@@ -215,7 +217,10 @@ export async function runSubject(subject: ContextSubject, shared: Shared, deps: 
   const domains = krishHitsDomains(ctx, subject)
   // A gated engine (gemini) is asked, and its probes stay out of the packet
   // until the context's packet_features open it (src/schema/packet.ts).
-  const open = openGatedEngines(ctx.packet_features)
+  // Control Center listing a gated engine's feature is not enough: it counts
+  // only once Krish rules that it does (deps.countGated, AEO_GEMINI_COUNTS),
+  // so a key added alone never moves the North Star (audit aeo-8).
+  const open = openGatedEngines(ctx.packet_features).filter(e => (deps.countGated ?? []).includes(e))
   // The optional packet fields Control Center accepts (src/schema/packet.ts, PACKET_FEATURES).
   const features = packetFeatures(ctx.packet_features)
   const engines = deps.engines.map(e => e.engine).filter(e => inPacket(e, open)) as Engine[]
