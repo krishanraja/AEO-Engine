@@ -392,7 +392,9 @@ jobs:
           # beside the packets until Control Center opens it. Unset: no Gemini.
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           # code, api, compare or code_then_api (README). Empty: compare for the
-          # run of 22 November, code from the research week of 23 November.
+          # run of 22 November, code_then_api from the research week of 23
+          # November; both hand a probe the subscription's limit stopped to
+          # the API, inside the cap.
           AEO_CLAUDE_LANE: ${{ vars.AEO_CLAUDE_LANE }}
           # Read-only: the digest reads Krish's approved voice rules (directive
           # taste, protocol 1.5.0) through the growth engine door. Unset means

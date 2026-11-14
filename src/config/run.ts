@@ -54,8 +54,10 @@ export type ClaudeLane = (typeof CLAUDE_LANES)[number]
 /**
  * Runs whose week_start is on or before this date compare the two lanes by
  * default: the run of 22 November (week_start 2026-11-16) is the first on the
- * code lane, and it is read against the API lane before the API is switched
- * off. From the research week of 23 November the default is `code`.
+ * code lane, and it is read against the API lane beside it. From the research
+ * week of 23 November the default is `code_then_api`: the subscription
+ * answers, and the API only a probe its limit stopped, inside the cap, so no
+ * fortnight loses Claude's reading to the shared subscription's limit.
  */
 export const COMPARE_FIRST_RUN_UNTIL = '2026-11-16'
 
@@ -76,7 +78,7 @@ export interface LaneChoice {
 export function resolveClaudeLane(env: NodeJS.ProcessEnv, weekStart: string): LaneChoice {
   const raw = String(env.AEO_CLAUDE_LANE ?? '').trim().toLowerCase()
   const known = (CLAUDE_LANES as readonly string[]).includes(raw)
-  const fallback: ClaudeLane = weekStart <= COMPARE_FIRST_RUN_UNTIL ? 'compare' : 'code'
+  const fallback: ClaudeLane = weekStart <= COMPARE_FIRST_RUN_UNTIL ? 'compare' : 'code_then_api'
   const lane = known ? (raw as ClaudeLane) : fallback
   const choice: LaneChoice = { lane, reason: known ? 'set' : 'dated_default', ...(raw && !known ? { unknown: raw.slice(0, 40) } : {}) }
   if (lane !== 'api' && !env.CLAUDE_CODE_OAUTH_TOKEN) return { ...choice, lane: 'api', reason: 'no_token' }

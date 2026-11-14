@@ -377,11 +377,11 @@ test('lane switch: dated default, the variable, and a missing token falls back t
   const tok = { CLAUDE_CODE_OAUTH_TOKEN: 'synthetic' }
   assert.deepEqual(resolveClaudeLane(tok, '2026-11-16'), { lane: 'compare', reason: 'dated_default' }, 'the run of 22 November compares')
   assert.deepEqual(resolveClaudeLane(tok, '2026-11-09'), { lane: 'compare', reason: 'dated_default' })
-  assert.deepEqual(resolveClaudeLane(tok, '2026-11-23'), { lane: 'code', reason: 'dated_default' }, 'from the research week of 23 November')
-  assert.deepEqual(resolveClaudeLane({ ...tok, AEO_CLAUDE_LANE: '' }, '2026-11-30'), { lane: 'code', reason: 'dated_default' }, 'an empty variable is the dated default')
+  assert.deepEqual(resolveClaudeLane(tok, '2026-11-23'), { lane: 'code_then_api', reason: 'dated_default' }, 'from the research week of 23 November')
+  assert.deepEqual(resolveClaudeLane({ ...tok, AEO_CLAUDE_LANE: '' }, '2026-11-30'), { lane: 'code_then_api', reason: 'dated_default' }, 'an empty variable is the dated default')
   for (const lane of ['code', 'api', 'compare', 'code_then_api'] as const) assert.deepEqual(resolveClaudeLane({ ...tok, AEO_CLAUDE_LANE: lane }, '2026-11-30'), { lane, reason: 'set' })
   assert.deepEqual(resolveClaudeLane({ ...tok, AEO_CLAUDE_LANE: ' API ' }, '2026-11-30'), { lane: 'api', reason: 'set' })
-  assert.deepEqual(resolveClaudeLane({ ...tok, AEO_CLAUDE_LANE: 'bogus' }, '2026-11-30'), { lane: 'code', reason: 'dated_default', unknown: 'bogus' })
+  assert.deepEqual(resolveClaudeLane({ ...tok, AEO_CLAUDE_LANE: 'bogus' }, '2026-11-30'), { lane: 'code_then_api', reason: 'dated_default', unknown: 'bogus' })
   // No token: code, compare and code_then_api all become the API lane, so Claude is never zeroed.
   for (const lane of ['code', 'compare', 'code_then_api', '']) assert.equal(resolveClaudeLane({ AEO_CLAUDE_LANE: lane }, '2026-11-16').lane, 'api')
   assert.equal(resolveClaudeLane({}, '2026-11-30').reason, 'no_token')
@@ -399,10 +399,15 @@ test('lane switch: buildDeps builds each lane, and reads the variable per run, n
     assert.ok(compare.claude instanceof ClaudeCodeEngine)
     assert.ok(compare.deps.shadow instanceof AnthropicClient)
     assert.equal(compare.deps.claudeLane, 'compare')
+    assert.ok(compare.claude.fallback instanceof AnthropicClient, 'compare: a limited probe is handed to the API inside the cap (aeo-1)')
 
-    const code = claudeOf(LIVE_ENV, '2026-11-23')
+    const dated = claudeOf(LIVE_ENV, '2026-11-23')
+    assert.equal(dated.deps.claudeLane, 'code_then_api', 'from 23 November the default keeps the API behind the subscription')
+    assert.ok(dated.claude.fallback instanceof AnthropicClient)
+
+    const code = claudeOf({ ...LIVE_ENV, AEO_CLAUDE_LANE: 'code' }, '2026-11-23')
     assert.ok(code.claude instanceof ClaudeCodeEngine)
-    assert.equal(code.claude.fallback, undefined)
+    assert.equal(code.claude.fallback, undefined, 'code, when set, has no paid fallback')
     assert.equal(code.deps.shadow, undefined)
 
     const thenApi = claudeOf({ ...LIVE_ENV, AEO_CLAUDE_LANE: 'code_then_api' }, '2026-11-23')
