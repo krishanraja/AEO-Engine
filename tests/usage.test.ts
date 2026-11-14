@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { UsageMeter, tokensOf } from '../src/lib/usage.js'
+import { UsageMeter, providerSearchCalls, tokensOf, type BillingRow } from '../src/lib/usage.js'
 import { MeteredEngine } from '../src/clients/metered.js'
 import type { EngineClient } from '../src/clients/types.js'
 
@@ -189,4 +189,35 @@ test('a metered engine records its provider\'s tokens, counts a throw as a faile
   await assert.rejects(e.ask('q'), /openai_429/)
   m.acceptBilling(['meter_billing'])
   assert.deepEqual(m.postRows(), [{ provider: 'openai', billing: 'api', agent: 'aeo-probe', model: 'gpt-5', input_tokens: 12, output_tokens: 6, calls: 2, failed: 1 }])
+})
+
+// ---------- search calls billed per call by the other providers (audit ai-cost-6) ----------
+
+test('providerSearchCalls: OpenAI tool calls, xAI sources used, Gemini queries; Perplexity never', () => {
+  assert.equal(providerSearchCalls('openai', { search_calls: 3 }), 3)
+  assert.equal(providerSearchCalls('openai', {}), 0)
+  assert.equal(providerSearchCalls('xai', { usage: { num_sources_used: 7 } }), 7)
+  assert.equal(providerSearchCalls('google', { fan_out: ['a', 'b'] }), 2)
+  assert.equal(providerSearchCalls('perplexity', { search_calls: 4, usage: { num_search_queries: 2 } }), 0, 'its request fee is priced per call already')
+})
+
+test('a billing row carries the provider search calls, and none when zero', () => {
+  const m = new UsageMeter()
+  m.acceptBilling(['meter_billing'])
+  m.recordProvider('openai', 'aeo-probe', 'gpt-5', { input_tokens: 10, output_tokens: 4 }, false, 2)
+  m.recordProvider('openai', 'aeo-probe', 'gpt-5', { input_tokens: 10, output_tokens: 4 }, false, 1)
+  m.recordProvider('perplexity', 'aeo-probe', 'sonar', { prompt_tokens: 5, completion_tokens: 5 })
+  const rows = m.postRows() as BillingRow[]
+  const openai = rows.find(r => r.provider === 'openai')!
+  assert.equal((openai as { search_calls?: number }).search_calls, 3)
+  assert.ok(!('search_calls' in rows.find(r => r.provider === 'perplexity')!))
+  assert.equal(m.providerSearches, 3)
+})
+
+test('the metered engine counts the OpenAI answer search calls onto its row', async () => {
+  const m = new UsageMeter()
+  m.acceptBilling(['meter_billing'])
+  const inner = { engine: 'chatgpt', model: 'gpt-5', costKind: 'chatgpt', async ask() { return { text: 't', citations: [], usage: { input_tokens: 1, output_tokens: 1 }, search_calls: 4 } } }
+  await new MeteredEngine(inner as never, 'openai', m).ask('q')
+  assert.equal(m.providerSearches, 4)
 })

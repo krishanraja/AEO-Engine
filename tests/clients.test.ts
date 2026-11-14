@@ -112,6 +112,7 @@ test('openai responses: the search is forced, sources are asked for, and annotat
   assert.deepEqual(result.retrieved, ['https://s1.example', 'https://a.example'])
   assert.deepEqual(result.fan_out, ['first query', 'second query', 'third query'])
   assert.equal(result.searched, true)
+  assert.equal(result.search_calls, 2, 'each web_search_call item is one billed tool call')
   assert.deepEqual(result.usage, { input_tokens: 12, output_tokens: 34 })
   const sent = body(calls[0])
   assert.deepEqual(sent.tools, [{ type: 'web_search' }])
