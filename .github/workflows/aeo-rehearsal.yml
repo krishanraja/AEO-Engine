@@ -1,0 +1,40 @@
+# The free rehearsal of the ingest (scripts/rehearse-ingest.mts): no model,
+# no probe, no paid key. It reads production's context and checks that every
+# packet feature this engine sends is listed, then sends the synthetic
+# full-feature fixture packet and the v1 fixture packet to production's ingest
+# under a subject id that is never a subject's. Production validates every
+# field before it reads the subject, so 404 unknown_subject means accepted and
+# nothing is written apart from one aeo_ingest ledger row per packet.
+#
+# The paid half (live probes, the Claude Code lane, forced ChatGPT search, the
+# meter's billing rows) is a dispatch of AEO weekly with dry and cap_usd, and
+# runs only on Krish's yes.
+
+name: AEO rehearsal
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aeo-rehearsal
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - name: Rehearse the ingest against production
+        env:
+          CONTROL_CENTER_URL: ${{ secrets.CONTROL_CENTER_URL }}
+          AEO_ENGINE_SECRET: ${{ secrets.AEO_ENGINE_SECRET }}
+        run: npm run --silent rehearse

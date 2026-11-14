@@ -11,6 +11,7 @@
     "protocol": "tsx src/protocol/cli.ts",
     "site": "tsx src/site.ts",
     "verify": "tsx src/protocol/verify-cli.ts",
+    "rehearse": "tsx scripts/rehearse-ingest.mts",
     "test": "tsx --test tests/*.test.ts",
     "typecheck": "tsc --noEmit",
     "check:config": "tsx scripts/check-config.mts"
