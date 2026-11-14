@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { UsageMeter } from '../src/lib/usage.js'
+import { UsageMeter, tokensOf } from '../src/lib/usage.js'
+import { MeteredEngine } from '../src/clients/metered.js'
+import type { EngineClient } from '../src/clients/types.js'
 
 // The engine reported spend from lib/cost.ts, which charges a flat estimate per
 // call BEFORE the call is made. Its own comment says those are estimates to be
@@ -120,4 +122,71 @@ test('subscription billing: recorded and counted, never in the posted rows, neve
   assert.equal(m.subscriptionTokens, 5500)
   assert.equal(m.subscriptionRows()[0].failed, 1)
   assert.equal(m.searchesBy('aeo-probe'), 2, 'only the API lane\'s searches are billed per request')
+})
+
+// ---------- billing rows (AEO brief, section F) ----------
+
+test('tokens out of every provider\'s own usage shape', () => {
+  assert.deepEqual(tokensOf({ input_tokens: 10, output_tokens: 4, total_tokens: 14 }), { input: 10, output: 4 }, 'OpenAI Responses')
+  assert.deepEqual(tokensOf({ prompt_tokens: 7, completion_tokens: 3 }), { input: 7, output: 3 }, 'Perplexity and xAI')
+  assert.deepEqual(tokensOf({ promptTokenCount: 9, candidatesTokenCount: 5, thoughtsTokenCount: 2 }), { input: 9, output: 7 }, 'Gemini, its thinking billed as output')
+  assert.deepEqual(tokensOf(undefined), { input: 0, output: 0 })
+  assert.deepEqual(tokensOf({ prompt_tokens: 'many' }), { input: 0, output: 0 })
+})
+
+test('until the context lists meter_billing, the posted rows are exactly the first shape', () => {
+  const m = new UsageMeter()
+  m.record('aeo-probe', 'claude-sonnet-5', usage(1000, 100, { server_tool_use: { web_search_requests: 3 } }))
+  m.record('aeo-probe', 'claude-sonnet-5', usage(500, 50), false, 'subscription')
+  m.recordProvider('openai', 'aeo-probe', 'gpt-5', { input_tokens: 10, output_tokens: 4 })
+  assert.equal(m.billingAccepted, false)
+  assert.deepEqual(m.postRows(), m.rows())
+  m.acceptBilling(['kits', 'site'])
+  assert.deepEqual(m.postRows(), m.rows(), 'another feature opens nothing')
+  m.acceptBilling('meter_billing')
+  assert.equal(m.billingAccepted, false, 'a misshapen list opens nothing')
+})
+
+test('once it does: Anthropic API rows with their searches, subscription tokens, and every other provider\'s probes', () => {
+  const m = new UsageMeter()
+  m.record('aeo-probe', 'claude-sonnet-5', usage(1000, 100, { server_tool_use: { web_search_requests: 3 } }))
+  m.record('aeo-probe', 'claude-sonnet-5', usage(2000, 200, { server_tool_use: { web_search_requests: 2 } }))
+  m.record('aeo-digest', 'claude-sonnet-5', usage(800, 300))
+  m.record('aeo-probe', 'claude-sonnet-5', usage(500, 50, { server_tool_use: { web_search_requests: 9 } }), false, 'subscription')
+  m.recordProvider('openai', 'aeo-probe', 'gpt-5', { input_tokens: 10, output_tokens: 4 })
+  m.recordProvider('openai', 'aeo-probe', 'gpt-5', undefined, true)
+  m.recordProvider('google', 'aeo-probe', 'gemini-3.6-flash', { promptTokenCount: 9, candidatesTokenCount: 5 })
+  m.recordProvider('xai', 'aeo-probe', 'grok-4', undefined)
+  m.acceptBilling(['probe_detail', 'meter_billing'])
+  const rows = m.postRows() as Array<Record<string, unknown>>
+  assert.deepEqual(rows.map(r => [r.provider, r.billing, r.agent, r.model, r.calls, r.failed, r.search_calls ?? null, r.input_tokens ?? null, r.output_tokens ?? null]), [
+    ['anthropic', 'api', 'aeo-probe', 'claude-sonnet-5', 2, 0, 5, null, null],
+    ['anthropic', 'api', 'aeo-digest', 'claude-sonnet-5', 1, 0, 0, null, null],
+    ['anthropic', 'subscription', 'aeo-probe', 'claude-sonnet-5', 1, 0, null, 500, 50],
+    ['openai', 'api', 'aeo-probe', 'gpt-5', 2, 1, null, 10, 4],
+    ['google', 'api', 'aeo-probe', 'gemini-3.6-flash', 1, 0, null, 9, 5],
+  ], 'a subscription search is never a billed one; a call with neither a token nor a failure is not posted')
+  assert.equal((rows[0].usage as { input_tokens: number }).input_tokens, 3000, "the API row keeps Anthropic's own usage object")
+  assert.equal(m.searchesBy('aeo-probe'), 5)
+  assert.equal(m.providerCalls, 4)
+})
+
+test('a metered engine records its provider\'s tokens, counts a throw as a failed call, and is otherwise the engine it wraps', async () => {
+  const m = new UsageMeter()
+  let fail = false
+  const inner: EngineClient = {
+    engine: 'chatgpt', model: 'gpt-5', exhausted: false,
+    async ask() {
+      if (fail) throw new Error('openai_429')
+      return { text: 'x', citations: [], usage: { input_tokens: 12, output_tokens: 6 } }
+    },
+  }
+  const e = new MeteredEngine(inner, 'openai', m)
+  assert.deepEqual([e.engine, e.model, e.exhausted, e.client], ['chatgpt', 'gpt-5', false, inner])
+  const a = await e.ask('q')
+  assert.equal(a.text, 'x')
+  fail = true
+  await assert.rejects(e.ask('q'), /openai_429/)
+  m.acceptBilling(['meter_billing'])
+  assert.deepEqual(m.postRows(), [{ provider: 'openai', billing: 'api', agent: 'aeo-probe', model: 'gpt-5', input_tokens: 12, output_tokens: 6, calls: 2, failed: 1 }])
 })

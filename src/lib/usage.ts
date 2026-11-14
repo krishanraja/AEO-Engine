@@ -21,11 +21,8 @@
  *
  * Hosted web searches are billed per request, beside the tokens, and a probe
  * response says how many it made (usage.server_tool_use.web_search_requests).
- * The meter counts them, but the posted row does not carry them yet: the
- * meter's POST shape is Control Center's, and whether its reader takes the
- * extra field cannot be checked from this repository. The count goes to the
- * log line and the sealed run summary instead (`searches`, `searchesBy`), and
- * moves into the row once Control Center says it reads it.
+ * The meter counts them (`searches`, `searchesBy`) and, once the context lists
+ * `meter_billing`, posts them on their row as `search_calls`.
  *
  * Billing. A call is billed to the API (the default) or to a subscription:
  * the Claude Code lane's probes run on the Claude Code subscription token
@@ -33,9 +30,16 @@
  * recorded here with billing `subscription` and kept apart: rows() returns
  * the API rows only, because the meter's POST is priced at the other end at
  * API rates, and a subscription row priced that way would report a spend
- * that never happened. The subscription's tokens go to the log line and the
- * sealed run summary as counts until Control Center's meter reads a billing
- * field.
+ * that never happened.
+ *
+ * Billing rows (AEO brief, section F). Once the context lists `meter_billing`
+ * (acceptBilling), Control Center's meter reads each row's provider, billing,
+ * tokens and search calls, and postRows() sends every row: the Anthropic API
+ * rows as before plus their search calls, the subscription's as tokens with
+ * no dollar amount (Ruling, Krish, 2026-11-13), and the other providers'
+ * probes (OpenAI, Perplexity, Google, xAI, recordProvider) as input and
+ * output tokens, priced, or shown unpriced, at the other end. Until then
+ * postRows() is rows(), exactly the shape the meter always took.
  */
 export type Billing = 'api' | 'subscription'
 
@@ -46,6 +50,26 @@ export interface SummedUsage {
   cache_read_input_tokens: number
   cache_creation_input_tokens: number
   cache_creation: { ephemeral_5m_input_tokens: number; ephemeral_1h_input_tokens: number }
+}
+
+/** A provider other than Anthropic whose probe tokens are metered (recordProvider). */
+export type OtherProvider = 'openai' | 'perplexity' | 'google' | 'xai'
+
+/**
+ * A row as Control Center's meter reads it once the context lists
+ * `meter_billing`: the provider and billing, then Anthropic's own usage object
+ * or plain input and output tokens.
+ */
+export type BillingRow =
+  | { provider: 'anthropic'; billing: 'api'; agent: string; model: string; usage: SummedUsage; calls: number; failed: number; search_calls: number }
+  | { provider: 'anthropic' | OtherProvider; billing: 'api' | 'subscription'; agent: string; model: string; input_tokens: number; output_tokens: number; calls: number; failed: number }
+
+/** Input and output tokens out of any provider's usage object: OpenAI's Responses, Perplexity's and xAI's chat, Gemini's usageMetadata. */
+export function tokensOf(usage: unknown): { input: number; output: number } {
+  const u = (usage && typeof usage === 'object' ? usage : {}) as Record<string, unknown>
+  const input = num(u.input_tokens) || num(u.prompt_tokens) || num(u.promptTokenCount)
+  const output = num(u.output_tokens) || num(u.completion_tokens) || (num(u.candidatesTokenCount) + num(u.thoughtsTokenCount))
+  return { input, output }
 }
 
 export interface UsageRow {
@@ -71,8 +95,11 @@ export class UsageMeter {
   private readonly cells = new Map<string, UsageRow>()
   /** The same rows for calls billed to a subscription. Never posted (see Billing). */
   private readonly subscriptionCells = new Map<string, UsageRow>()
-  /** Web search requests by meter unit (agent), from usage.server_tool_use. Never posted. */
+  /** Web search requests by agent and model, from usage.server_tool_use. Posted as search_calls once billing rows are. */
   private readonly searchCells = new Map<string, number>()
+  /** Other providers' probe tokens by provider, agent and model (recordProvider). Posted once billing rows are. */
+  private readonly providerCells = new Map<string, { provider: OtherProvider; agent: string; model: string; input: number; output: number; calls: number; failed: number }>()
+  private billing = false
 
   /**
    * Record one response.
@@ -102,7 +129,64 @@ export class UsageMeter {
     // Searches billed per request are an API cost; a subscription's are not.
     if (billing === 'subscription') return
     const searches = num(((u.server_tool_use || {}) as Record<string, unknown>).web_search_requests)
-    if (searches > 0) this.searchCells.set(agent, (this.searchCells.get(agent) ?? 0) + searches)
+    if (searches > 0) this.searchCells.set(key, (this.searchCells.get(key) ?? 0) + searches)
+  }
+
+  /**
+   * Record one probe from a provider other than Anthropic: its input and
+   * output tokens read out of its own usage shape (tokensOf), and a failure
+   * counted even when it produced nothing.
+   */
+  recordProvider(provider: OtherProvider, agent: string, model: string, usage: unknown, failed = false): void {
+    const key = `${provider}|${agent}|${model}`
+    let cell = this.providerCells.get(key)
+    if (!cell) {
+      cell = { provider, agent, model, input: 0, output: 0, calls: 0, failed: 0 }
+      this.providerCells.set(key, cell)
+    }
+    const t = tokensOf(usage)
+    cell.input += t.input
+    cell.output += t.output
+    cell.calls += 1
+    if (failed) cell.failed += 1
+  }
+
+  /**
+   * Whether Control Center's meter reads billing rows: the context lists
+   * `meter_billing` in packet_features. Absent or misshapen: it does not.
+   */
+  acceptBilling(packetFeatures: unknown): void {
+    this.billing = Array.isArray(packetFeatures) && packetFeatures.includes('meter_billing')
+  }
+
+  get billingAccepted(): boolean {
+    return this.billing
+  }
+
+  /**
+   * The rows to post. The meter's first shape (rows()) until the context lists
+   * `meter_billing`; then every row with its provider and billing. A row with
+   * neither a token nor a failure is left out: nothing was measured.
+   */
+  postRows(): UsageRow[] | BillingRow[] {
+    if (!this.billing) return this.rows()
+    const out: BillingRow[] = this.rows().map(r => ({
+      provider: 'anthropic' as const, billing: 'api' as const, agent: r.agent, model: r.model, usage: r.usage,
+      calls: r.calls, failed: r.failed, search_calls: this.searchCells.get(`${r.agent}|${r.model}`) ?? 0,
+    }))
+    for (const r of this.subscriptionRows()) {
+      out.push({ provider: 'anthropic', billing: 'subscription', agent: r.agent, model: r.model, input_tokens: r.usage.input_tokens, output_tokens: r.usage.output_tokens, calls: r.calls, failed: r.failed })
+    }
+    for (const c of this.providerCells.values()) {
+      if (c.input + c.output === 0 && c.failed === 0) continue
+      out.push({ provider: c.provider, billing: 'api', agent: c.agent, model: c.model, input_tokens: c.input, output_tokens: c.output, calls: c.calls, failed: c.failed })
+    }
+    return out
+  }
+
+  /** Probe calls to the other providers, tokens or not. */
+  get providerCalls(): number {
+    return [...this.providerCells.values()].reduce((s, c) => s + c.calls, 0)
   }
 
   /** Web search requests the responses reported, all units. */
@@ -110,9 +194,11 @@ export class UsageMeter {
     return [...this.searchCells.values()].reduce((s, n) => s + n, 0)
   }
 
-  /** Web search requests the responses reported for one unit (aeo-probe, say). */
+  /** Web search requests the responses reported for one unit (aeo-probe, say), every model. */
   searchesBy(agent: string): number {
-    return this.searchCells.get(agent) ?? 0
+    let n = 0
+    for (const [k, v] of this.searchCells) if (k.startsWith(`${agent}|`)) n += v
+    return n
   }
 
   /** Rows with no tokens at all are dropped: nothing was measured, so there is

@@ -3,7 +3,7 @@
  * satisfy the same shapes, so no stage ever knows which one it has.
  */
 import type { CostKind } from '../config/run.js'
-import type { UsageRow } from '../lib/usage.js'
+import type { BillingRow, UsageRow } from '../lib/usage.js'
 import type { AeoContext } from '../schema/context.js'
 import type { AeoPacket, ProbeEngine } from '../schema/packet.js'
 
@@ -154,7 +154,7 @@ export interface ControlCenterClient {
   patchCommand(body: CommandPatch): Promise<void>
   /** Measured token counts for the usage meter. Returns its failure rather
    *  than throwing: reporting the spend must never cost us the run. */
-  postUsage(rows: UsageRow[], run: string): Promise<{ ok: boolean; error: string | null }>
+  postUsage(rows: UsageRow[] | BillingRow[], run: string): Promise<{ ok: boolean; error: string | null }>
 }
 
 /** Thrown by an offline client when the fixture a request maps to is absent. */

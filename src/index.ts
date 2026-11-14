@@ -36,6 +36,7 @@ import { OfflineControlCenter, OfflineEngine, OfflineFireflies, OfflineModel } f
 import { LiveSite, OfflineSite } from './clients/site.js'
 import { readSharedAudit } from './site.js'
 import { OpenAIClient } from './clients/openai.js'
+import { MeteredEngine } from './clients/metered.js'
 import { PerplexityClient } from './clients/perplexity.js'
 import type { EngineClient, ModelClient } from './clients/types.js'
 import { XaiClient } from './clients/xai.js'
@@ -162,26 +163,26 @@ function liveEngines(env: NodeJS.ProcessEnv, usage: UsageMeter, lane: ClaudeLane
   const engines: EngineClient[] = []
   let shadow: EngineClient | undefined
   for (const e of resolveEngines(env)) {
-    if (e === 'perplexity') engines.push(new PerplexityClient(env.PERPLEXITY_API_KEY ?? ''))
-    else if (e === 'chatgpt') engines.push(new OpenAIClient(env.OPENAI_API_KEY ?? ''))
+    if (e === 'perplexity') engines.push(new MeteredEngine(new PerplexityClient(env.PERPLEXITY_API_KEY ?? ''), 'perplexity', usage))
+    else if (e === 'chatgpt') engines.push(new MeteredEngine(new OpenAIClient(env.OPENAI_API_KEY ?? ''), 'openai', usage))
     else if (e === 'claude') {
       const c = claudeProbe(lane, env, usage, o)
       engines.push(c.main)
       shadow = c.shadow
-    } else if (e === 'grok') engines.push(new XaiClient(env.XAI_API_KEY ?? ''))
-    else if (e === 'gemini') engines.push(new GeminiClient(env.GEMINI_API_KEY ?? ''))
+    } else if (e === 'grok') engines.push(new MeteredEngine(new XaiClient(env.XAI_API_KEY ?? ''), 'xai', usage))
+    else if (e === 'gemini') engines.push(new MeteredEngine(new GeminiClient(env.GEMINI_API_KEY ?? ''), 'google', usage))
   }
   return { engines, ...(shadow ? { shadow } : {}) }
 }
 
 export function buildDeps(args: CliArgs, env: NodeJS.ProcessEnv = process.env, now = new Date(), overrides: DepsOverrides = {}): RunDeps {
   const ledger = new Ledger(args.capUsd)
-  // Only the Anthropic clients feed it today. Perplexity, OpenAI and xAI report
-  // usage in their own shapes and are left out rather than half-read: three
-  // providers' worth of tokens summed into one Anthropic-shaped object would
-  // price at Anthropic's rates and be wrong in a way nothing could see. They
-  // are a stated gap, not a silent one: the meter will show claude and no
-  // sibling rows beside it.
+  // The Anthropic clients feed it their usage objects. Perplexity, OpenAI, xAI
+  // and Gemini report usage in their own shapes, so each probe engine is
+  // wrapped (src/clients/metered.ts) and its input and output tokens are kept
+  // on rows of their own provider, never summed into an Anthropic-shaped
+  // object priced at Anthropic's rates. They are posted only once the context
+  // lists meter_billing (src/lib/usage.ts, postRows).
   const usage = new UsageMeter()
   if (args.offline) {
     const dir = args.fixtures
@@ -362,23 +363,26 @@ export async function main(argv: readonly string[] = process.argv.slice(2)): Pro
   // failed run that reports nothing is the same lie as a green node on a 404:
   // the money left the account either way. A dry run is metered too, because --dry
   // only stops the packet shipping, every probe still ran and still billed.
-  const rows = deps.usage.rows()
+  // The meter's first shape until the context lists meter_billing; then every
+  // row with its provider and billing, subscription and other providers too.
+  const rows = deps.usage.postRows()
   if (rows.length) {
     const posted = await deps.cc.postUsage(rows, args.week)
     log('usage_reported', {
       rows: rows.length, calls: deps.usage.calls, tokens: deps.usage.tokens,
-      // Counted, not posted: the meter's row shape is Control Center's (src/lib/usage.ts).
       web_search_requests: deps.usage.searches,
+      billing_rows: deps.usage.billingAccepted, provider_calls: deps.usage.providerCalls,
       ok: posted.ok, error: posted.error,
     })
   } else {
     // Said out loud, because "no rows" and "the meter is broken" look identical
     // in silence, and that is the exact confusion this reporting exists to end.
-    log('usage_not_reported', { reason: 'no anthropic tokens measured this run' })
+    log('usage_not_reported', { reason: deps.usage.billingAccepted ? 'no tokens or failures measured this run' : 'no anthropic tokens measured this run' })
   }
   // The Claude Code lane's tokens: billed to the subscription, counted here
-  // and in the sealed summary, never posted as a priced row (src/lib/usage.ts).
-  if (deps.usage.subscriptionCalls) log('usage_subscription', { calls: deps.usage.subscriptionCalls, tokens: deps.usage.subscriptionTokens, posted: false })
+  // and in the sealed summary, and posted as tokens with no dollar amount once
+  // the context lists meter_billing (src/lib/usage.ts), never as a priced row.
+  if (deps.usage.subscriptionCalls) log('usage_subscription', { calls: deps.usage.subscriptionCalls, tokens: deps.usage.subscriptionTokens, posted: deps.usage.billingAccepted })
 
   if (args.summaryOut) writeSummary(args, deps, outcome)
 
@@ -463,12 +467,12 @@ export async function verifyMain(args: CliArgs, env: NodeJS.ProcessEnv = process
     failed = errText(e)
     log('run_failed', { error: failed })
   }
-  const rows = deps.usage.rows()
+  const rows = deps.usage.postRows()
   if (rows.length) {
     const posted = await deps.cc.postUsage(rows, args.week)
-    log('usage_reported', { rows: rows.length, calls: deps.usage.calls, tokens: deps.usage.tokens, web_search_requests: deps.usage.searches, ok: posted.ok, error: posted.error })
+    log('usage_reported', { rows: rows.length, calls: deps.usage.calls, tokens: deps.usage.tokens, web_search_requests: deps.usage.searches, billing_rows: deps.usage.billingAccepted, provider_calls: deps.usage.providerCalls, ok: posted.ok, error: posted.error })
   }
-  if (deps.usage.subscriptionCalls) log('usage_subscription', { calls: deps.usage.subscriptionCalls, tokens: deps.usage.subscriptionTokens, posted: false })
+  if (deps.usage.subscriptionCalls) log('usage_subscription', { calls: deps.usage.subscriptionCalls, tokens: deps.usage.subscriptionTokens, posted: deps.usage.billingAccepted })
   if (args.summaryOut) writeSummary(args, deps, outcome, env, 'verify')
   return failed ? 1 : 0
 }
