@@ -9,14 +9,17 @@
  *    (packet.ctrl.json), each sent under a subject id that is never a
  *    subject's (src/lib/rehearse.ts). Production validates every field before
  *    it reads the subject, so 404 unknown_subject means accepted, and no row
- *    is written apart from one aeo_ingest ledger row each.
+ *    is written apart from one aeo_ingest ledger row each. A third packet is
+ *    the v1 packet as the live run sends it with no call source
+ *    (liveRunPacket: themes_status transcripts_unavailable, no themes, no
+ *    calls), since both fixtures read calls and carry "ok".
  *
  * Prints counts and verdicts only. Exit 1 when anything is not accepted.
  * Needs CONTROL_CENTER_URL and AEO_ENGINE_SECRET (the research job's pair).
  */
 import { readFileSync } from 'node:fs'
 import { ControlCenterHttp } from '../src/clients/controlCenter.js'
-import { REHEARSAL_SUBJECT_ID, rehearseIngest } from '../src/lib/rehearse.js'
+import { liveRunPacket, REHEARSAL_SUBJECT_ID, rehearseIngest } from '../src/lib/rehearse.js'
 import { PACKET_FEATURES, validatePacket, type AeoPacket } from '../src/schema/packet.js'
 
 const cc = new ControlCenterHttp(process.env.CONTROL_CENTER_URL ?? '', process.env.AEO_ENGINE_SECRET ?? '')
@@ -30,8 +33,13 @@ const missing = wanted.filter(f => !listed.includes(f))
 out({ step: 'context', subjects: ctx.subjects.length, packet_features: listed.length, missing })
 if (missing.length) failed++
 
-for (const name of ['packet.ctrl.features.json', 'packet.ctrl.json']) {
-  const packet = JSON.parse(readFileSync(`tests/fixtures/expected/${name}`, 'utf8')) as AeoPacket
+const fixture = (file: string) => JSON.parse(readFileSync(`tests/fixtures/expected/${file}`, 'utf8')) as AeoPacket
+const cases: Array<[string, AeoPacket]> = [
+  ['packet.ctrl.features.json', fixture('packet.ctrl.features.json')],
+  ['packet.ctrl.json', fixture('packet.ctrl.json')],
+  ['packet.ctrl.json as the live run sends it (transcripts_unavailable)', liveRunPacket(fixture('packet.ctrl.json'))],
+]
+for (const [name, packet] of cases) {
   const local = validatePacket(packet, { features: listed })
   if (!local.ok) { out({ step: 'ingest', fixture: name, verdict: 'invalid_here', errors: local.errors.slice(0, 12) }); failed++; continue }
   const r = await rehearseIngest(cc, packet)
