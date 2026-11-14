@@ -17,17 +17,19 @@ import { CapReached, Ledger } from '../src/lib/cost.js'
 const ROOT = join(import.meta.dirname, '..')
 const TSX = join(ROOT, 'node_modules', '.bin', 'tsx')
 
-test('the hard ceiling is 30 and the default is 25, inside Krish\'s 25 to 30', () => {
+// Ruling (Krish, 2026-11-14): the per-run cap for 22 November is 30, the top
+// of his 25 to 30, built in so it holds whether or not the variable is set.
+test('the hard ceiling is 30 and so is the default, so the cap holds with the variable unset', () => {
   assert.equal(HARD_MAX_USD_PER_RUN, 30)
-  assert.equal(DEFAULT_MAX_USD_PER_RUN, 25)
+  assert.equal(DEFAULT_MAX_USD_PER_RUN, 30)
 })
 
 test('AEO_MAX_USD_PER_RUN is read, and clamped to the hard ceiling', () => {
-  assert.equal(runCapUsd(undefined), 25)
-  assert.equal(runCapUsd(''), 25)
-  assert.equal(runCapUsd('0'), 25)
-  assert.equal(runCapUsd('-4'), 25)
-  assert.equal(runCapUsd('nonsense'), 25)
+  assert.equal(runCapUsd(undefined), 30)
+  assert.equal(runCapUsd(''), 30)
+  assert.equal(runCapUsd('0'), 30)
+  assert.equal(runCapUsd('-4'), 30)
+  assert.equal(runCapUsd('nonsense'), 30)
   assert.equal(runCapUsd('12.5'), 12.5)
   assert.equal(runCapUsd('30'), 30)
   assert.equal(runCapUsd('31'), 30)
@@ -89,20 +91,27 @@ test('the research workflow clamps the run\'s total to the hard ceiling and floo
   assert.match(wf, /Math\.floor\(Number\(process\.argv\[1\]\)\s*\/\s*Number\(process\.argv\[2\]\)\s*\*\s*100\)\s*\/\s*100/)
 })
 
-// The paid rehearsal of 14 November (AEO weekly run 43622644403, one subject,
-// cap_usd 2) proved two holes: the subject step's retry ran a second process
-// with a fresh 2 USD ledger, and the meter priced the probes above their
-// estimates. Measured on Control Center's meter that day: ChatGPT about 0.088
-// a probe with its search fees, the Claude API about 0.141, Gemini about
-// 0.013 and the digest about 0.13.
+// The paid rehearsal of 14 November (AEO weekly run 43622644403, one subject)
+// proved two holes: the subject step's retry ran a second process with a
+// fresh ledger at the full share, and Control Center's meter priced the
+// probes above their estimates. Its figures stay in Control Center
+// (docs/NEVER-PUBLISH.md: spend is Krish's to disclose); the estimates were
+// raised above what the meter read.
 
-test('the price table is at or above what the meter measured on 14 November', async () => {
+test('the price table holds the estimates raised after the paid rehearsal', async () => {
   const { PRICE_USD_PER_CALL } = await import('../src/config/run.js')
-  assert.ok(PRICE_USD_PER_CALL.chatgpt >= 0.09, `chatgpt ${PRICE_USD_PER_CALL.chatgpt}`)
-  assert.ok(PRICE_USD_PER_CALL.claude >= 0.14, `claude ${PRICE_USD_PER_CALL.claude}`)
-  assert.ok(PRICE_USD_PER_CALL.gemini >= 0.013, `gemini ${PRICE_USD_PER_CALL.gemini}`)
-  assert.ok(PRICE_USD_PER_CALL.digest >= 0.13, `digest ${PRICE_USD_PER_CALL.digest}`)
-  assert.ok(PRICE_USD_PER_CALL.perplexity >= 0.006, `perplexity ${PRICE_USD_PER_CALL.perplexity}`)
+  assert.equal(PRICE_USD_PER_CALL.chatgpt, 0.10)
+  assert.equal(PRICE_USD_PER_CALL.claude, 0.15)
+  assert.equal(PRICE_USD_PER_CALL.gemini, 0.015)
+  assert.equal(PRICE_USD_PER_CALL.digest, 0.14)
+  assert.equal(PRICE_USD_PER_CALL.perplexity, 0.01)
+})
+
+test('the research workflow falls back to 30, never to 25', () => {
+  const wf = readFileSync(join(ROOT, '.github', 'workflows', 'aeo-weekly.yml'), 'utf8')
+  assert.doesNotMatch(wf, /AEO_MAX_USD_PER_RUN:-25|\|\| '25'|total=25\b/)
+  assert.match(wf, /total="\$\{AEO_MAX_USD_PER_RUN:-30\}"/)
+  assert.match(wf, /vars\.AEO_MAX_USD_PER_RUN \|\| '30'/)
 })
 
 test('a run writes what its ledger charged to AEO_SPENT_FILE, on success and on failure', async () => {
