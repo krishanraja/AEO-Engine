@@ -48,7 +48,7 @@ export function splitDomain(domain: string): { host: string; path: string } {
 /**
  * True when the URL is on the domain. A bare host matches that host or any
  * subdomain of it. A domain with a path matches only that path prefix on that
- * host or its subdomains: "linkedin.com/in/krishraja" matches
+ * host or its subdomains: "linkedin.com/in/krish-raja" matches
  * linkedin.com/in/krishraja/details and uk.linkedin.com/in/krishraja, never
  * linkedin.com/in/krishrajapal or linkedin.com/pulse/anything. A URL without
  * a scheme is read as https; one that still does not parse matches nothing.
