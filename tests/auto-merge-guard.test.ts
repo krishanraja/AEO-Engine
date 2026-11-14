@@ -44,3 +44,19 @@ test('the workflow waits on this repository\'s own checks and refuses a run from
   assert.match(wf, /-f \.github\/scripts\/auto-merge-pick\.jq/)
   assert.match(wf, /isCrossRepository,author,headRepositoryOwner/)
 })
+// A merge made with the Actions token starts no push workflow, so the generated
+// fold in harness-repository-context.yml never ran after one and closeout notes
+// waited on main (found 2026-11-14). The merge now starts closeout-fold.yml,
+// whose fold is the generated job's, word for word.
+test('a merge starts the closeout fold, and that fold is the generated one', () => {
+  const wf = readFileSync('.github/workflows/auto-merge.yml', 'utf8')
+  assert.match(wf, /\n  actions: write\n/)
+  assert.match(wf, /gh pr merge "\$pr"[^\n]*\n[^\n]*\n\s*#[^\n]*\n\s*gh workflow run closeout-fold\.yml -R "\$REPO" --ref main/)
+  const fold = readFileSync('.github/workflows/closeout-fold.yml', 'utf8')
+  assert.match(fold, /\non:\n  workflow_dispatch:\n/)
+  assert.match(fold, /concurrency:\n  group: closeout-fold\n  cancel-in-progress: false\n/)
+  const steps = (text: string) => text.slice(text.lastIndexOf('      - name: Fold closeout notes into NOW.md')).trimEnd()
+  const generated = readFileSync('.github/workflows/harness-repository-context.yml', 'utf8')
+  assert.ok(steps(generated).includes('harness-closeout.mjs --fold'), 'the generated fold step is where it was')
+  assert.equal(steps(fold), steps(generated))
+})
