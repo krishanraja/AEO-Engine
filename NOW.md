@@ -26,6 +26,12 @@ Krish reads the digest on Monday and acts the same week. The packet answers, per
 
 <!-- north-star-state {"week_of":"2026-11-16","week_target":1,"current":1,"current_as_of":"2026-11-14","current_source":"AEO-Engine's research as Control Center holds it (growth_geo_probes and growth_aeo_subjects): questions where a product of ours is the first citation, over the questions asked in the newest research fortnight; a question not asked stays unknown, never lost (Ruling, Krish, 2026-11-12), read by Control Center","urgency":1,"urgency_reason":"at 100% of this week's target"} --> **North Star number: U1, on pace.** Share of tracked buyer questions where Mindmake or one of its products is the first citation: 1%, against 1% this week, on the way to 50% by 25 January 2027. Steady, and one proposal a week that would raise the ceiling.
 
+- One research run can never spend more than 30 USD of estimates: AEO_MAX_USD_PER_RUN (default 30 since Krish set 30 for 22 November), a dispatch's cap_usd, --cap-usd and every Ledger are clamped to HARD_MAX_USD_PER_RUN, each subject job's share is floored to the cent, a retry of a failed subject gets only what its first attempt left, and the prices are the meter's measured rates from the paid rehearsal of 14 November (Ruling, Krish, 2026-11-14). (2026-11-14)
+- Fireflies is gone from AEO-Engine: the transcript stage reads a generic TranscriptSource (none connected), and every packet says themes_status transcripts_unavailable, the value Control Center's ingest accepts since it stopped accepting fireflies_unavailable (found by the paid rehearsal of 14 November, AEO weekly run 43622644403). (2026-11-14)
+- The free AEO rehearsal now also sends the v1 packet as the live run sends it with no call source (themes_status transcripts_unavailable, no themes, no calls, from the transcript stage's own NO_TRANSCRIPTS), since both pinned fixtures read calls and carry "ok" and so never sent the value every live packet carries. (2026-11-14)
+- The paid one-subject rehearsal (AEO weekly run 43622644403, mindmake, dry, cap_usd 2) probed live on every engine and found production's ingest rejecting themes_status fireflies_unavailable (fixed by #47, proved by the free rehearsal). It spent more than the 3 USD Krish approved: the subject step's retry ran a fresh ledger at the full share, and the estimates sat below the meter's prices. Its figures are in Control Center's meter, Krish's to disclose. The retry now shares the subject's share and the estimates are raised. (2026-11-14)
+- closeout notes now fold into NOW.md after every merge: auto-merge.yml starts .github/workflows/closeout-fold.yml on main by workflow_dispatch, because the merge's own push, made with the Actions token, starts no workflow and the generated fold in harness-repository-context.yml ran only on a push (five notes had waited on main). (2026-11-14)
+- The research run's report job asks Control Center's research desk (index_check) whether Brave ranks each kit's https page for its question, at most 10 a UTC day (about 0.05 USD), counting the checks already asked that day; it holds and spends nothing while Control Center does not offer index_check, and never fails the run (src/protocol/indexCheck.ts, Ruling, Krish, 2026-11-14). (2026-11-14)
 - our own pull requests (Krish or the Actions bot, branch in this repository, ready, at the commit that passed) now merge themselves when every "CI" run on that commit is green (.github/workflows/auto-merge.yml, rule .github/scripts/auto-merge-pick.jq, tested). Forks, drafts and strangers wait for a person. (2026-11-14)
 - docs/control-center/ is Control Center's protocol bundle 1.33.0 (bundle_sha256 4b7175a8...), copied byte for byte with bundle.json; tests/bundle.test.ts checks every file, and every report test passes against the 1.33.0 schemas. (2026-11-14)
 - The former call transcript source is removed (its client, import and test), so no call source is connected and every packet says themes_status transcripts_unavailable; the transcript stage and its offline fixtures stay for a future call source (fleet audit ai-retired-11, AEO's half). (2026-11-14)
@@ -49,6 +55,10 @@ Krish reads the digest on Monday and acts the same week. The packet answers, per
 
 ## What changed recently
 
+- 2026-11-14 2026-11-14 The research run has a cap of 30 USD, the top of Krish's 25 to 30, priced at raised estimates and shared with its retry.
+- 2026-11-14 2026-11-14 themes_status fireflies_unavailable is now transcripts_unavailable, matching production's ingest.
+- 2026-11-14 2026-11-14 The paid rehearsal overspent its approval; the cap now holds across a retry, at raised estimates.
+- 2026-11-14 2026-11-14 Kits' pages are checked on Brave, which Claude's search draws on, inside a 0.05 USD daily cap.
 - 2026-11-14 The protocol copy is the published bundle at 1.33.0.
 - 2026-11-14 The protocol copy is the published bundle at 1.28.0, and each report says whether it is current.
 - 2026-11-14 A site fix names the repository that ships its host, not only its product's.
@@ -68,7 +78,7 @@ Krish reads the digest on Monday and acts the same week. The packet answers, per
 
 ## What is next and what is waiting on Krish
 
-- Next (2026-11-14): watch the first pull request after this one merge itself on green.
+- Next (2026-11-14): Read the 22 November run's run_start and run_done lines for cap_usd and the ledger total, and the meter's AEO rows for that day against them.
 - Waiting on Krish: a target for `queries_cited_first` (`docs/GET-GOING.md`, Step 3); and whether Grok should be asked too, which needs `XAI_API_KEY` set (the live runs ask three assistants).
 - North Star check (2026-11-14): holds.
 
