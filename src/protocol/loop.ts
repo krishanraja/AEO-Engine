@@ -21,12 +21,28 @@
 import { GrowthEngineHttp, ProtocolError } from '../clients/growthEngine.js'
 import { errText, log } from '../lib/log.js'
 import { validateReport, type Attempt, type Decision, type Directive, type EngineReport } from '../schema/report.js'
+import { bundleProblems, protocolCopyState, readBundle, servedBundle } from './bundle.js'
 import { buildDirectiveReport, buildResearchReport, buildVerifyReport, CHECKIN_PREFIX, DECISIONS_LOOKBACK_DAYS, KIT_PROPOSAL_PREFIX, pendingKitOf, researchRunId, STALE_DAYS, type Envelope, type ResearchInput, type StateContext, type StoredResearch, type VerifyReportInput } from './reports.js'
 import { isVerifyDecisionId, VERIFY_EPOCH, VERIFY_PREFIX, verifyRunId, verifySundaysToRead, type VerifyRunRead } from './verify.js'
 import type { PlanDecision } from '../schema/kit.js'
 import { readRepoState } from './state.js'
 
-export type Client = Pick<GrowthEngineHttp, 'postAttempt' | 'getDirective' | 'postReport' | 'getReport' | 'getDecisions' | 'getRecentReports'>
+export type Client = Pick<GrowthEngineHttp, 'postAttempt' | 'getDirective' | 'postReport' | 'getReport' | 'getDecisions' | 'getRecentReports'> & Partial<Pick<GrowthEngineHttp, 'getCapabilities'>>
+
+/**
+ * protocol_copy for this run's report (protocol 1.28.0): this copy's
+ * bundle_sha256 against the one capabilities serve. Never throws and never
+ * holds a run: a read that fails, or a client with no capabilities read, is
+ * unknown.
+ */
+export async function protocolCopyOf(c: Client): Promise<string> {
+  let served: unknown = null
+  try { served = c.getCapabilities ? await c.getCapabilities() : null } catch (e) { log('protocol_copy_unread', { code: e instanceof ProtocolError ? e.code : 'capabilities_unavailable' }) }
+  const local = bundleProblems().length ? null : readBundle()
+  const state = protocolCopyState(local, servedBundle(served))
+  log('protocol_copy', { state })
+  return state
+}
 
 /** Where a 1.20.0 report's state comes from: the checkout's docs, and this run's public page for an ack's evidence. */
 export interface StateOpts { root?: string; evidenceUrl?: string | null }
@@ -261,7 +277,7 @@ export async function runDirective(c: Client, o: DirectiveOpts): Promise<LoopOut
     const state = await stateContext(c, served, o)
 
     phase = 'report'
-    const env: Envelope = { runId, mode: o.mode, observedAt: now(), revision: o.revision, capturedAt: started, state }
+    const env: Envelope = { runId, mode: o.mode, observedAt: now(), revision: o.revision, capturedAt: started, state, protocolCopy: await protocolCopyOf(c) }
     const report = buildDirectiveReport({ ...env, directive, directiveError, last, lastError, decisions, verifyDecisions, verifyRuns, kitsDelivered: served?.features?.aeo_kits_delivered === true })
     const { replayed } = await deliver(c, report)
 
@@ -339,7 +355,7 @@ export async function finishResearch(c: Client, ids: ResearchIds, input: Omit<Re
     const kitsDelivered = served?.features?.aeo_kits_delivered === true
     log('protocol_kit_inputs', { decisions: decisions ? decisions.length : null, kit_decisions: decisions ? decisions.filter(d => d.proposal_id.startsWith(KIT_PROPOSAL_PREFIX)).length : null, kit_waiting: !!pendingKit, kits_delivered: kitsDelivered })
     phase = 'report'
-    const report = buildResearchReport({ ...input, runId: ids.runId, state, answers: served?.features?.answer_requests === true, decisions, pendingKit, lastReport, kitsDelivered, runPage: input.runPage ?? o.evidenceUrl ?? null })
+    const report = buildResearchReport({ ...input, runId: ids.runId, state, protocolCopy: await protocolCopyOf(c), answers: served?.features?.answer_requests === true, decisions, pendingKit, lastReport, kitsDelivered, runPage: input.runPage ?? o.evidenceUrl ?? null })
     const { replayed } = await deliver(c, report)
     phase = 'decisions'
     await readDecisions(c, report, now())
@@ -381,7 +397,7 @@ export async function finishVerify(c: Client, ids: ResearchIds, input: Omit<Veri
     const ctx = await stateContext(c, served, o)
     const state = ctx ? { ...ctx, instruction: null } : null
     phase = 'report'
-    const report = buildVerifyReport({ ...input, runId: ids.runId, state, runPage: input.runPage ?? o.evidenceUrl ?? null })
+    const report = buildVerifyReport({ ...input, runId: ids.runId, state, protocolCopy: await protocolCopyOf(c), runPage: input.runPage ?? o.evidenceUrl ?? null })
     const { replayed } = await deliver(c, report)
     phase = 'decisions'
     await readDecisions(c, report, now())

@@ -87,6 +87,13 @@ export class GrowthEngineHttp {
     return { replayed: asRecord(r.json).replayed === true }
   }
 
+  /** The capabilities document, as served; the caller reads only what it knows (any 1.x). */
+  async getCapabilities(): Promise<unknown> {
+    const r = await this.call('capabilities', '/capabilities')
+    if (!r.ok) throw new ProtocolError(codeFor('capabilities', r), r.status)
+    return r.json
+  }
+
   async getDirective(date?: string): Promise<{ chosen_by: string; directive: Directive }> {
     const r = await this.call('directive', `/directive${date ? `?date=${encodeURIComponent(date)}` : ''}`)
     if (!r.ok) throw new ProtocolError(codeFor('directive', r), r.status)
