@@ -26,6 +26,7 @@ Krish reads the digest on Monday and acts the same week. The packet answers, per
 
 <!-- north-star-state {"week_of":"2026-11-16","week_target":1,"current":1,"current_as_of":"2026-11-14","current_source":"AEO-Engine's research as Control Center holds it (growth_geo_probes and growth_aeo_subjects): questions where a product of ours is the first citation, over the questions asked in the newest research fortnight; a question not asked stays unknown, never lost (Ruling, Krish, 2026-11-12), read by Control Center","urgency":1,"urgency_reason":"at 100% of this week's target"} --> **North Star number: U1, on pace.** Share of tracked buyer questions where Mindmake or one of its products is the first citation: 1%, against 1% this week, on the way to 50% by 25 January 2027. Steady, and one proposal a week that would raise the ceiling.
 
+- Gemini enters the packet, and so the share, only when Control Center lists engine_gemini AND the repository variable AEO_GEMINI_COUNTS is true; production already lists engine_gemini, so until Krish rules, a Gemini key adds a measured-beside reading in the sealed summary and never moves the North Star (audit aeo-8). (2026-11-14)
 - A rehearsal proves production's ingest accepts a packet without writing a row: the free `AEO rehearsal` workflow checks the context's packet features and sends the fixture packets under a synthetic subject id (404 unknown_subject means every field accepted), and an AEO weekly dispatch with dry and the new `cap_usd` input probes one subject live inside that cap and rehearses its real packet the same way (audit aeo-4). (2026-11-14)
 - The Claude probes keep the paid API behind the Claude Code lane in `compare` (the 22 November run) and in the dated default from 23 November (`code_then_api`), so a subscription limit hands each later probe to the API inside the cap instead of dropping Claude from the fortnight's reading (audit aeo-1). (2026-11-14)
 - The usage meter records every provider (brief F): the Anthropic clients their usage objects, and OpenAI, Perplexity, xAI and Gemini their input and output tokens (`src/clients/metered.ts`). Once the context lists `meter_billing`, it posts every row with its provider and billing: the Anthropic API rows with their search calls, the Claude Code subscription's as tokens with no dollar amount, and the other providers' as tokens. Until then it posts exactly the first shape. The research report adds `questions_asked`, the share's denominator, beside `queries_cited_first`; it is missing whenever the numerator is. (2026-11-14)
@@ -40,6 +41,7 @@ Krish reads the digest on Monday and acts the same week. The packet answers, per
 
 ## What changed recently
 
+- 2026-11-14 A gated engine counts in the share only on Krish's ruling, not on Control Center's feature list alone.
 - 2026-11-14 Dry dispatches are rehearsals against production's ingest, and a dispatch can lower the run's spend ceiling with cap_usd.
 - 2026-11-14 The Claude lane's default keeps an API fallback, so the share's denominator no longer depends on the shared subscription's limit.
 - 2026-11-13 AEO-Engine became the specialist the growth engines call: honest first-citation measurement, every venture, win kits, verify runs and outcomes (Krish, 13 November).
@@ -53,7 +55,7 @@ Krish reads the digest on Monday and acts the same week. The packet answers, per
 
 ## What is next and what is waiting on Krish
 
-- Next (2026-11-14): Krish's yes or no on the paid one-subject rehearsal (subject mindmake, dry, cap_usd 3) before 22 November.
+- Next (2026-11-14): Krish rules whether Gemini counts from its first run or after one shadow run's tally has been read.
 - Waiting on Krish: a target for `queries_cited_first` (`docs/GET-GOING.md`, Step 3); and whether Grok should be asked too, which needs `XAI_API_KEY` set (the live runs ask three assistants).
 - North Star: directive taste moves the second half (pieces worth citing, written in his approved voice); the number is still unmeasured, U4.
 - North Star check (2026-11-14): holds.
