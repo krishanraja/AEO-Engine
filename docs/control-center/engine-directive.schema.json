@@ -693,6 +693,119 @@
               }
             }
           }
+        },
+        "approved_production_rules": {
+          "type": "array",
+          "description": "I-14, features.taste_floor (a flag with no version): his approved production rules (lane production), the engine's own venture's only, shaped as approved_voice_rules. Absent means unread.",
+          "items": {
+            "type": "object",
+            "required": [
+              "layer",
+              "rule",
+              "his_words",
+              "what_it_means"
+            ],
+            "properties": {
+              "layer": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "rule": {
+                "type": "string"
+              },
+              "his_words": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "what_it_means": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "floor": {
+          "type": "object",
+          "description": "I-14, features.taste_floor: his approved or reworded standards for the formats this engine makes, its own venture's only, strongest first, at most 40: the floor, never beneath. Form only. Empty standards means none approved yet; absent means unread.",
+          "required": [
+            "rule",
+            "venture",
+            "as_of",
+            "standards"
+          ],
+          "properties": {
+            "rule": {
+              "type": "string"
+            },
+            "venture": {
+              "type": "string"
+            },
+            "as_of": {
+              "type": "string"
+            },
+            "standards": {
+              "type": "array",
+              "maxItems": 40,
+              "items": {
+                "type": "object",
+                "required": [
+                  "id",
+                  "layer",
+                  "formats",
+                  "statement",
+                  "how_to_check",
+                  "his_words",
+                  "standing",
+                  "support_n"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "layer": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "formats": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "statement": {
+                    "type": "string"
+                  },
+                  "how_to_check": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "his_words": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "standing": {
+                    "type": "string",
+                    "enum": [
+                      "approved",
+                      "reworded"
+                    ]
+                  },
+                  "support_n": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
         }
       }
     },

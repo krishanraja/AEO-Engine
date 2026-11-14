@@ -119,6 +119,8 @@ export interface Envelope {
   state?: StateContext | null
   /** 1.22.0: true when the directive served `features.answer_requests`, so a research report may say which it asked. */
   answers?: boolean
+  /** 1.28.0: current, behind <version> or unknown (src/protocol/bundle.ts); absent: no line. */
+  protocolCopy?: string
 }
 
 /** What a 1.20.0 report is built from, besides the run itself. */
@@ -219,7 +221,8 @@ function envelope(e: Envelope, status: ReportStatus, objectives: ObjectiveReadin
     source: { revision: e.revision.slice(0, 128) || 'unknown', captured_at: e.capturedAt.toISOString() },
     status,
     objectives,
-    activity: activity.slice(0, 40),
+    // The protocol_copy line is counted and kept inside the 40-line cut.
+    activity: e.protocolCopy ? [...activity.slice(0, 39), line(`protocol_copy: ${e.protocolCopy}`)] : activity.slice(0, 40),
     proposals: sent,
     events: events.slice(0, EVENTS_MAX),
     holds: holds.slice(0, 40),

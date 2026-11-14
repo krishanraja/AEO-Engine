@@ -1,0 +1,10 @@
+{
+  "version": "1.28.0",
+  "files": {
+    "ENGINE-PROTOCOL.md": "763dfe030542e748256982641904664cc151454ea612bec0fe5a135234d365b3",
+    "engine-directive.schema.json": "16db2ef5e6e64018b17e582cd79eb1957fc5b42fba810e1ec98362a962609ebc",
+    "engine-report.schema.json": "dcc2e27d2c7a9e67e1446fb3f51c745aab93f3d7b12b3e42d67aba3556913f33",
+    "engine-report.example.json": "40d1dd3005392f7f9e2907f166863327aed913363bfffc82312a66e704b498ce"
+  },
+  "bundle_sha256": "b0dfa0d7aaa10aea0de45fb5f7dcc241c62bef70766f0fed9c6351d69af1b791"
+}
