@@ -435,6 +435,8 @@ export function defaultOutPath(slug: string, weekStart: string): string {
 
 export async function runAll(deps: RunDeps, opts: RunOpts): Promise<RunResult> {
   const { ctx, selected } = await loadContext(deps.cc, opts.subject)
+  // Whether Control Center's meter reads billing rows (src/lib/usage.ts, postRows).
+  deps.usage.acceptBilling(ctx.packet_features)
   log('context_loaded', { subjects: ctx.subjects.length, selected: selected.map(s => s.slug), week_start: opts.weekStart })
   const needsCalls = selected.some(s => s.kind !== 'aspiration')
   const gathered: Gathered = needsCalls ? await gatherTranscripts(deps.fireflies, deps.now) : { status: 'ok', transcripts: [] }

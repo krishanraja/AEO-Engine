@@ -146,6 +146,9 @@ test('research report: schema valid, counts ventures and prospects, never names 
   assertValid(r)
   assert.equal(r.status, 'ready')
   assert.deepEqual(r.objectives[0], { key: 'queries_cited_first', value: 4, unit: 'questions', window_start: '2026-10-12T00:00:00.000Z', window_end: NOW.toISOString(), timezone: 'UTC', availability: 'measured', reason: null })
+  // Its denominator beside it: the questions probed on the counted subjects (the venture's and the prospect's 20 each; the aspiration's are not counted).
+  assert.deepEqual(r.objectives[1], { key: 'questions_asked', value: 40, unit: 'questions', window_start: '2026-10-12T00:00:00.000Z', window_end: NOW.toISOString(), timezone: 'UTC', availability: 'measured', reason: null })
+  assert.equal(r.objectives.length, 2)
   const text = JSON.stringify(r)
   assert.ok(!text.includes('secret-prospect-co') && !text.includes('secret-aspiration-co'))
   assert.ok(r.activity.some(a => /for ctrl on 3 assistants; ours was the first citation on 3 questions/.test(a.line)))
@@ -194,6 +197,7 @@ test('research report: a single-subject run or a failed subject leaves the objec
   assert.equal(one.objectives[0].value, null)
   assert.equal(one.objectives[0].availability, 'missing')
   assert.match(one.objectives[0].reason ?? '', /one subject/)
+  assert.deepEqual([one.objectives[1].key, one.objectives[1].value, one.objectives[1].availability, one.objectives[1].reason], ['questions_asked', null, 'missing', one.objectives[0].reason], 'the denominator is missing whenever the numerator is, for the same reason')
 
   const failed = buildResearchReport(researchInput({ summaries: [summary({ subjects: [venture()] }), summary({ subjects: [aspiration] })] }))
   assertValid(failed)

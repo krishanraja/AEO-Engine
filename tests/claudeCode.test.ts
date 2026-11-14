@@ -15,6 +15,7 @@ import {
   childEnv, citeFromText, claudeCodeArgs, linksFrom, readProbeStream, urlsInText, type SpawnFn, type SpawnOptions,
 } from '../src/clients/claudeCode.js'
 import { GeminiClient } from '../src/clients/gemini.js'
+import { MeteredEngine } from '../src/clients/metered.js'
 import { CAPS, COMPARE_FIRST_RUN_UNTIL, MODELS, resolveClaudeLane } from '../src/config/run.js'
 import { buildDeps, parseArgs } from '../src/index.js'
 import { Ledger } from '../src/lib/cost.js'
@@ -419,7 +420,8 @@ test('lane switch: buildDeps builds each lane, and reads the variable per run, n
     // Gemini joins only with its key, and only as a probe engine.
     assert.ok(!code.deps.engines.some(e => e.engine === 'gemini'))
     const withGemini = claudeOf({ ...LIVE_ENV, GEMINI_API_KEY: 'g' }, '2026-11-23')
-    assert.ok(withGemini.deps.engines.some(e => e instanceof GeminiClient))
+    // Metered on its own provider's rows (src/clients/metered.ts), the Gemini client inside.
+    assert.ok(withGemini.deps.engines.some(e => e instanceof MeteredEngine && e.client instanceof GeminiClient))
     return true
   })
   assert.equal(result, true)

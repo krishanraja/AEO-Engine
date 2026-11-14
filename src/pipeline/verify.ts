@@ -152,6 +152,8 @@ async function verifySubject(subject: ContextSubject, questions: ProposedQuery[]
  */
 export async function runVerifyAll(deps: RunDeps, opts: RunOpts, payload: VerifyPayload): Promise<RunResult & { missing: number }> {
   const { ctx, selected } = await loadContext(deps.cc, opts.subject)
+  // Whether Control Center's meter reads billing rows (src/lib/usage.ts, postRows).
+  deps.usage.acceptBilling(ctx.packet_features)
   // Each question to exactly one subject, so no two jobs ask it and the shares never pass the amount.
   const owners = verifyOwners(ctx.subjects, payload.query_ids)
   const found = new Map<string, ProposedQuery[]>()

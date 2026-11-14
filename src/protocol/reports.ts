@@ -25,6 +25,7 @@ import {
   ANSWERS_SERVED_MAX,
   ANSWERS_VERSION,
   ENGINE,
+  ASKED_KEY,
   OBJECTIVE_KEY,
   sealReport,
   STAGES_VERSION,
@@ -733,6 +734,12 @@ export function buildResearchReport(input: ResearchInput): EngineReport {
   else if (!counted.length) objective = missing('No venture or prospect was researched this run, so there is nothing to count.', winStart, winEnd)
   else if (failedCount) objective = missing(`Research failed for ${failedCount} of ${counted.length} counted subjects, so the count would be partial.`, winStart, winEnd)
   else objective = { key: OBJECTIVE_KEY, value: counted.reduce((n, p) => n + (p.s.cited_first ?? 0), 0), unit: 'questions', window_start: winStart, window_end: winEnd, timezone: 'UTC', availability: 'measured', reason: null }
+  // Its denominator beside it (AEO brief, H; Control Center registered it on
+  // 13 Nov): the questions actually probed that fortnight, on the same
+  // subjects and the same terms, missing whenever the numerator is.
+  const asked: ObjectiveReading = objective.availability === 'measured'
+    ? { ...objective, key: ASKED_KEY, value: counted.reduce((n, p) => n + (p.s.probed_questions ?? 0), 0) }
+    : { ...objective, key: ASKED_KEY }
 
   const proposals: Proposal[] = []
   if (skipped > 0) {
@@ -1024,7 +1031,7 @@ export function buildResearchReport(input: ResearchInput): EngineReport {
     } else acks.push(ack(ctx, input.observedAt, 'started', `A paid research run finished on ${day} with this instruction open: ${researched} of ${placed.length} subjects researched. It probes Control Center's subject list, never the instruction's words.`))
   }
   const state = stateFor(input, objective, acks)
-  const report = envelope(input, degraded ? 'degraded' : 'ready', [objective], activity, proposals, holds, state, served, events)
+  const report = envelope(input, degraded ? 'degraded' : 'ready', [objective, asked], activity, proposals, holds, state, served, events)
   if (validateReport(report).ok) return report
   // A kit or a check-in is built from pages, answers and his own words that
   // this engine does not write. If one would make the report one Control
@@ -1039,7 +1046,7 @@ export function buildResearchReport(input: ResearchInput): EngineReport {
     lines = lines.filter(a => a !== kitLine)
   }
   if (brandAsk) {
-    const alone = envelope(input, 'ready', [objective], [], [brandAsk], [], null)
+    const alone = envelope(input, 'ready', [objective, asked], [], [brandAsk], [], null)
     if (!validateReport(alone).ok) {
       extra.push({ reason: 'brand_check_not_proposed', detail: `The brand check proposal for ${brandAsk.proposal_id.split(':')[2]} carried text a report may not carry, so it is not on his list this run.` })
       keep = keep.filter(p => p !== brandAsk)
@@ -1047,12 +1054,12 @@ export function buildResearchReport(input: ResearchInput): EngineReport {
     }
   }
   for (const p of keep.filter(x => x.stage === 'check_in')) {
-    const alone = envelope(input, 'ready', [objective], [], [p], [], null)
+    const alone = envelope(input, 'ready', [objective, asked], [], [p], [], null)
     if (validateReport(alone).ok) continue
     extra.push({ reason: 'check_in_not_proposed', detail: `The check-in on ${p.parent_proposal_id ?? 'a kit plan'} carried text a report may not carry, so it is not on his list this run.` })
     keep = keep.filter(x => x !== p)
   }
-  return envelope(input, degraded ? 'degraded' : 'ready', [objective], lines, keep, extra, state, served, events)
+  return envelope(input, degraded ? 'degraded' : 'ready', [objective, asked], lines, keep, extra, state, served, events)
 }
 
 /** The research run_id the dispatch looks for: one full run a day. */

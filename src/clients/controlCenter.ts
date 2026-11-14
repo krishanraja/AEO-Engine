@@ -4,7 +4,7 @@
  */
 import type { AeoContext } from '../schema/context.js'
 import type { AeoPacket } from '../schema/packet.js'
-import type { UsageRow } from '../lib/usage.js'
+import type { BillingRow, UsageRow } from '../lib/usage.js'
 import { HttpError, asArray, asRecord, asString, requestJson } from './http.js'
 import type { CommandPatch, ControlCenterClient, IngestResult } from './types.js'
 
@@ -66,7 +66,7 @@ export class ControlCenterHttp implements ControlCenterClient {
    * going quiet with nothing saying so, which is the thing this whole change
    * exists to stop.
    */
-  async postUsage(rows: UsageRow[], run: string): Promise<{ ok: boolean; error: string | null }> {
+  async postUsage(rows: UsageRow[] | BillingRow[], run: string): Promise<{ ok: boolean; error: string | null }> {
     if (!rows.length) return { ok: true, error: null }
     try {
       const r = await requestJson('control_center_meter', `${this.base}/api/aeo/meter`, {

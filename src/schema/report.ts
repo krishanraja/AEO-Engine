@@ -12,6 +12,8 @@ import { EMAIL_RE, EM_DASH_RE } from '../lib/text.js'
 
 export const ENGINE = { slug: 'aeo', engine_id: 'aeo-engine', product_slug: 'mindmake' } as const
 export const OBJECTIVE_KEY = 'queries_cited_first'
+/** The share's denominator: the questions actually probed in the research fortnight (Control Center's aeo-engine objectives, 13 Nov). */
+export const ASKED_KEY = 'questions_asked'
 
 export type Availability = 'measured' | 'missing' | 'stale'
 export type ReportStatus = 'ready' | 'held' | 'degraded'
