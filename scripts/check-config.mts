@@ -148,6 +148,19 @@ try {
   failures.push(`${directiveWorkflow} is missing`)
 }
 
+// The free rehearsal holds no paid key and never starts the research CLI:
+// it reads the context and validates fixture packets, nothing more.
+const rehearsalWorkflow = '.github/workflows/aeo-rehearsal.yml'
+try {
+  const wf = readFileSync(rehearsalWorkflow, 'utf8')
+  for (const paid of ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'PERPLEXITY_API_KEY', 'XAI_API_KEY', 'GEMINI_API_KEY', 'CLAUDE_CODE_OAUTH_TOKEN', 'EXA_API_KEY', 'CONTROL_CENTER_ENGINE_TOKEN']) {
+    if (wf.includes(paid)) failures.push(`${rehearsalWorkflow} names ${paid}; the free rehearsal holds no paid key`)
+  }
+  if (/npm run (--silent )?run\b|src\/index\.ts/.test(wf)) failures.push(`${rehearsalWorkflow} calls the research CLI; the free rehearsal never probes`)
+} catch {
+  failures.push(`${rehearsalWorkflow} is missing`)
+}
+
 // The research workflow never uploads a packet: packets carry call themes and
 // prospect approach hooks, and this repository's artifacts are public. The
 // only artifact it keeps is the sealed counts-only summary.

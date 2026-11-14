@@ -57,10 +57,15 @@ on:
         default: "all"
         type: string
       dry:
-        description: "Validate the packets and print their counts; POST nothing and keep no file (this repository is public)"
+        description: "Rehearsal: probe live, then send each packet to production's ingest under a synthetic subject id, which validates every field and writes nothing (src/lib/rehearse.ts); keep no file (this repository is public)"
         required: false
         default: false
         type: boolean
+      cap_usd:
+        description: "Spend ceiling for this run in USD, at most AEO_MAX_USD_PER_RUN (empty: AEO_MAX_USD_PER_RUN). For a one-subject rehearsal, 3"
+        required: false
+        default: ""
+        type: string
   repository_dispatch:
     types: [aeo-run]
 
@@ -104,18 +109,31 @@ jobs:
           DISPATCH_COMMAND_ID: ${{ github.event.client_payload.command_id }}
           INPUT_SUBJECT: ${{ inputs.subject }}
           INPUT_DRY: ${{ inputs.dry }}
+          INPUT_CAP: ${{ inputs.cap_usd }}
         run: |
           set -euo pipefail
           asked="all"
           command_id=""
           dry="false"
+          cap_in=""
           if [ "$EVENT_NAME" = "repository_dispatch" ]; then
             asked="${DISPATCH_SUBJECT:-all}"
             command_id="${DISPATCH_COMMAND_ID:-}"
           elif [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             asked="${INPUT_SUBJECT:-all}"
             dry="${INPUT_DRY:-false}"
+            cap_in="${INPUT_CAP:-}"
           fi
+          # A number with at most two decimals, above zero, or nothing. It can
+          # only lower the run's ceiling: the plan step clamps it to
+          # AEO_MAX_USD_PER_RUN.
+          if [ -n "$cap_in" ]; then
+            if ! printf '%s' "$cap_in" | grep -Eq '^[0-9]{1,3}(\.[0-9]{1,2})?$' || [ "$(node -e 'process.stdout.write(String(Number(process.argv[1])>0))' "$cap_in")" != "true" ]; then
+              echo "refusing cap_usd: $cap_in" >&2
+              exit 1
+            fi
+          fi
+          echo "cap_in=$cap_in" >> "$GITHUB_OUTPUT"
           # A slug or a uuid and nothing else. Anything stranger is refused
           # rather than passed on to a shell or a URL.
           if ! printf '%s' "$asked" | grep -Eq '^[A-Za-z0-9_-]{1,64}$'; then
@@ -225,6 +243,7 @@ jobs:
           AEO_ENGINE_SECRET: ${{ secrets.AEO_ENGINE_SECRET }}
           AEO_MAX_USD_PER_RUN: ${{ vars.AEO_MAX_USD_PER_RUN }}
           ASKED: ${{ steps.guard.outputs.asked }}
+          CAP_IN: ${{ steps.guard.outputs.cap_in }}
           KIND: ${{ steps.run.outputs.kind }}
         run: |
           set -euo pipefail
@@ -252,6 +271,12 @@ jobs:
             count=$(printf '%s' "$list" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(String(JSON.parse(s).length)))')
           fi
           total="${AEO_MAX_USD_PER_RUN:-25}"
+          # The dispatch's cap_usd, when given, lowers the ceiling for this
+          # run only and never raises it (a rehearsal: one subject, about 3).
+          if [ -n "${CAP_IN:-}" ]; then
+            total=$(node -e 'process.stdout.write(String(Math.min(Number(process.argv[1]),Number(process.argv[2]))))' "$CAP_IN" "$total")
+            echo "cap_usd from the dispatch: $total USD for this run"
+          fi
           cap=$(node -e "process.stdout.write((Number(process.argv[1])/Number(process.argv[2])).toFixed(2))" "$total" "$count")
           echo "list=$list" >> "$GITHUB_OUTPUT"
           echo "cap=$cap" >> "$GITHUB_OUTPUT"
@@ -401,7 +426,11 @@ jobs:
             attempts="1"
           fi
           if [ -n "$COMMAND_ID" ]; then args+=(--command-id "$COMMAND_ID"); fi
-          if [ "$DRY" = "true" ]; then args+=(--dry --out "out/packet.$SUBJECT.json"); fi
+          # A dispatch with dry is a rehearsal: probes run live inside the
+          # cap, and each packet is sent to production's ingest under a
+          # synthetic subject id, which validates every field and writes
+          # nothing (src/lib/rehearse.ts). The packet stays on the runner.
+          if [ "$DRY" = "true" ]; then args+=(--rehearse --out "out/packet.$SUBJECT.json"); fi
           # Counts, and a venture's top win kit, sealed to this workflow run
           # (src/lib/seal.ts), named by job index so no subject reaches an
           # artifact name.

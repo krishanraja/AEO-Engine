@@ -107,6 +107,8 @@ export interface RunOpts {
   dry: boolean
   outPath: string | null
   commandId: number | null
+  /** Dry only: also send each packet to production's ingest under a synthetic subject id (src/lib/rehearse.ts). */
+  rehearse?: boolean
 }
 
 /**
@@ -450,7 +452,7 @@ export async function runAll(deps: RunDeps, opts: RunOpts): Promise<RunResult> {
     try {
       const { packet, details, domains, extras, open, diagnosis, panel, features, more } = await runSubject(subject, shared, deps, opts)
       const outPath = bundle ? null : opts.outPath ?? defaultOutPath(subject.slug, opts.weekStart)
-      const shipped = await ship(deps.cc, packet, { dry: opts.dry, outPath, open, features })
+      const shipped = await ship(deps.cc, packet, { dry: opts.dry, outPath, open, features, rehearse: opts.dry && opts.rehearse === true })
       const asked = requestsFor(subject, deps.requests)
       const served = opts.dry ? [] : servedBy(packet, asked)
       const unserved = opts.dry ? 0 : asked.length - served.length

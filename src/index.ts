@@ -5,6 +5,10 @@
  *                    [--out <path>] [--command-id <n>] [--cap-usd <n>]
  *
  *   --dry      validate and write the packet instead of POSTing it
+ *   --rehearse a dry run that also sends each packet to production's ingest
+ *              under a subject id that is never a subject's: the ingest
+ *              validates every field and writes nothing, and 404
+ *              unknown_subject means accepted (src/lib/rehearse.ts)
  *   --offline  fixtures under tests/fixtures instead of any network call
  *   --out      where a dry run writes; with several subjects one file holds an array
  *   --summary-out  where to leave this run's counts, sealed, for the protocol
@@ -62,6 +66,7 @@ export interface CliArgs {
   subject: string
   week: string
   dry: boolean
+  rehearse: boolean
   offline: boolean
   out: string | null
   summaryOut: string | null
@@ -74,7 +79,7 @@ export interface CliArgs {
 }
 
 export function parseArgs(argv: readonly string[], now = new Date()): CliArgs {
-  const args: CliArgs = { subject: 'all', week: mondayOf(now), dry: false, offline: false, out: null, summaryOut: null, siteIn: null, commandId: null, capUsd: CAPS.MAX_USD_PER_RUN, fixtures: 'tests/fixtures', mode: 'research', verifyPayload: null }
+  const args: CliArgs = { subject: 'all', week: mondayOf(now), dry: false, rehearse: false, offline: false, out: null, summaryOut: null, siteIn: null, commandId: null, capUsd: CAPS.MAX_USD_PER_RUN, fixtures: 'tests/fixtures', mode: 'research', verifyPayload: null }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     const next = () => { const v = argv[++i]; if (v === undefined) throw new Error(`${a} needs a value`); return v }
@@ -87,6 +92,7 @@ export function parseArgs(argv: readonly string[], now = new Date()): CliArgs {
         break
       }
       case '--dry': args.dry = true; break
+      case '--rehearse': args.rehearse = true; args.dry = true; break
       case '--offline': args.offline = true; break
       case '--out': args.out = next(); break
       case '--summary-out': args.summaryOut = next(); break
@@ -114,6 +120,7 @@ export function parseArgs(argv: readonly string[], now = new Date()): CliArgs {
       default: throw new Error(`unknown argument ${a}`)
     }
   }
+  if (args.rehearse && args.mode === 'verify') throw new Error('--rehearse is for a research run; a verify run spends only on an approved go-live')
   if (args.mode === 'verify' && !args.verifyPayload) throw new Error('--mode verify needs --verify-payload')
   if (args.mode !== 'verify' && args.verifyPayload) throw new Error('--verify-payload is for --mode verify only')
   return args
@@ -332,8 +339,8 @@ export async function main(argv: readonly string[] = process.argv.slice(2)): Pro
     deps.kitPlans = read.kitPlans
   }
   if (args.siteIn) deps.sharedAudit = readSharedAudit(args.siteIn, process.env)
-  const opts: RunOpts = { subject: args.subject, weekStart: args.week, dry: args.dry, outPath: args.out, commandId: args.commandId }
-  log('run_start', { subject: args.subject, week_start: args.week, dry: args.dry, offline: args.offline, engines: deps.engines.map(e => e.engine), claude_lane: deps.claudeLane ?? null, cap_usd: args.capUsd, command_id: args.commandId })
+  const opts: RunOpts = { subject: args.subject, weekStart: args.week, dry: args.dry, outPath: args.out, commandId: args.commandId, rehearse: args.rehearse }
+  log('run_start', { subject: args.subject, week_start: args.week, dry: args.dry, rehearse: args.rehearse, offline: args.offline, engines: deps.engines.map(e => e.engine), claude_lane: deps.claudeLane ?? null, cap_usd: args.capUsd, command_id: args.commandId })
 
   if (args.commandId !== null && !args.dry) {
     await deps.cc.patchCommand({ command_id: args.commandId, state: 'running' })
