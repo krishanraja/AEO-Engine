@@ -274,9 +274,9 @@ jobs:
           # 22 November; HARD_MAX_USD_PER_RUN in src/config/run.ts). The
           # variable can lower it or raise it up to here, never past it.
           HARD_MAX_USD_PER_RUN=30
-          total="${AEO_MAX_USD_PER_RUN:-25}"
+          total="${AEO_MAX_USD_PER_RUN:-30}"
           if ! printf '%s' "$total" | grep -Eq '^[0-9]{1,4}(\.[0-9]{1,2})?$' || [ "$(node -e 'process.stdout.write(String(Number(process.argv[1])>0))' "$total")" != "true" ]; then
-            total=25
+            total=30
           fi
           total=$(node -e 'process.stdout.write(String(Math.min(Number(process.argv[1]),Number(process.argv[2]))))' "$total" "$HARD_MAX_USD_PER_RUN")
           # The dispatch's cap_usd, when given, lowers the ceiling for this
@@ -530,7 +530,7 @@ jobs:
           STARTED_AT: ${{ needs.plan.outputs.started_at }}
           SUBJECTS: ${{ needs.plan.outputs.subjects }}
           SCOPE: ${{ needs.plan.outputs.scope }}
-          TOTAL: ${{ needs.plan.outputs.total || vars.AEO_MAX_USD_PER_RUN || '25' }}
+          TOTAL: ${{ needs.plan.outputs.total || vars.AEO_MAX_USD_PER_RUN || '30' }}
           PLAN_RESULT: ${{ needs.plan.result }}
           KIND: ${{ needs.plan.outputs.kind }}
           VERIFY_PAYLOAD: ${{ needs.plan.outputs.verify_payload }}
