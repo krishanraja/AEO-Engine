@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://controlcenter.krishraja.com/schemas/engine-directive-1.0.0.json",
-  "title": "Growth engine directive, protocol 1.0.0 to 1.22.0 (ADR-038)",
+  "title": "Growth engine directive, protocol 1.0.0 to 1.26.0 (ADR-038)",
   "type": "object",
   "required": [
     "schema_version",
@@ -43,7 +43,10 @@
         "krish_instruction": { "type": "boolean" },
         "inspiration_used": { "type": "boolean", "description": "1.21.0, growth-makeyourmindup: a report may carry inspiration_used." },
         "ai_answers": { "type": "boolean", "description": "1.22.0, a venture's engine: ai_answers carries its product's AI-answer standing, and POST answers asks AEO-Engine for it." },
-        "answer_requests": { "type": "boolean", "description": "1.22.0, the AI-answers specialist: answer_requests carries the venture engines' open requests, and a report may carry answers_served." }
+        "answer_requests": { "type": "boolean", "description": "1.22.0, the AI-answers specialist: answer_requests carries the venture engines' open requests, and a report may carry answers_served." },
+        "ai_answers_detail": { "type": "boolean", "description": "1.26.0, a venture's engine: ai_answers.standing carries questions, kits, cited_pages, the request's digest and, for growth-mindmake, portfolio; POST answers takes mode, shipped and targets." },
+        "answer_requests_v2": { "type": "boolean", "description": "1.26.0, the AI-answers specialist: each answer_requests item carries note, mode, targets and shipped." },
+        "aeo_kits_delivered": { "type": "boolean", "description": "1.26.0, the AI-answers specialist: the venture engines carry AEO's win kits to Krish, so propose no kit of your own." }
       }
     },
     "ai_answers": {
@@ -76,9 +79,13 @@
                 "request": {
                   "oneOf": [
                     { "type": "null" },
-                    { "type": "object", "additionalProperties": false, "required": ["id", "state", "questions", "requested_at", "served_at"], "properties": { "id": { "type": "string" }, "state": { "enum": ["open", "served"] }, "questions": { "type": "integer" }, "requested_at": { "type": "string", "format": "date-time" }, "served_at": { "type": ["string", "null"], "format": "date-time" } } }
+                    { "type": "object", "additionalProperties": false, "required": ["id", "state", "questions", "requested_at", "served_at"], "properties": { "id": { "type": "string" }, "state": { "enum": ["open", "served"] }, "questions": { "type": "integer" }, "requested_at": { "type": "string", "format": "date-time" }, "served_at": { "type": ["string", "null"], "format": "date-time" }, "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "1.26.0 (features.ai_answers_detail): the lowercase hex SHA-256 of the request's questions, each trimmed with every run of whitespace one space, sorted by code point, as compact JSON with non-ASCII unescaped, UTF-8 encoded." } } }
                   ]
-                }
+                },
+                "questions": { "type": "array", "maxItems": 40, "description": "1.26.0 (features.ai_answers_detail): the newest research run's questions, one each: where each stands (AEO's own panel when it sent one), how each assistant answered, and its win kit.", "items": { "type": "object", "additionalProperties": false, "required": ["query_id", "question", "state", "engines", "first_seen", "won_at", "lost_at", "kit_id"], "properties": { "query_id": { "type": ["string", "null"] }, "question": { "type": "string" }, "state": { "enum": ["won", "contested", "cited", "retrieved", "absent", "unknown"] }, "engines": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["engine", "our_position", "first_host", "first_url", "searched"], "properties": { "engine": { "type": "string" }, "our_position": { "type": ["integer", "null"], "minimum": 1 }, "first_host": { "type": ["string", "null"] }, "first_url": { "type": ["string", "null"] }, "searched": { "type": ["boolean", "null"] } } } }, "first_seen": { "type": ["string", "null"], "format": "date" }, "won_at": { "type": ["string", "null"], "format": "date" }, "lost_at": { "type": ["string", "null"], "format": "date" }, "kit_id": { "type": ["string", "null"] } } } },
+                "kits": { "type": "array", "maxItems": 5, "description": "1.26.0 (features.ai_answers_detail): AEO's win kits from its newest digest, best priority first, exactly as AEO-Engine sent them (its docs/packet.schema.json, $defs.kit); none while Krish holds this engine.", "items": { "type": "object", "required": ["kit_id"] } },
+                "cited_pages": { "type": "array", "maxItems": 20, "description": "1.26.0 (features.ai_answers_detail): the cited-pages sheet's pages worth reaching out to, never a platform or one of ours, by times first, times cited, questions, then URL. A link or name mention with mention_ok true is already mentioned; mention_ok false is refresh needed. Outreach is drafted for Krish and never sent without his yes.", "items": { "type": "object", "additionalProperties": false, "required": ["url", "host", "page_type", "questions", "engines", "times_cited", "times_first", "mention", "mention_ok", "checked_at", "status"], "properties": { "url": { "type": "string" }, "host": { "type": "string" }, "page_type": { "type": "string" }, "questions": { "type": "integer", "minimum": 0 }, "engines": { "type": "array", "items": { "type": "string" } }, "times_cited": { "type": "integer", "minimum": 0 }, "times_first": { "type": "integer", "minimum": 0 }, "mention": { "enum": ["link", "name", "none", "unchecked"] }, "mention_ok": { "type": ["boolean", "null"] }, "checked_at": { "type": ["string", "null"], "format": "date" }, "status": { "enum": ["not started", "declined", "refresh needed", "outreach sent", "followed up", "negotiating", "payment requested", "approved", "mention acquired"] } } } },
+                "portfolio": { "type": "array", "maxItems": 10, "description": "1.26.0, growth-mindmake only (features.ai_answers_detail): the same standing for CTRL, Circle and Pulse, which no engine of their own reads.", "items": { "type": "object" } }
               }
             }
           ]
@@ -98,7 +105,11 @@
           "product_slug": { "type": "string" },
           "subject_slug": { "type": "string" },
           "questions": { "type": "array", "minItems": 1, "maxItems": 25, "items": { "type": "string", "minLength": 8, "maxLength": 300 } },
-          "requested_at": { "type": "string", "format": "date-time" }
+          "requested_at": { "type": "string", "format": "date-time" },
+          "note": { "type": ["string", "null"], "maxLength": 400, "description": "1.26.0 (features.answer_requests_v2): the engine's note." },
+          "mode": { "enum": ["replace", "append"], "description": "1.26.0: how the engine filed it." },
+          "targets": { "type": "array", "maxItems": 25, "description": "1.26.0: the pages the venture means to win each question with.", "items": { "type": "object", "additionalProperties": false, "required": ["question", "url"], "properties": { "question": { "type": "string" }, "url": { "type": "string", "pattern": "^https://" } } } },
+          "shipped": { "type": "array", "maxItems": 25, "description": "1.26.0: the pages the venture says have shipped for its questions, newest first; ask those questions first.", "items": { "type": "object", "additionalProperties": false, "required": ["question", "query_id", "url", "shipped_at"], "properties": { "question": { "type": ["string", "null"] }, "query_id": { "type": ["string", "null"] }, "url": { "type": "string", "pattern": "^https://" }, "shipped_at": { "type": ["string", "null"], "format": "date-time" } } } }
         }
       }
     },
