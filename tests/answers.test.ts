@@ -190,7 +190,7 @@ async function runRequested(capUsd: number) {
   const model = new StubModel(req => req.stage === 'propose' ? JSON.stringify({ queries: own.map(query => ({ query, source: 'gap', touchpoint_id: null })) }) : 'THROW')
   const engines = (['perplexity', 'chatgpt', 'claude'] as const).map(e => new StubEngine(e, () => ({ text: 'An answer.', citations: ['https://x.example/a'], searched: true })))
   const ledger = new Ledger(capUsd)
-  const deps: RunDeps = { cc, fireflies: null, engines, model, ledger, usage: new UsageMeter(), mintId: uuidFromKey, now: new Date('2026-11-22T10:00:00Z'), requests: [request({ questions: asked })] }
+  const deps: RunDeps = { cc, transcripts: null, engines, model, ledger, usage: new UsageMeter(), mintId: uuidFromKey, now: new Date('2026-11-22T10:00:00Z'), requests: [request({ questions: asked })] }
   const { result } = await captureStderr(() => runAll(deps, { subject: 'all', weekStart: '2026-11-16', dry: false, outPath: null, commandId: null }))
   return { asked, engines, ledger, result, packet: ingested[0] }
 }

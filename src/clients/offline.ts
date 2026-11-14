@@ -4,8 +4,8 @@
  * Fixture layout (under tests/fixtures by default):
  *
  *   context.all.json                       the context for every subject
- *   fireflies.transcripts.json             the list for the window
- *   fireflies.transcript.<id>.json         one transcript
+ *   transcripts.list.json                  the list for the window
+ *   transcript.<id>.json                   one transcript
  *   engines/<engine>.<sha8(question)>.json { text, citations } or { error };
  *                                          optional retrieved, searched, fan_out
  *   model/<stage>.<sha8(key)>.json         the JSON the model would return
@@ -23,7 +23,7 @@ import {
   type ControlCenterClient,
   type EngineAnswer,
   type EngineClient,
-  type FirefliesClient,
+  type TranscriptSource,
   type IngestResult,
   type ModelClient,
   type ModelRequest,
@@ -69,18 +69,18 @@ export class OfflineModel implements ModelClient {
   async writeJson(req: ModelRequest): Promise<string> { return this.read(req) }
 }
 
-export class OfflineFireflies implements FirefliesClient {
+export class OfflineTranscripts implements TranscriptSource {
   constructor(private readonly dir: string) {}
 
   async listTranscripts(): Promise<TranscriptSummary[]> {
-    return asArray(readFixture(this.dir, 'fireflies.transcripts.json', 'the transcript list')).map(t => {
+    return asArray(readFixture(this.dir, 'transcripts.list.json', 'the transcript list')).map(t => {
       const r = asRecord(t)
       return { id: asString(r.id), title: asString(r.title), date: asString(r.date), participants: asArray(r.participants).map(String) }
     })
   }
 
   async getTranscript(id: string): Promise<Transcript> {
-    const t = asRecord(readFixture(this.dir, `fireflies.transcript.${id}.json`, `transcript ${id}`))
+    const t = asRecord(readFixture(this.dir, `transcript.${id}.json`, `transcript ${id}`))
     const s = asRecord(t.summary)
     return {
       id: asString(t.id),

@@ -129,16 +129,16 @@ export interface Transcript {
   summary: { overview: string; keywords: string[]; action_items: string[] } | null
 }
 
-export interface FirefliesClient {
+export interface TranscriptSource {
   listTranscripts(fromISO: string, toISO: string): Promise<TranscriptSummary[]>
   getTranscript(id: string): Promise<Transcript>
 }
 
-/** Any Fireflies failure. Surfaces as themes_status fireflies_unavailable, never as "no calls". */
-export class FirefliesUnavailable extends Error {
+/** Any transcript-source failure. Surfaces as themes_status transcripts_unavailable, never as "no calls". */
+export class TranscriptsUnavailable extends Error {
   constructor(message: string) {
     super(message)
-    this.name = 'FirefliesUnavailable'
+    this.name = 'TranscriptsUnavailable'
   }
 }
 

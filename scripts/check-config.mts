@@ -138,7 +138,7 @@ for (const root of ['src', '.github/workflows']) {
 const directiveWorkflow = '.github/workflows/cc-growth-directive.yml'
 try {
   const wf = readFileSync(directiveWorkflow, 'utf8')
-  for (const paid of ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'PERPLEXITY_API_KEY', 'XAI_API_KEY', 'GEMINI_API_KEY', 'CLAUDE_CODE_OAUTH_TOKEN', 'FIREFLIES_API_KEY', 'EXA_API_KEY', 'AEO_ENGINE_SECRET']) {
+  for (const paid of ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'PERPLEXITY_API_KEY', 'XAI_API_KEY', 'GEMINI_API_KEY', 'CLAUDE_CODE_OAUTH_TOKEN', 'EXA_API_KEY', 'AEO_ENGINE_SECRET']) {
     if (wf.includes(paid)) failures.push(`${directiveWorkflow} names ${paid}; the directive path must hold no paid key`)
   }
   if (/npm run (--silent )?run\b|src\/index\.ts/.test(wf)) failures.push(`${directiveWorkflow} calls the research CLI; a directive never starts paid research`)

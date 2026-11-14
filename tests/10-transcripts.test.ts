@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { OfflineFireflies } from '../src/clients/offline.js'
-import { FirefliesUnavailable, type FirefliesClient, type Transcript } from '../src/clients/types.js'
+import { OfflineTranscripts } from '../src/clients/offline.js'
+import { TranscriptsUnavailable, type TranscriptSource, type Transcript } from '../src/clients/types.js'
 import { Ledger } from '../src/lib/cost.js'
 import { callRef } from '../src/lib/text.js'
 import { classifyTranscripts, excerptOf, gatherTranscripts, themesForSubject, type Attribution, type Gathered } from '../src/pipeline/10-transcripts.js'
@@ -11,19 +11,19 @@ const now = new Date('2026-09-08T04:00:00Z')
 const ctx = fixtureContext()
 const ctrl = subject('ctrl')
 
-const failing = (e: Error): FirefliesClient => ({ listTranscripts: async () => { throw e }, getTranscript: async () => { throw e } })
+const failing = (e: Error): TranscriptSource => ({ listTranscripts: async () => { throw e }, getTranscript: async () => { throw e } })
 
 test('gatherTranscripts: no client means unavailable, never no_calls', async () => {
   const g = await gatherTranscripts(null, now)
   assert.equal(g.status, 'unavailable')
-  assert.match(g.error ?? '', /retired route/)
+  assert.match(g.error ?? '', /no transcript source is connected/)
 })
 
 test('gatherTranscripts: fixtures give two calls; any error is unavailable', async () => {
-  const ok = await gatherTranscripts(new OfflineFireflies(FIXTURES), now)
+  const ok = await gatherTranscripts(new OfflineTranscripts(FIXTURES), now)
   assert.equal(ok.status, 'ok')
   assert.equal(ok.transcripts.length, 2)
-  const a = await gatherTranscripts(failing(new FirefliesUnavailable('boom')), now)
+  const a = await gatherTranscripts(failing(new TranscriptsUnavailable('boom')), now)
   assert.equal(a.status, 'unavailable')
   assert.equal(a.error, 'boom')
   const b = await gatherTranscripts(failing(new Error('socket')), now)
@@ -45,7 +45,7 @@ test('excerptOf renumbers speakers and strips emails before the model sees anyth
 })
 
 test('classifyTranscripts: one call per transcript, unknown ids and failures become null', async () => {
-  const g = await gatherTranscripts(new OfflineFireflies(FIXTURES), now)
+  const g = await gatherTranscripts(new OfflineTranscripts(FIXTURES), now)
   const ledger = new Ledger(10)
   const model = new StubModel(req => (req.key === 'ff-7c1e2a' ? `{"subject_id":"${ctrl.id}","confidence":0.9,"reason":"fits"}` : '{"subject_id":"not-a-subject","confidence":0.9,"reason":"x"}'))
   const map = await classifyTranscripts(model, g.transcripts, ctx.subjects, ledger)
@@ -60,7 +60,7 @@ test('classifyTranscripts: one call per transcript, unknown ids and failures bec
 })
 
 test('themesForSubject: every status', async () => {
-  const gathered = await gatherTranscripts(new OfflineFireflies(FIXTURES), now)
+  const gathered = await gatherTranscripts(new OfflineTranscripts(FIXTURES), now)
   const none = new Map<string, Attribution>()
   const mine = new Map<string, Attribution>([['ff-7c1e2a', { subject_id: ctrl.id, confidence: 0.9, reason: '' }], ['ff-9d4b1f', { subject_id: ctrl.id, confidence: 0.5, reason: 'too low' }]])
   const ledger = new Ledger(10)
@@ -71,7 +71,7 @@ test('themesForSubject: every status', async () => {
 
   const unavailable: Gathered = { status: 'unavailable', transcripts: [], error: 'x' }
   const fu = await themesForSubject(new StubModel('{}'), ctrl, unavailable, none, ledger)
-  assert.equal(fu.themes_status, 'fireflies_unavailable')
+  assert.equal(fu.themes_status, 'transcripts_unavailable')
   assert.deepEqual(fu.calls, { considered: 0, attributed: 0 })
 
   const empty: Gathered = { status: 'ok', transcripts: [] }
