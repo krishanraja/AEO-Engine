@@ -88,3 +88,45 @@ test('the research workflow clamps the run\'s total to the hard ceiling and floo
   assert.match(wf, /Math\.min\(Number\(process\.argv\[1\]\),\s*Number\(process\.argv\[2\]\)\)/)
   assert.match(wf, /Math\.floor\(Number\(process\.argv\[1\]\)\s*\/\s*Number\(process\.argv\[2\]\)\s*\*\s*100\)\s*\/\s*100/)
 })
+
+// The paid rehearsal of 14 November (AEO weekly run 43622644403, one subject,
+// cap_usd 2) proved two holes: the subject step's retry ran a second process
+// with a fresh 2 USD ledger, and the meter priced the probes above their
+// estimates. Measured on Control Center's meter that day: ChatGPT about 0.088
+// a probe with its search fees, the Claude API about 0.141, Gemini about
+// 0.013 and the digest about 0.13.
+
+test('the price table is at or above what the meter measured on 14 November', async () => {
+  const { PRICE_USD_PER_CALL } = await import('../src/config/run.js')
+  assert.ok(PRICE_USD_PER_CALL.chatgpt >= 0.09, `chatgpt ${PRICE_USD_PER_CALL.chatgpt}`)
+  assert.ok(PRICE_USD_PER_CALL.claude >= 0.14, `claude ${PRICE_USD_PER_CALL.claude}`)
+  assert.ok(PRICE_USD_PER_CALL.gemini >= 0.013, `gemini ${PRICE_USD_PER_CALL.gemini}`)
+  assert.ok(PRICE_USD_PER_CALL.digest >= 0.13, `digest ${PRICE_USD_PER_CALL.digest}`)
+  assert.ok(PRICE_USD_PER_CALL.perplexity >= 0.006, `perplexity ${PRICE_USD_PER_CALL.perplexity}`)
+})
+
+test('a run writes what its ledger charged to AEO_SPENT_FILE, on success and on failure', async () => {
+  const { mkdtempSync, readFileSync: read } = await import('node:fs')
+  const { tmpdir } = await import('node:os')
+  const dir = mkdtempSync(join(tmpdir(), 'aeo-spent-'))
+  const ok = spawnSync(TSX, ['src/index.ts', '--offline', '--dry', '--subject', 'ctrl', '--out', 'out/test-spent.json', '--cap-usd', '0.5'], {
+    cwd: ROOT, encoding: 'utf8', env: { ...process.env, XAI_API_KEY: '', AEO_MAX_USD_PER_RUN: '', AEO_SPENT_FILE: join(dir, 'ok') },
+  })
+  assert.equal(ok.status, 0, ok.stderr)
+  const report = JSON.parse(ok.stdout) as { ledger: { total_usd: number } }
+  assert.equal(Number(read(join(dir, 'ok'), 'utf8')), report.ledger.total_usd)
+  assert.ok(report.ledger.total_usd > 0)
+  const bad = spawnSync(TSX, ['src/index.ts', '--offline', '--dry', '--subject', 'nope', '--out', 'out/test-spent-bad.json'], {
+    cwd: ROOT, encoding: 'utf8', env: { ...process.env, XAI_API_KEY: '', AEO_MAX_USD_PER_RUN: '', AEO_SPENT_FILE: join(dir, 'bad') },
+  })
+  assert.notEqual(bad.status, 0)
+  assert.ok(Number(read(join(dir, 'bad'), 'utf8')) >= 0)
+})
+
+test('the subject step\'s retry gets only what the first attempt left of the share, and none below 0.50', () => {
+  const wf = readFileSync(join(ROOT, '.github', 'workflows', 'aeo-weekly.yml'), 'utf8')
+  assert.match(wf, /AEO_SPENT_FILE="\$spent_file"/)
+  assert.match(wf, /left=\$\(node -e/)
+  assert.match(wf, /--cap-usd "\$left"/)
+  assert.match(wf, /no budget left for a retry/)
+})
