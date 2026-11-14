@@ -20,7 +20,7 @@ import { asArray, asRecord, asString } from '../clients/http.js'
 export interface Gathered { status: 'ok' | 'unavailable'; transcripts: Transcript[]; error?: string }
 
 export async function gatherTranscripts(fireflies: FirefliesClient | null, now: Date, days = CAPS.TRANSCRIPT_WINDOW_DAYS): Promise<Gathered> {
-  if (!fireflies) return { status: 'unavailable', transcripts: [], error: 'FIREFLIES_API_KEY is not set' }
+  if (!fireflies) return { status: 'unavailable', transcripts: [], error: 'Fireflies is a retired route; no call is read' }
   const to = now.toISOString()
   const from = new Date(now.getTime() - days * 86_400_000).toISOString()
   try {

@@ -3,10 +3,8 @@ import { test } from 'node:test'
 import { CAPS } from '../src/config/run.js'
 import { AnthropicClient, parseTurns, webSearchRequests } from '../src/clients/anthropic.js'
 import { ControlCenterHttp } from '../src/clients/controlCenter.js'
-import { FirefliesHttp } from '../src/clients/fireflies.js'
 import { OpenAIClient, parseResponse as parseOpenAI, PROBE_TIMEOUT_MS as OPENAI_PROBE_TIMEOUT_MS } from '../src/clients/openai.js'
 import { markerOrder, parseCompletion, PerplexityClient } from '../src/clients/perplexity.js'
-import { FirefliesUnavailable } from '../src/clients/types.js'
 import { XaiClient } from '../src/clients/xai.js'
 import { UsageMeter } from '../src/lib/usage.js'
 import type { AeoPacket } from '../src/schema/packet.js'
@@ -54,20 +52,6 @@ test('control center: bearer on every call, a 429 is retried once after Retry-Af
   const patch = await withFetch([{ status: 200, body: { ok: true } }], () => cc.patchCommand({ command_id: 4, state: 'failed', error: 'x' }))
   assert.equal(patch.calls[0].init.method, 'PATCH')
   assert.deepEqual(body(patch.calls[0]), { command_id: 4, state: 'failed', error: 'x' })
-})
-
-test('fireflies: every failure is FirefliesUnavailable; dates are normalised', async () => {
-  await assert.rejects(new FirefliesHttp(undefined).listTranscripts('a', 'b'), FirefliesUnavailable)
-  const ff = new FirefliesHttp('key-value')
-  await assert.rejects(withFetch([{ status: 500, body: {} }], () => ff.listTranscripts('a', 'b')), FirefliesUnavailable)
-  await assert.rejects(withFetch([{ status: 200, body: { errors: [{ message: 'nope' }] } }], () => ff.listTranscripts('a', 'b')), /graphql: nope/)
-  const { result, calls } = await withFetch([{ status: 200, body: { data: { transcripts: [{ id: 't1', title: 'Call', date: Date.UTC(2026, 8, 3, 12), participants: ['x@example.com'] }] } } }], () => ff.listTranscripts('2026-09-01T00:00:00Z', '2026-09-08T00:00:00Z'))
-  assert.equal(result[0].date, '2026-09-03T12:00:00.000Z')
-  assert.equal(header(calls[0], 'authorization'), 'Bearer key-value')
-  assert.deepEqual(body(calls[0]).variables, { fromDate: '2026-09-01T00:00:00Z', toDate: '2026-09-08T00:00:00Z', limit: 50 })
-  const t = await withFetch([{ status: 200, body: { data: { transcript: { id: 't1', title: 'Call', date: '2026-09-03T12:00:00.000Z', sentences: [{ text: 'hi', speaker_name: 'A' }], summary: { overview: 'o', keywords: ['k'], action_items: 'one' } } } } }], () => ff.getTranscript('t1'))
-  assert.deepEqual(t.result.summary, { overview: 'o', keywords: ['k'], action_items: ['one'] })
-  assert.equal(t.result.sentences.length, 1)
 })
 
 test('perplexity: inline citations by first [n] marker, the source list as retrieved, always searched', async () => {

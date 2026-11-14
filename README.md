@@ -126,7 +126,6 @@ Set as repository secrets (never in a file):
 |---|---|
 | `AEO_ENGINE_SECRET` | Bearer token Control Center expects on every packet call; also the key material that seals the per-job summaries. |
 | `CONTROL_CENTER_ENGINE_TOKEN` | This engine's own growth engine protocol bearer (`gen1_`), for attempts, the directive, reports and decisions only. |
-| `FIREFLIES_API_KEY` | Retired route (2026-11-13): the research workflow no longer passes it, so packets say `themes_status: fireflies_unavailable`. The code still reads it on a local run where it is set. |
 | `ANTHROPIC_API_KEY` | The writer behind classification, proposal and the digest, and the Claude API lane (web search, at most two searches a probe) when `AEO_CLAUDE_LANE` asks for it or the subscription token is missing. Never given to the Claude Code child. |
 | `CLAUDE_CODE_OAUTH_TOKEN` | The Claude Code subscription token (`claude setup-token`). Used by the docs steward since October and, since 2026-11-13, by the research job's Claude probes. Never named by the daily directive workflow. |
 | `OPENAI_API_KEY` | The ChatGPT engine (Responses API with web search, which every probe is required to use). |

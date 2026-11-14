@@ -16,7 +16,7 @@ const failing = (e: Error): FirefliesClient => ({ listTranscripts: async () => {
 test('gatherTranscripts: no client means unavailable, never no_calls', async () => {
   const g = await gatherTranscripts(null, now)
   assert.equal(g.status, 'unavailable')
-  assert.match(g.error ?? '', /FIREFLIES_API_KEY/)
+  assert.match(g.error ?? '', /retired route/)
 })
 
 test('gatherTranscripts: fixtures give two calls; any error is unavailable', async () => {

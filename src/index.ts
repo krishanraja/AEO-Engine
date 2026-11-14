@@ -34,7 +34,6 @@ import { attemptOf, CAPS, MODELS, PRICE_USD_PER_CALL, resolveClaudeLane, resolve
 import { AnthropicClient } from './clients/anthropic.js'
 import { ClaudeCodeEngine, type SpawnFn } from './clients/claudeCode.js'
 import { ControlCenterHttp } from './clients/controlCenter.js'
-import { FirefliesHttp } from './clients/fireflies.js'
 import { GeminiClient } from './clients/gemini.js'
 import { OfflineControlCenter, OfflineEngine, OfflineFireflies, OfflineModel } from './clients/offline.js'
 import { LiveSite, OfflineSite } from './clients/site.js'
@@ -234,7 +233,10 @@ export function buildDeps(args: CliArgs, env: NodeJS.ProcessEnv = process.env, n
   const live = liveEngines(env, usage, choice.lane, overrides)
   return {
     cc: new ControlCenterHttp(env.CONTROL_CENTER_URL ?? '', env.AEO_ENGINE_SECRET ?? ''),
-    fireflies: env.FIREFLIES_API_KEY ? new FirefliesHttp(env.FIREFLIES_API_KEY) : null,
+    // Fireflies is a retired route (Control Center's tool catalog, 2026-11-13;
+    // its live client was removed 2026-11-14): no call is read, and every
+    // packet says themes_status fireflies_unavailable, never "no calls".
+    fireflies: null,
     engines: live.engines,
     ...(live.shadow ? { shadow: live.shadow } : {}),
     claudeLane: choice.lane,
