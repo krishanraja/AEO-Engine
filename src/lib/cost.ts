@@ -5,7 +5,7 @@
  * point is that a map that grows to 200 questions cannot quietly turn into a
  * 200-call invoice every run.
  */
-import { PRICE_USD_PER_CALL, SUBSCRIPTION_KINDS, type CostKind } from '../config/run.js'
+import { HARD_MAX_USD_PER_RUN, PRICE_USD_PER_CALL, SUBSCRIPTION_KINDS, type CostKind } from '../config/run.js'
 
 export { PRICE_USD_PER_CALL, type CostKind }
 
@@ -22,7 +22,12 @@ export class Ledger {
   readonly entries: LedgerEntry[] = []
   private _total = 0
 
-  constructor(public readonly capUsd: number, private readonly prices: Record<CostKind, number> = PRICE_USD_PER_CALL) {}
+  /** The cap this ledger stops at, never above HARD_MAX_USD_PER_RUN whatever it was given. */
+  readonly capUsd: number
+
+  constructor(capUsd: number, private readonly prices: Record<CostKind, number> = PRICE_USD_PER_CALL) {
+    this.capUsd = Math.min(capUsd, HARD_MAX_USD_PER_RUN)
+  }
 
   get total(): number { return round4(this._total) }
 

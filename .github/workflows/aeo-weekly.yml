@@ -270,14 +270,24 @@ jobs:
             list=$(printf '%s' "$body" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);const v=(j.subjects||[]).map(x=>x.slug);if(!v.length){console.error("no active subjects");process.exit(1)}process.stdout.write(JSON.stringify(v))})')
             count=$(printf '%s' "$list" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(String(JSON.parse(s).length)))')
           fi
+          # The run's hard ceiling (Ruling, Krish, 2026-11-14: $25 to $30 for
+          # 22 November; HARD_MAX_USD_PER_RUN in src/config/run.ts). The
+          # variable can lower it or raise it up to here, never past it.
+          HARD_MAX_USD_PER_RUN=30
           total="${AEO_MAX_USD_PER_RUN:-25}"
+          if ! printf '%s' "$total" | grep -Eq '^[0-9]{1,4}(\.[0-9]{1,2})?$' || [ "$(node -e 'process.stdout.write(String(Number(process.argv[1])>0))' "$total")" != "true" ]; then
+            total=25
+          fi
+          total=$(node -e 'process.stdout.write(String(Math.min(Number(process.argv[1]),Number(process.argv[2]))))' "$total" "$HARD_MAX_USD_PER_RUN")
           # The dispatch's cap_usd, when given, lowers the ceiling for this
           # run only and never raises it (a rehearsal: one subject, about 3).
           if [ -n "${CAP_IN:-}" ]; then
             total=$(node -e 'process.stdout.write(String(Math.min(Number(process.argv[1]),Number(process.argv[2]))))' "$CAP_IN" "$total")
             echo "cap_usd from the dispatch: $total USD for this run"
           fi
-          cap=$(node -e "process.stdout.write((Number(process.argv[1])/Number(process.argv[2])).toFixed(2))" "$total" "$count")
+          # Floored to the cent, so the subjects' shares never add up past
+          # the run's total (perSubjectCapUsd in src/config/run.ts).
+          cap=$(node -e 'process.stdout.write((Math.floor(Number(process.argv[1]) / Number(process.argv[2]) * 100) / 100).toFixed(2))' "$total" "$count")
           echo "list=$list" >> "$GITHUB_OUTPUT"
           echo "cap=$cap" >> "$GITHUB_OUTPUT"
           echo "total=$total" >> "$GITHUB_OUTPUT"
