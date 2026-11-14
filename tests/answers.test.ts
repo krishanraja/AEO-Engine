@@ -209,17 +209,17 @@ test('runAll: a request of 25 questions is asked whole and first beside 30 high-
 })
 
 test('runAll: a share too small for the request leaves it unserved, says so by count, and still keeps the digest its money', async () => {
-  // propose 0.04, then 0.13 a question for three assistants, with the digest's 0.06 held back.
-  const { asked, engines, ledger, result } = await runRequested(2)
+  // propose 0.04, then 0.26 a question for three assistants, with the digest's 0.14 held back.
+  const { asked, engines, ledger, result } = await runRequested(4)
   const r = result.results[0]
   assert.ok(r.packet.stats.probes_skipped_cap > 0, 'the cap stopped pairs')
   assert.deepEqual(engines[0].asked, asked.slice(0, 15), 'requested questions still went first')
   assert.deepEqual(r.served, [], 'not every requested question was asked, so the request is not served')
   assert.equal(r.unserved, 1)
   assert.ok(ledger.entries.some(e => e.kind === 'digest'), 'the probes left the digest its share')
-  assert.ok(ledger.total <= 2 + 1e-9)
+  assert.ok(ledger.total <= 4 + 1e-9)
 
-  const sum = buildRunSummary({ subjectArg: 'heartside', weekStart: '2026-11-16', now: NOW, engines: ['perplexity', 'chatgpt', 'claude'], capUsd: 2, spentUsd: ledger.total, maxProbeUsd: 0.07, results: result.results, failures: [], errorCode: null })
+  const sum = buildRunSummary({ subjectArg: 'heartside', weekStart: '2026-11-16', now: NOW, engines: ['perplexity', 'chatgpt', 'claude'], capUsd: 4, spentUsd: ledger.total, maxProbeUsd: 0.07, results: result.results, failures: [], errorCode: null })
   assert.equal(sum.subjects[0].requests_unserved, 1)
   const report = buildResearchReport(input({ answers: true, summaries: [sum] }))
   assert.deepEqual(schemaErrors(SCHEMA, report), [])

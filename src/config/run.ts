@@ -263,24 +263,33 @@ export const PRICE_USD_PER_CALL: Record<CostKind, number> = {
   // content. Nothing meters OpenAI usage yet (src/lib/usage.ts reads Anthropic
   // responses only), so this is a conservative estimate, unproven until the
   // provider's spend for the 22 November run is read against it.
-  chatgpt: 0.05,
+  // Raised to 0.10 on 2026-11-14: the paid rehearsal (AEO weekly run
+  // 43622644403) measured about 0.088 a probe on Control Center's meter, its
+  // web search fees included (about three searches a probe).
+  chatgpt: 0.10,
   // Raised from 0.04 on 2026-11-13: at five searches a probe the usage meter
   // read Claude probes above that estimate (its figures stay in Control
   // Center). At CAPS.CLAUDE_API_SEARCH_MAX_USES searches a probe is expected
   // to cost 0.06 to 0.07, so the cap estimate takes the top of that range.
-  claude: 0.07,
+  // Raised to 0.15 on 2026-11-14: the paid rehearsal measured about 0.141 an
+  // API probe (tokens and two searches) on Control Center's meter.
+  claude: 0.15,
   grok: 0.05,
   // A Gemini probe's tokens; its grounding searches are inside the free tier
   // (CAPS.GEMINI_MAX_QUERIES_PER_JOB keeps them there). A small estimate, so
   // the cap still counts the calls.
-  gemini: 0.005,
+  // Raised to 0.015 on 2026-11-14: the meter priced the rehearsal's Gemini
+  // probes at about 0.013 each, grounding searches included, so the free tier
+  // is not assumed to cover them.
+  gemini: 0.015,
   // The Claude Code lane runs on the subscription token: no dollar is
   // charged, and the CLI's own cost figure is never read into the ledger.
   claude_code: 0,
   classify: 0.01,
   themes: 0.03,
   propose: 0.04,
-  digest: 0.06,
+  // Raised to 0.14 on 2026-11-14: the rehearsal's digest measured about 0.13.
+  digest: 0.14,
   // The wording-only pass that applies Krish's approved voice rules to the
   // digest's drafted words (src/pipeline/65-voice.ts). Made only when he has
   // approved at least one rule, so none approved costs nothing.

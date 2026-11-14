@@ -154,7 +154,7 @@
             "https://mindmake.co/ctrl",
             "https://www.example-writer-tools.com/guide/voice"
           ],
-          "cost_usd": 0.05,
+          "cost_usd": 0.1,
           "retrieved": [],
           "searched": true,
           "fan_out": [],
@@ -176,7 +176,7 @@
             "https://www.example-writer-tools.com/blog/2026/train-your-voice",
             "https://docs.example-assistant.com/custom-instructions"
           ],
-          "cost_usd": 0.07,
+          "cost_usd": 0.15,
           "retrieved": [],
           "searched": true,
           "fan_out": [],
@@ -262,7 +262,7 @@
             "https://www.example-prompting.com/voice-guide",
             "https://forum.example-dev.org/t/skills/123"
           ],
-          "cost_usd": 0.05,
+          "cost_usd": 0.1,
           "retrieved": [
             "https://www.example-prompting.com/voice-guide",
             "https://ctrl.mindmake.co/answers/personal-ai-writing-style",
@@ -288,7 +288,7 @@
             "https://docs.example-assistant.com/custom-instructions",
             "https://www.example-writer-tools.com/blog/2026/train-your-voice"
           ],
-          "cost_usd": 0.07,
+          "cost_usd": 0.15,
           "retrieved": [
             "https://docs.example-assistant.com/custom-instructions",
             "https://www.example-writer-tools.com/blog/2026/train-your-voice"
@@ -405,7 +405,7 @@
             "https://www.example-consultancy.com/insights/executive-ai",
             "https://www.example-business-review.com/2026/ai-drafting"
           ],
-          "cost_usd": 0.05,
+          "cost_usd": 0.1,
           "retrieved": [],
           "searched": true,
           "fan_out": [],
@@ -423,7 +423,7 @@
             "https://www.example-business-review.com/2026/ai-drafting",
             "https://www.example-consultancy.com/insights/executive-ai"
           ],
-          "cost_usd": 0.07,
+          "cost_usd": 0.15,
           "retrieved": [],
           "searched": true,
           "fan_out": [],
@@ -513,7 +513,7 @@
             "https://help.example-assistant.com/style",
             "https://forum.example-dev.org/t/skills/123"
           ],
-          "cost_usd": 0.05,
+          "cost_usd": 0.1,
           "retrieved": [],
           "searched": true,
           "fan_out": [],
@@ -531,7 +531,7 @@
             "https://forum.example-dev.org/t/skills/123",
             "https://www.example-writer-tools.com/blog/2026/train-your-voice"
           ],
-          "cost_usd": 0.07,
+          "cost_usd": 0.15,
           "retrieved": [],
           "searched": true,
           "fan_out": [],
@@ -624,7 +624,7 @@
             "https://help.example-assistant.com/style",
             "https://forum.example-dev.org/t/skills/123"
           ],
-          "cost_usd": 0.05,
+          "cost_usd": 0.1,
           "retrieved": [],
           "searched": true,
           "fan_out": [],
@@ -642,7 +642,7 @@
             "https://forum.example-dev.org/t/skills/123",
             "https://www.example-writer-tools.com/blog/2026/train-your-voice"
           ],
-          "cost_usd": 0.07,
+          "cost_usd": 0.15,
           "retrieved": [],
           "searched": true,
           "fan_out": [],
@@ -740,7 +740,7 @@
             "https://docs.example-assistant.com/custom-instructions",
             "https://www.example-prompting.com/voice-guide"
           ],
-          "cost_usd": 0.05,
+          "cost_usd": 0.1,
           "retrieved": [],
           "searched": true,
           "fan_out": [],
@@ -758,7 +758,7 @@
             "https://www.example-writer-tools.com/guide/voice",
             "https://docs.example-assistant.com/custom-instructions"
           ],
-          "cost_usd": 0.07,
+          "cost_usd": 0.15,
           "retrieved": [],
           "searched": true,
           "fan_out": [],
@@ -845,7 +845,7 @@
             "https://www.example-writer-tools.com/blog/2026/train-your-voice",
             "https://www.example-writer-tools.com/guide/voice"
           ],
-          "cost_usd": 0.05,
+          "cost_usd": 0.1,
           "retrieved": [],
           "searched": true,
           "fan_out": [],
@@ -863,7 +863,7 @@
             "https://www.example-prompting.com/voice-guide",
             "https://help.example-assistant.com/style"
           ],
-          "cost_usd": 0.07,
+          "cost_usd": 0.15,
           "retrieved": [],
           "searched": true,
           "fan_out": [],
@@ -955,7 +955,7 @@
             "https://mindmake.co/ctrl",
             "https://help.example-assistant.com/style"
           ],
-          "cost_usd": 0.05,
+          "cost_usd": 0.1,
           "retrieved": [],
           "searched": true,
           "fan_out": [],
@@ -977,7 +977,7 @@
             "https://ctrl.mindmake.co",
             "https://www.example-prompting.com/voice-guide"
           ],
-          "cost_usd": 0.07,
+          "cost_usd": 0.15,
           "retrieved": [],
           "searched": true,
           "fan_out": [],
@@ -1068,7 +1068,7 @@
             "https://forum.example-dev.org/t/skills/123",
             "https://www.example-prompting.com/voice-guide"
           ],
-          "cost_usd": 0.05,
+          "cost_usd": 0.1,
           "retrieved": [],
           "searched": true,
           "fan_out": [],
@@ -1086,7 +1086,7 @@
             "https://www.example-writer-tools.com/blog/2026/train-your-voice",
             "https://docs.example-assistant.com/custom-instructions"
           ],
-          "cost_usd": 0.07,
+          "cost_usd": 0.15,
           "retrieved": [],
           "searched": true,
           "fan_out": [],
@@ -1192,7 +1192,7 @@
             "https://help.example-assistant.com/style",
             "https://forum.example-dev.org/t/skills/123"
           ],
-          "cost_usd": 0.05,
+          "cost_usd": 0.1,
           "retrieved": [],
           "searched": true,
           "fan_out": [],
@@ -1210,7 +1210,7 @@
             "https://forum.example-dev.org/t/skills/123",
             "https://www.example-writer-tools.com/blog/2026/train-your-voice"
           ],
-          "cost_usd": 0.07,
+          "cost_usd": 0.15,
           "retrieved": [],
           "searched": true,
           "fan_out": [],
@@ -1288,7 +1288,7 @@
             "https://www.example-productivity.com/ai/consistent-voice",
             "https://www.example-writer-tools.com/guides/style-drift"
           ],
-          "cost_usd": 0.05,
+          "cost_usd": 0.1,
           "retrieved": [],
           "searched": true,
           "fan_out": [],
@@ -1306,7 +1306,7 @@
             "https://www.example-writer-tools.com/guides/style-drift",
             "https://www.example-productivity.com/ai/consistent-voice"
           ],
-          "cost_usd": 0.07,
+          "cost_usd": 0.15,
           "retrieved": [],
           "searched": true,
           "fan_out": [],
@@ -1387,7 +1387,7 @@
             "https://www.example-writer-tools.com/blog/2026/train-your-voice",
             "https://www.example-writer-tools.com/guide/voice"
           ],
-          "cost_usd": 0.05,
+          "cost_usd": 0.1,
           "retrieved": [],
           "searched": true,
           "fan_out": [],
@@ -1405,7 +1405,7 @@
             "https://www.example-prompting.com/voice-guide",
             "https://help.example-assistant.com/style"
           ],
-          "cost_usd": 0.07,
+          "cost_usd": 0.15,
           "retrieved": [],
           "searched": true,
           "fan_out": [],
@@ -1484,7 +1484,7 @@
             "https://docs.example-assistant.com/custom-instructions",
             "https://www.example-prompting.com/voice-guide"
           ],
-          "cost_usd": 0.05,
+          "cost_usd": 0.1,
           "retrieved": [],
           "searched": true,
           "fan_out": [],
@@ -1502,7 +1502,7 @@
             "https://www.example-writer-tools.com/guide/voice",
             "https://docs.example-assistant.com/custom-instructions"
           ],
-          "cost_usd": 0.07,
+          "cost_usd": 0.15,
           "retrieved": [],
           "searched": true,
           "fan_out": [],
@@ -1580,7 +1580,7 @@
             "https://docs.example-ai-vendor.com/custom-instructions",
             "https://www.example-writer-tools.com/blog/style-rules"
           ],
-          "cost_usd": 0.05,
+          "cost_usd": 0.1,
           "retrieved": [],
           "searched": true,
           "fan_out": [],
@@ -1598,7 +1598,7 @@
             "https://www.example-writer-tools.com/blog/style-rules",
             "https://docs.example-ai-vendor.com/custom-instructions"
           ],
-          "cost_usd": 0.07,
+          "cost_usd": 0.15,
           "retrieved": [],
           "searched": true,
           "fan_out": [],
@@ -1676,7 +1676,7 @@
             "https://www.example-productivity.com/ai/paid-vs-free",
             "https://www.example-reviews.com/ai-writing-tools-2026"
           ],
-          "cost_usd": 0.05,
+          "cost_usd": 0.1,
           "retrieved": [],
           "searched": true,
           "fan_out": [],
@@ -1694,7 +1694,7 @@
             "https://www.example-reviews.com/ai-writing-tools-2026",
             "https://www.example-productivity.com/ai/paid-vs-free"
           ],
-          "cost_usd": 0.07,
+          "cost_usd": 0.15,
           "retrieved": [],
           "searched": true,
           "fan_out": [],
@@ -1779,7 +1779,7 @@
             "https://www.example-writer-tools.com/blog/2026/train-your-voice",
             "https://www.example-writer-tools.com/guide/voice"
           ],
-          "cost_usd": 0.05,
+          "cost_usd": 0.1,
           "retrieved": [],
           "searched": true,
           "fan_out": [],
@@ -1796,7 +1796,7 @@
           "citations": [
             "https://forum.example-dev.org/t/skills/123"
           ],
-          "cost_usd": 0.07,
+          "cost_usd": 0.15,
           "retrieved": [],
           "searched": true,
           "fan_out": [],
@@ -1877,7 +1877,7 @@
             "https://forum.example-dev.org/t/skills/123",
             "https://www.example-prompting.com/voice-guide"
           ],
-          "cost_usd": 0.05,
+          "cost_usd": 0.1,
           "retrieved": [],
           "searched": true,
           "fan_out": [],
@@ -1895,7 +1895,7 @@
             "https://www.example-writer-tools.com/blog/2026/train-your-voice",
             "https://docs.example-assistant.com/custom-instructions"
           ],
-          "cost_usd": 0.07,
+          "cost_usd": 0.15,
           "retrieved": [],
           "searched": true,
           "fan_out": [],
@@ -1976,7 +1976,7 @@
             "https://www.example-prompting.com/voice-guide",
             "https://forum.example-dev.org/t/skills/123"
           ],
-          "cost_usd": 0.05,
+          "cost_usd": 0.1,
           "retrieved": [],
           "searched": true,
           "fan_out": [],
@@ -1994,7 +1994,7 @@
             "https://docs.example-assistant.com/custom-instructions",
             "https://www.example-writer-tools.com/blog/2026/train-your-voice"
           ],
-          "cost_usd": 0.07,
+          "cost_usd": 0.15,
           "retrieved": [],
           "searched": true,
           "fan_out": [],
@@ -2072,7 +2072,7 @@
             "https://docs.example-assistant.com/custom-instructions",
             "https://www.example-prompting.com/voice-guide"
           ],
-          "cost_usd": 0.05,
+          "cost_usd": 0.1,
           "retrieved": [],
           "searched": true,
           "fan_out": [],
@@ -2090,7 +2090,7 @@
             "https://www.example-writer-tools.com/guide/voice",
             "https://docs.example-assistant.com/custom-instructions"
           ],
-          "cost_usd": 0.07,
+          "cost_usd": 0.15,
           "retrieved": [],
           "searched": true,
           "fan_out": [],
@@ -2170,7 +2170,7 @@
             "https://www.example-prompting.com/voice-guide",
             "https://docs.example-assistant.com/custom-instructions"
           ],
-          "cost_usd": 0.05,
+          "cost_usd": 0.1,
           "retrieved": [],
           "searched": true,
           "fan_out": [],
@@ -2188,7 +2188,7 @@
             "https://docs.example-assistant.com/custom-instructions",
             "https://www.example-writer-tools.com/blog/2026/train-your-voice"
           ],
-          "cost_usd": 0.07,
+          "cost_usd": 0.15,
           "retrieved": [],
           "searched": true,
           "fan_out": [],
@@ -2271,7 +2271,7 @@
           "citations": [
             "https://www.example-writer-tools.com/guide/voice"
           ],
-          "cost_usd": 0.05,
+          "cost_usd": 0.1,
           "retrieved": [],
           "searched": true,
           "fan_out": [],
@@ -2288,7 +2288,7 @@
           "citations": [
             "https://help.example-assistant.com/style"
           ],
-          "cost_usd": 0.07,
+          "cost_usd": 0.15,
           "retrieved": [],
           "searched": true,
           "fan_out": [],
@@ -2363,7 +2363,7 @@
           "citations": [
             "https://help.example-assistant.com/style"
           ],
-          "cost_usd": 0.05,
+          "cost_usd": 0.1,
           "retrieved": [],
           "searched": true,
           "fan_out": [],
@@ -2380,7 +2380,7 @@
           "citations": [
             "https://help.example-assistant.com/style"
           ],
-          "cost_usd": 0.07,
+          "cost_usd": 0.15,
           "retrieved": [],
           "searched": true,
           "fan_out": [],
@@ -2457,7 +2457,7 @@
           "citations": [
             "https://www.example-writer-tools.com/guide/voice"
           ],
-          "cost_usd": 0.05,
+          "cost_usd": 0.1,
           "retrieved": [],
           "searched": true,
           "fan_out": [],
@@ -2474,7 +2474,7 @@
           "citations": [
             "https://help.example-assistant.com/style"
           ],
-          "cost_usd": 0.07,
+          "cost_usd": 0.15,
           "retrieved": [],
           "searched": true,
           "fan_out": [],
@@ -2551,7 +2551,7 @@
           "citations": [
             "https://www.example-writer-tools.com/guide/voice"
           ],
-          "cost_usd": 0.05,
+          "cost_usd": 0.1,
           "retrieved": [],
           "searched": true,
           "fan_out": [],
@@ -2568,7 +2568,7 @@
           "citations": [
             "https://help.example-assistant.com/style"
           ],
-          "cost_usd": 0.07,
+          "cost_usd": 0.15,
           "retrieved": [],
           "searched": true,
           "fan_out": [],
@@ -2797,7 +2797,7 @@
     "probes": 71,
     "probes_failed": 1,
     "probes_skipped_cap": 0,
-    "cost_usd": 3.11,
+    "cost_usd": 6.23,
     "engines": 3,
     "transcripts": 2,
     "digest_writer": "claude"

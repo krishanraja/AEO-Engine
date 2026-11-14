@@ -59,7 +59,7 @@ import { kitPlans, PLAN_OPEN_DAYS, type KitPlan, type PlanDecision } from './sch
 import { parseVerifyPayload, type VerifyPayload } from './schema/verify.js'
 import { runVerifyAll } from './pipeline/verify.js'
 import { verifyRunId } from './protocol/verify.js'
-import { readFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 
 export interface CliArgs {
   subject: string
@@ -189,6 +189,21 @@ function liveEngines(env: NodeJS.ProcessEnv, usage: UsageMeter, lane: ClaudeLane
 /** The gated engines Krish ruled into the share: the repository variable AEO_GEMINI_COUNTS=true, or none (audit aeo-8). */
 export function gatedInShare(env: NodeJS.ProcessEnv): GatedEngine[] {
   return String(env.AEO_GEMINI_COUNTS ?? '').trim().toLowerCase() === 'true' ? ['gemini'] : []
+}
+
+/**
+ * What this process's ledger charged, written to AEO_SPENT_FILE when it exits,
+ * whether the run succeeded or threw. The research workflow's retry reads it
+ * and is given only what the first attempt left of the subject's share: the
+ * paid rehearsal of 14 November ran a failed subject twice, each attempt with
+ * a fresh ledger at the full share (tests/run-cap.test.ts).
+ */
+export function recordSpend(ledger: Ledger, env: NodeJS.ProcessEnv = process.env): void {
+  const file = env.AEO_SPENT_FILE
+  if (!file) return
+  process.on('exit', () => {
+    try { writeFileSync(file, String(ledger.total)) } catch { /* the retry then gets no budget */ }
+  })
 }
 
 export function buildDeps(args: CliArgs, env: NodeJS.ProcessEnv = process.env, now = new Date(), overrides: DepsOverrides = {}): RunDeps {
@@ -347,6 +362,7 @@ export async function main(argv: readonly string[] = process.argv.slice(2)): Pro
   const args = parseArgs(argv)
   if (args.mode === 'verify') return verifyMain(args)
   const deps = buildDeps(args)
+  recordSpend(deps.ledger)
   // Offline runs stay offline: fixtures carry no directive, so taste is
   // unknown, no request is open and no kit plan is in flight.
   if (!args.offline) {
@@ -478,6 +494,7 @@ export async function verifyMain(args: CliArgs, env: NodeJS.ProcessEnv = process
     return 1
   }
   const deps = buildDeps(args, env, now, overrides)
+  recordSpend(deps.ledger, env)
   // A verify run reads no page: no site audit, no page cited first.
   deps.site = null
   const opts: RunOpts = { subject: args.subject, weekStart: args.week, dry: args.dry, outPath: args.out, commandId: null }

@@ -427,7 +427,7 @@ jobs:
           set -uo pipefail
           # Our own pages come only from the site job's sealed audit. A retry
           # reads no page at all: a fresh process would have a fresh budget.
-          args=(--subject "$SUBJECT" --cap-usd "$CAP" --site-in site/audit.json)
+          args=(--subject "$SUBJECT" --site-in site/audit.json)
           attempts="1 2"
           if [ "$KIND" = "verify" ]; then
             # Krish's approved payload, written here from the plan job's
@@ -438,7 +438,7 @@ jobs:
             # day's payload, or when that day's verify report is stored.
             mkdir -p out
             printf '%s\n' "$VERIFY_PAYLOAD" > out/verify-payload.json
-            args=(--subject "$SUBJECT" --cap-usd "$CAP" --mode verify --verify-payload out/verify-payload.json)
+            args=(--subject "$SUBJECT" --mode verify --verify-payload out/verify-payload.json)
             attempts="1"
           fi
           if [ -n "$COMMAND_ID" ]; then args+=(--command-id "$COMMAND_ID"); fi
@@ -454,12 +454,26 @@ jobs:
           # AEO_ATTEMPT tells the run which attempt it is: only the first asks
           # Gemini, because each attempt is a fresh process with a fresh
           # free-tier count (resolveEngines in src/config/run.ts).
+          # The share is for the subject, not for each attempt: every attempt
+          # writes what its ledger charged (AEO_SPENT_FILE, src/index.ts), and
+          # the retry is given only what is left, or does not run below 0.50.
+          # The paid rehearsal of 14 November ran a failed subject twice at
+          # the full share each (tests/run-cap.test.ts).
+          left="$CAP"
+          spent_file="$RUNNER_TEMP/aeo-spent"
           for attempt in $attempts; do
+            rm -f "$spent_file"
             echo "::group::$SUBJECT attempt $attempt"
-            AEO_ATTEMPT="$attempt" npm run --silent run -- "${args[@]}" && { echo "::endgroup::"; exit 0; }
+            AEO_SPENT_FILE="$spent_file" AEO_ATTEMPT="$attempt" npm run --silent run -- "${args[@]}" --cap-usd "$left" && { echo "::endgroup::"; exit 0; }
             echo "::endgroup::"
             if [ "$attempt" = "1" ] && [ "$attempts" != "1" ]; then
-              echo "$SUBJECT failed, waiting five minutes before the retry"
+              spent=$(cat "$spent_file" 2>/dev/null || echo "$CAP")
+              left=$(node -e 'const l=Number(process.argv[1])-Number(process.argv[2]);process.stdout.write((Number.isFinite(l)?Math.floor(l*100)/100:0).toFixed(2))' "$CAP" "$spent")
+              if [ "$(node -e 'process.stdout.write(String(Number(process.argv[1])>=0.5))' "$left")" != "true" ]; then
+                echo "$SUBJECT failed, no budget left for a retry ($spent of $CAP USD charged)"
+                break
+              fi
+              echo "$SUBJECT failed, waiting five minutes before the retry with $left of $CAP USD"
               sleep 300
             fi
           done

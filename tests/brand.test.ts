@@ -61,7 +61,7 @@ test('asked once on every packet engine, charged inside the cap, the Claude Code
   const out = await askBrandChecks([perplexity, chatgpt, claude, gemini], checks, ledger)
   assert.equal(gemini.asked.length, 0, 'a gated engine is not asked')
   assert.deepEqual([perplexity.asked.length, chatgpt.asked.length, claude.asked.length], [2, 2, 2])
-  assert.equal(ledger.total, 0.12, 'charged per paid ask (2 x 0.01 + 2 x 0.05); Claude Code free')
+  assert.equal(ledger.total, 0.22, 'charged per paid ask (2 x 0.01 + 2 x 0.10); Claude Code free')
   assert.equal(out.results[0].pass, false)
   assert.deepEqual(out.results[0].engines.map(e => [e.engine, e.pass, e.must_not, e.must]), [['perplexity', true, [], []], ['chatgpt', false, ['betting tips'], ['football']], ['claude', true, [], []]])
   assert.equal(out.results[1].pass, true)
