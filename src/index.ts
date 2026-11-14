@@ -152,7 +152,11 @@ export function claudeProbe(lane: ClaudeLane, env: NodeJS.ProcessEnv, usage: Usa
   const api = () => new AnthropicClient(env.ANTHROPIC_API_KEY ?? '', usage)
   const code = (fallback?: EngineClient) => new ClaudeCodeEngine({ env, meter: usage, ...(o.spawn ? { spawn: o.spawn } : {}), ...(fallback ? { fallback } : {}) })
   if (lane === 'api') return { main: api() }
-  if (lane === 'compare') return { main: code(), shadow: api() }
+  // compare: the code lane answers, with the API behind it for a probe the
+  // subscription's limit stopped (charged inside the same cap), and the API
+  // beside it on the first questions for the tally. Without the fallback, one
+  // limit mid-run would drop Claude from every later probe of the job.
+  if (lane === 'compare') return { main: code(api()), shadow: api() }
   if (lane === 'code_then_api') return { main: code(api()) }
   return { main: code() }
 }
