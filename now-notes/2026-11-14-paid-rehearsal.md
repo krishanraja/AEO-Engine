@@ -1,0 +1,4 @@
+Status: The paid one-subject rehearsal (AEO weekly run 43622644403, mindmake, dry, cap_usd 2) probed live on every engine and was rejected by production's ingest on themes_status: Control Center no longer accepts fireflies_unavailable, the value main still sends, so every subject of the 22 November run fails at ingest until PR #47 (transcripts_unavailable) merges. It ran twice (the subject step's retry), 1.96 USD of estimates an attempt and about 6.57 USD on Control Center's meter, above the 3 USD Krish approved; the retry now shares the subject's share and the prices are the measured ones.
+Next: Merge PR #47 (themes_status transcripts_unavailable) before Sunday 22 November 04:00 UTC, then run the free AEO rehearsal workflow to confirm production accepts the packet.
+North Star check (2026-11-14): holds.
+Changed: 2026-11-14 The paid rehearsal found production's ingest rejecting themes_status fireflies_unavailable, and a retry that doubled the spend.

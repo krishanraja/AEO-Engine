@@ -34,6 +34,8 @@ import { errText, log } from '../lib/log.js'
 import { unseal } from '../lib/seal.js'
 import { ID_RE } from '../schema/report.js'
 import { finishResearch, finishVerify, runDirective, startResearch } from './loop.js'
+import { HARD_MAX_USD_PER_RUN } from '../config/run.js'
+import { runIndexChecks } from './indexCheck.js'
 import { parseVerifyPayload, type VerifyPayload } from '../schema/verify.js'
 import type { RunSummary } from './measure.js'
 
@@ -120,11 +122,11 @@ export async function main(argv: readonly string[] = process.argv.slice(2), env:
   let parsed: ReturnType<typeof parseFlags>
   try { parsed = parseFlags(argv) } catch (e) { log('protocol_usage', { error: errText(e) }); return 2 }
   const { command, flags } = parsed
-  if (!['directive', 'research-start', 'research-report'].includes(command)) {
-    log('protocol_usage', { error: `unknown command "${command}"; use directive, research-start or research-report` })
+  if (!['directive', 'research-start', 'research-report', 'index-check'].includes(command)) {
+    log('protocol_usage', { error: `unknown command "${command}"; use directive, research-start, research-report or index-check` })
     return 2
   }
-  const required = ['CONTROL_CENTER_URL', 'CONTROL_CENTER_ENGINE_TOKEN', ...(command === 'research-report' ? ['AEO_ENGINE_SECRET'] : [])]
+  const required = ['CONTROL_CENTER_URL', 'CONTROL_CENTER_ENGINE_TOKEN', ...(command === 'research-report' || command === 'index-check' ? ['AEO_ENGINE_SECRET'] : [])]
   const absent = missingEnv(env, required)
   if (absent.length) {
     // Names only. The job fails so a missing secret is never a green run.
@@ -151,6 +153,15 @@ export async function main(argv: readonly string[] = process.argv.slice(2), env:
       return out.status === 'succeeded' ? 0 : 1
     }
 
+    if (command === 'index-check') {
+      // After the research report: the kits' pages on Brave, at most 10 a
+      // day (src/protocol/indexCheck.ts). Counts only in the log.
+      const { summaries } = readSummaries(flags.summaries ?? 'summaries', env.AEO_ENGINE_SECRET ?? '', env.GITHUB_RUN_ID || 'local')
+      const out = await runIndexChecks(client, summaries, new Date())
+      log('index_check', { ...out })
+      return out.status === 'failed' ? 1 : 0
+    }
+
     const ids = { attemptId: need(flags, 'attempt-id', ID_RE), runId: need(flags, 'run-id', ID_RE), startedAt: need(flags, 'started-at') }
     if (Number.isNaN(Date.parse(ids.startedAt))) throw new Error('--started-at is not a date-time')
 
@@ -162,8 +173,9 @@ export async function main(argv: readonly string[] = process.argv.slice(2), env:
     if (!Array.isArray(subjects) || !subjects.every(s => typeof s === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(s))) throw new Error('--subjects must be a JSON array of slugs')
     const scope = need(flags, 'scope')
     if (scope !== 'all' && scope !== 'one') throw new Error('--scope is all or one')
-    const totalCapUsd = Number(need(flags, 'total-cap-usd'))
-    if (!(totalCapUsd > 0)) throw new Error('--total-cap-usd must be positive')
+    const totalCapRaw = Number(need(flags, 'total-cap-usd'))
+    if (!(totalCapRaw > 0)) throw new Error('--total-cap-usd must be positive')
+    const totalCapUsd = Math.min(totalCapRaw, HARD_MAX_USD_PER_RUN)
     const planError = flags['plan-error'] ? need(flags, 'plan-error', /^[a-z][a-z0-9_]{0,63}$/) : null
     const { summaries, unreadable } = readSummaries(flags.summaries ?? 'summaries', env.AEO_ENGINE_SECRET ?? '', env.GITHUB_RUN_ID || 'local')
     log('protocol_summaries', { read: summaries.length, unreadable, expected: subjects.length })

@@ -156,7 +156,7 @@ test('gemini is registered only with its key, on the job\'s first attempt, with 
   assert.equal(attemptOf({ AEO_ATTEMPT: ' 2 ' }), 2)
   assert.equal(attemptOf({ AEO_ATTEMPT: 'two' }), 1)
   assert.equal(attemptOf({ AEO_ATTEMPT: '0' }), 1)
-  assert.equal(PRICE_USD_PER_CALL.gemini, 0.005)
+  assert.equal(PRICE_USD_PER_CALL.gemini, 0.015)
 })
 
 const pq = (query: string): ProposedQuery => ({ query_id: `00000000-0000-4000-8000-${String(query.length).padStart(12, '0')}`, query, source: 'seed', touchpoint_id: null, prior: null, norm: normaliseQuery(query), requested: false })

@@ -6,7 +6,7 @@
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
-import { CAPS, ENGINES, PRICE_USD_PER_CALL, resolveEngines, SUBSCRIPTION_KINDS, type CostKind } from '../src/config/run.js'
+import { CAPS, DEFAULT_MAX_USD_PER_RUN, ENGINES, HARD_MAX_USD_PER_RUN, PRICE_USD_PER_CALL, resolveEngines, SUBSCRIPTION_KINDS, type CostKind } from '../src/config/run.js'
 import { parseOwnDomains } from '../src/config/ownDomains.js'
 import { parseSubjectsConfig } from '../src/config/subjects.js'
 import { SITE_FETCH, SITE_USER_AGENT } from '../src/clients/site.js'
@@ -19,6 +19,9 @@ const failures: string[] = []
 const knownEngines = [...ENGINES_ALL, ...GATED_ENGINES] as readonly string[]
 for (const e of [...ENGINES, ...resolveEngines({ XAI_API_KEY: 'x', GEMINI_API_KEY: 'x' })]) if (!knownEngines.includes(e)) failures.push(`ENGINES carries unknown engine "${e}"`)
 if (!ENGINES.length) failures.push('ENGINES is empty')
+// Ruling (Krish, 2026-11-14): the 22 November run's cap is $25 to $30.
+if (!(DEFAULT_MAX_USD_PER_RUN >= 25 && HARD_MAX_USD_PER_RUN <= 30 && DEFAULT_MAX_USD_PER_RUN <= HARD_MAX_USD_PER_RUN)) failures.push(`the run's cap must sit inside 25 to 30: default ${DEFAULT_MAX_USD_PER_RUN}, hard ${HARD_MAX_USD_PER_RUN}`)
+if (CAPS.MAX_USD_PER_RUN > HARD_MAX_USD_PER_RUN) failures.push(`CAPS.MAX_USD_PER_RUN ${CAPS.MAX_USD_PER_RUN} is above the hard ceiling ${HARD_MAX_USD_PER_RUN}`)
 for (const [k, v] of Object.entries(CAPS)) if (!(typeof v === 'number' && v > 0)) failures.push(`CAPS.${k} must be a positive number, got ${String(v)}`)
 // A subscription kind is counted and never charged, so its price is exactly
 // 0; every other kind is a dollar estimate the cap counts against.

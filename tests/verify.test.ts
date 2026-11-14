@@ -136,11 +136,11 @@ test('the go-live: on the Thursday to Saturday before an even-week Sunday, canon
   assertValid(r)
   assert.ok(['1.1.0', '1.20.0', '1.22.0'].includes(r.schema_version))
   const [go] = verifyAsksOf(r)
-  // Three questions at 0.39 each (three samples on three engines, Claude at its paid price): 1.17, rounded up.
-  const text = `{"amount_usd":2,"date":"${SUNDAY}","query_ids":["${Q1}","${Q2}","${Q3}"],"samples":3}`
+  // Three questions at 0.78 each (three samples on three engines at 0.01, 0.10 and 0.15, the prices the rehearsal of 14 November measured): 2.34, rounded up.
+  const text = `{"amount_usd":3,"date":"${SUNDAY}","query_ids":["${Q1}","${Q2}","${Q3}"],"samples":3}`
   assert.deepEqual(go, {
-    stage: 'go_live', parent_proposal_id: VERIFY_PLAN_ID, proposal_id: `aeo:verify:${SUNDAY}`, title: `Verify run on ${SUNDAY}: re-ask 3 shipped questions, up to 2 USD`,
-    why: go.why, kind: 'prepared', wall: 'spend', amount_usd: 2, channel: 'research_workflow', objective_key: null, exact_payload: text, payload_sha256: sha(text, 2),
+    stage: 'go_live', parent_proposal_id: VERIFY_PLAN_ID, proposal_id: `aeo:verify:${SUNDAY}`, title: `Verify run on ${SUNDAY}: re-ask 3 shipped questions, up to 3 USD`,
+    why: go.why, kind: 'prepared', wall: 'spend', amount_usd: 3, channel: 'research_workflow', objective_key: null, exact_payload: text, payload_sha256: sha(text, 3),
     evidence: [{ label: `The questions the research run ${RESEARCH_RUN} tracked as shipped or a kit in flight`, url: null }],
     close_condition: { event: 'verify_ran', reference: `aeo:${SUNDAY}:verify` }, expires_at: '2026-11-30T00:00:00.000Z',
   })
@@ -154,25 +154,25 @@ test('the go-live: on the Thursday to Saturday before an even-week Sunday, canon
 
   // The estimate and the caps. Claude is priced at its paid API rate: without
   // the Claude Code token in the verify job it falls back to the paid API.
-  assert.equal(verifyEstimateUsd(10), 3.9, 'three samples on perplexity, chatgpt and claude at 0.01 + 0.05 + 0.07')
-  assert.equal(verifyEstimateUsd(1), 0.39)
+  assert.equal(verifyEstimateUsd(10), 7.8, 'three samples on perplexity, chatgpt and claude at 0.01 + 0.10 + 0.15')
+  assert.equal(verifyEstimateUsd(1), 0.78)
   const ids = Array.from({ length: 12 }, (_, i) => `${String(12 - i).padStart(8, 'f')}-0000-4000-8000-000000000000`)
   const atCap = buildGoLive(SUNDAY, ids, 3, null)!
-  assert.deepEqual([atCap.payload.query_ids.length, atCap.payload.amount_usd], [7, 3], 'the most that fit 3 USD: seven at 2.73, rounded up')
+  assert.deepEqual([atCap.payload.query_ids.length, atCap.payload.amount_usd], [3, 3], 'the most that fit 3 USD: three at 2.34, rounded up')
   const ten = buildGoLive(SUNDAY, ids, 5, null)!
-  assert.equal(ten.payload.query_ids.length, 10, 'never more than ten')
+  assert.equal(ten.payload.query_ids.length, 6, 'the most that fit 5 USD, and never more than ten')
   assert.deepEqual(ten.payload.query_ids, [...ten.payload.query_ids].sort(), 'sorted')
-  assert.equal(ten.payload.amount_usd, 4, '3.90 rounded up')
-  assert.equal(ten.text, canonicalJson({ amount_usd: 4, date: SUNDAY, query_ids: ten.payload.query_ids, samples: 3 }))
+  assert.equal(ten.payload.amount_usd, 5, '4.68 rounded up')
+  assert.equal(ten.text, canonicalJson({ amount_usd: 5, date: SUNDAY, query_ids: ten.payload.query_ids, samples: 3 }))
   const one = buildGoLive(SUNDAY, ids, 1, null)!
-  assert.deepEqual([one.payload.query_ids.length, one.payload.amount_usd], [2, 1], 'fits his cap: two questions at 0.78')
+  assert.deepEqual([one.payload.query_ids.length, one.payload.amount_usd], [1, 1], 'fits his cap: one question at 0.78')
   assert.equal(buildGoLive(SUNDAY, ids, 0.1, null), null)
   // His amended plan amount caps the go-live.
   const plan = verifyPlanProposal(new Date(0))
-  const amendedPlan = decision(VERIFY_PLAN_ID, 'approved', '2026-11-23T09:00:00Z', plan.payload_sha256, { amended: true, exact_payload: plan.exact_payload, amount_usd: 0.5, amended_sha256: sha(plan.exact_payload, 0.5) })
-  assert.deepEqual(verifyPlanState([amendedPlan]).cap, 0.5)
+  const amendedPlan = decision(VERIFY_PLAN_ID, 'approved', '2026-11-23T09:00:00Z', plan.payload_sha256, { amended: true, exact_payload: plan.exact_payload, amount_usd: 1, amended_sha256: sha(plan.exact_payload, 1) })
+  assert.deepEqual(verifyPlanState([amendedPlan]).cap, 1)
   const capped = verifyAsksOf(daily(THURSDAY, [amendedPlan]))[0]
-  assert.deepEqual([capped.amount_usd, JSON.parse(capped.exact_payload ?? '{}').query_ids.length], [0.5, 1])
+  assert.deepEqual([capped.amount_usd, JSON.parse(capped.exact_payload ?? '{}').query_ids.length], [1, 1])
   // An amended plan whose digest does not check out holds the lane.
   const bad = { ...amendedPlan, amended_sha256: '0'.repeat(64) }
   const held = daily(THURSDAY, [bad])
@@ -336,7 +336,7 @@ test('stand-in, end to end: an approved go-live goes live once with exactly its 
     assert.ok(decided.result.run)
     const approvedPayload = decided.result.payload
     assert.equal(verifyPayloadText(approvedPayload), go.exact_payload, 'exactly what he approved')
-    assert.match(decided.text, /"event":"verify_go","questions":3,"samples":3,"amount_usd":2,"amended":false/)
+    assert.match(decided.text, /"event":"verify_go","questions":3,"samples":3,"amount_usd":3,"amended":false/)
     assert.ok(!decided.text.includes(Q1))
 
     // The CLI writes the payload on the runner and the step's outputs.
