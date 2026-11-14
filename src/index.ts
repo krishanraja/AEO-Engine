@@ -30,7 +30,7 @@
  *              (verifyGuard).
  */
 import { createHash, randomUUID } from 'node:crypto'
-import { attemptOf, CAPS, MODELS, PRICE_USD_PER_CALL, resolveClaudeLane, resolveEngines, type ClaudeLane } from './config/run.js'
+import { attemptOf, CAPS, HARD_MAX_USD_PER_RUN, MODELS, PRICE_USD_PER_CALL, resolveClaudeLane, resolveEngines, type ClaudeLane } from './config/run.js'
 import { AnthropicClient } from './clients/anthropic.js'
 import { ClaudeCodeEngine, type SpawnFn } from './clients/claudeCode.js'
 import { ControlCenterHttp } from './clients/controlCenter.js'
@@ -105,7 +105,8 @@ export function parseArgs(argv: readonly string[], now = new Date()): CliArgs {
       case '--cap-usd': {
         const n = Number(next())
         if (!(n > 0)) throw new Error('--cap-usd must be a positive number')
-        args.capUsd = n
+        // It can lower a run's cap; nothing lifts one run past the hard ceiling.
+        args.capUsd = Math.min(n, HARD_MAX_USD_PER_RUN)
         break
       }
       case '--fixtures': args.fixtures = next(); break

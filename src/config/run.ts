@@ -85,6 +85,29 @@ export function resolveClaudeLane(env: NodeJS.ProcessEnv, weekStart: string): La
   return choice
 }
 
+/**
+ * The research run's spend ceiling (Ruling, Krish, 2026-11-14: a per-run cap
+ * of $25 to $30 for the 22 November run). DEFAULT_MAX_USD_PER_RUN is the cap
+ * when the repository variable AEO_MAX_USD_PER_RUN is unset; the variable may
+ * lower it or raise it, and nothing (the variable, a dispatch's cap_usd, a
+ * --cap-usd flag, a Ledger) lifts one run above HARD_MAX_USD_PER_RUN. The
+ * workflow clamps to the same number (aeo-weekly.yml, tests/run-cap.test.ts).
+ */
+export const DEFAULT_MAX_USD_PER_RUN = 25
+export const HARD_MAX_USD_PER_RUN = 30
+
+/** AEO_MAX_USD_PER_RUN read: a positive number, else the default, never above the hard ceiling. */
+export function runCapUsd(raw: string | undefined): number {
+  const n = Number(raw)
+  return Math.min(n > 0 ? n : DEFAULT_MAX_USD_PER_RUN, HARD_MAX_USD_PER_RUN)
+}
+
+/** One subject job's share of a run's cap, floored to the cent so the shares never add up past the run's cap. */
+export function perSubjectCapUsd(totalUsd: number, subjects: number): number {
+  const total = Math.min(totalUsd, HARD_MAX_USD_PER_RUN)
+  return Math.floor((total / Math.max(1, subjects)) * 100) / 100
+}
+
 export const CAPS = {
   MAX_PROPOSED_QUERIES: 40,
   MIN_PROPOSED_QUERIES: 20,
@@ -136,8 +159,8 @@ export const CAPS = {
   CLAUDE_API_SEARCH_MAX_USES: 2,
   MAX_CITATIONS: 8,
   ANSWER_SNAPSHOT_CHARS: 1800,
-  /** Spend ceiling for one run, all subjects. AEO_MAX_USD_PER_RUN overrides. */
-  MAX_USD_PER_RUN: Number(process.env.AEO_MAX_USD_PER_RUN) > 0 ? Number(process.env.AEO_MAX_USD_PER_RUN) : 25,
+  /** Spend ceiling for one run, all subjects: AEO_MAX_USD_PER_RUN, else 25, never above HARD_MAX_USD_PER_RUN. */
+  MAX_USD_PER_RUN: runCapUsd(process.env.AEO_MAX_USD_PER_RUN),
   /**
    * Transcript window: the last fourteen days ending now. The research runs
    * fortnightly (since 2026-10-15), so a seven-day window never read the calls

@@ -34,6 +34,7 @@ import { errText, log } from '../lib/log.js'
 import { unseal } from '../lib/seal.js'
 import { ID_RE } from '../schema/report.js'
 import { finishResearch, finishVerify, runDirective, startResearch } from './loop.js'
+import { HARD_MAX_USD_PER_RUN } from '../config/run.js'
 import { parseVerifyPayload, type VerifyPayload } from '../schema/verify.js'
 import type { RunSummary } from './measure.js'
 
@@ -162,8 +163,9 @@ export async function main(argv: readonly string[] = process.argv.slice(2), env:
     if (!Array.isArray(subjects) || !subjects.every(s => typeof s === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(s))) throw new Error('--subjects must be a JSON array of slugs')
     const scope = need(flags, 'scope')
     if (scope !== 'all' && scope !== 'one') throw new Error('--scope is all or one')
-    const totalCapUsd = Number(need(flags, 'total-cap-usd'))
-    if (!(totalCapUsd > 0)) throw new Error('--total-cap-usd must be positive')
+    const totalCapRaw = Number(need(flags, 'total-cap-usd'))
+    if (!(totalCapRaw > 0)) throw new Error('--total-cap-usd must be positive')
+    const totalCapUsd = Math.min(totalCapRaw, HARD_MAX_USD_PER_RUN)
     const planError = flags['plan-error'] ? need(flags, 'plan-error', /^[a-z][a-z0-9_]{0,63}$/) : null
     const { summaries, unreadable } = readSummaries(flags.summaries ?? 'summaries', env.AEO_ENGINE_SECRET ?? '', env.GITHUB_RUN_ID || 'local')
     log('protocol_summaries', { read: summaries.length, unreadable, expected: subjects.length })
