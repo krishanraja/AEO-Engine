@@ -81,10 +81,14 @@ export function parseResponse(body: unknown): EngineAnswer {
   const retrieved: string[] = []
   const fanOut: string[] = []
   let searched = false
+  let searchCalls = 0
   for (const item of asArray(j.output)) {
     const it = asRecord(item)
     if (it.type === 'web_search_call') {
       searched = true
+      // Each web_search_call item is one billed tool call (OpenAI bills web
+      // search per call, beside the tokens), whatever its action.
+      searchCalls++
       const action = asRecord(it.action)
       // The newer shape lists every query in `queries`; the older one has `query` alone.
       const queries = asArray(action.queries).filter(q => asString(q).trim())
@@ -107,7 +111,7 @@ export function parseResponse(body: unknown): EngineAnswer {
       for (const { a } of anns) pushOnce(citations, a.url)
     }
   }
-  const out: EngineAnswer = { text: texts.join('\n'), citations, retrieved, searched, fan_out: fanOut }
+  const out: EngineAnswer = { text: texts.join('\n'), citations, retrieved, searched, fan_out: fanOut, search_calls: searchCalls }
   if (j.usage !== undefined) out.usage = j.usage
   return out
 }

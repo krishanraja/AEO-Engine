@@ -31,6 +31,12 @@ export interface EngineAnswer {
   fan_out?: string[]
   usage?: unknown
   /**
+   * Hosted search tool calls the provider bills per call and does not put in
+   * its usage object (OpenAI's web_search_call items). Read by the meter
+   * (providerSearchCalls in src/lib/usage.ts); absent elsewhere.
+   */
+  search_calls?: number
+  /**
    * URLs the answer's text carried that its searches never returned, dropped
    * from `citations` (the Claude Code lane, whose answer is plain text). A
    * count; absent where the engine's citations are structured.

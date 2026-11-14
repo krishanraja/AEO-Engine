@@ -391,7 +391,7 @@ export async function main(argv: readonly string[] = process.argv.slice(2)): Pro
     const posted = await deps.cc.postUsage(rows, args.week)
     log('usage_reported', {
       rows: rows.length, calls: deps.usage.calls, tokens: deps.usage.tokens,
-      web_search_requests: deps.usage.searches,
+      web_search_requests: deps.usage.searches, provider_search_calls: deps.usage.providerSearches,
       billing_rows: deps.usage.billingAccepted, provider_calls: deps.usage.providerCalls,
       ok: posted.ok, error: posted.error,
     })

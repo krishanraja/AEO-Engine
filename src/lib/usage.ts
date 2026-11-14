@@ -62,7 +62,25 @@ export type OtherProvider = 'openai' | 'perplexity' | 'google' | 'xai'
  */
 export type BillingRow =
   | { provider: 'anthropic'; billing: 'api'; agent: string; model: string; usage: SummedUsage; calls: number; failed: number; search_calls: number }
-  | { provider: 'anthropic' | OtherProvider; billing: 'api' | 'subscription'; agent: string; model: string; input_tokens: number; output_tokens: number; calls: number; failed: number }
+  | { provider: 'anthropic' | OtherProvider; billing: 'api' | 'subscription'; agent: string; model: string; input_tokens: number; output_tokens: number; calls: number; failed: number; search_calls?: number }
+
+/**
+ * The search calls a provider bills per call beside the tokens, for one
+ * answer (audit ai-cost-6), so the meter can price them once it has a rate:
+ *
+ *   openai      each web_search_call output item (the client counts them)
+ *   xai         usage.num_sources_used (Live Search bills per source used)
+ *   google      the grounding search queries the answer ran (its fan_out)
+ *   perplexity  0: its per-request search fee is priced per call already
+ *               (content-engine PERPLEXITY_PRICES.request), and counting it
+ *               here too would charge it twice
+ */
+export function providerSearchCalls(provider: OtherProvider, answer: { usage?: unknown; search_calls?: number; fan_out?: readonly string[] }): number {
+  if (provider === 'openai') return num(answer.search_calls)
+  if (provider === 'xai') return num(((answer.usage || {}) as Record<string, unknown>).num_sources_used)
+  if (provider === 'google') return Array.isArray(answer.fan_out) ? answer.fan_out.length : 0
+  return 0
+}
 
 /** Input and output tokens out of any provider's usage object: OpenAI's Responses, Perplexity's and xAI's chat, Gemini's usageMetadata. */
 export function tokensOf(usage: unknown): { input: number; output: number } {
@@ -98,7 +116,7 @@ export class UsageMeter {
   /** Web search requests by agent and model, from usage.server_tool_use. Posted as search_calls once billing rows are. */
   private readonly searchCells = new Map<string, number>()
   /** Other providers' probe tokens by provider, agent and model (recordProvider). Posted once billing rows are. */
-  private readonly providerCells = new Map<string, { provider: OtherProvider; agent: string; model: string; input: number; output: number; calls: number; failed: number }>()
+  private readonly providerCells = new Map<string, { provider: OtherProvider; agent: string; model: string; input: number; output: number; calls: number; failed: number; searches: number }>()
   private billing = false
 
   /**
@@ -137,16 +155,17 @@ export class UsageMeter {
    * output tokens read out of its own usage shape (tokensOf), and a failure
    * counted even when it produced nothing.
    */
-  recordProvider(provider: OtherProvider, agent: string, model: string, usage: unknown, failed = false): void {
+  recordProvider(provider: OtherProvider, agent: string, model: string, usage: unknown, failed = false, searchCalls = 0): void {
     const key = `${provider}|${agent}|${model}`
     let cell = this.providerCells.get(key)
     if (!cell) {
-      cell = { provider, agent, model, input: 0, output: 0, calls: 0, failed: 0 }
+      cell = { provider, agent, model, input: 0, output: 0, calls: 0, failed: 0, searches: 0 }
       this.providerCells.set(key, cell)
     }
     const t = tokensOf(usage)
     cell.input += t.input
     cell.output += t.output
+    cell.searches += num(searchCalls)
     cell.calls += 1
     if (failed) cell.failed += 1
   }
@@ -179,7 +198,7 @@ export class UsageMeter {
     }
     for (const c of this.providerCells.values()) {
       if (c.input + c.output === 0 && c.failed === 0) continue
-      out.push({ provider: c.provider, billing: 'api', agent: c.agent, model: c.model, input_tokens: c.input, output_tokens: c.output, calls: c.calls, failed: c.failed })
+      out.push({ provider: c.provider, billing: 'api', agent: c.agent, model: c.model, input_tokens: c.input, output_tokens: c.output, calls: c.calls, failed: c.failed, ...(c.searches > 0 ? { search_calls: c.searches } : {}) })
     }
     return out
   }
@@ -187,6 +206,11 @@ export class UsageMeter {
   /** Probe calls to the other providers, tokens or not. */
   get providerCalls(): number {
     return [...this.providerCells.values()].reduce((s, c) => s + c.calls, 0)
+  }
+
+  /** Search calls the other providers billed per call (providerSearchCalls), all units. */
+  get providerSearches(): number {
+    return [...this.providerCells.values()].reduce((s, c) => s + c.searches, 0)
   }
 
   /** Web search requests the responses reported, all units. */

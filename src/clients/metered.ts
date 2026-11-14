@@ -11,7 +11,7 @@
  * fallback and whether it is exhausted are read through, so a stage cannot
  * tell the two apart.
  */
-import type { OtherProvider, UsageMeter } from '../lib/usage.js'
+import { providerSearchCalls, type OtherProvider, type UsageMeter } from '../lib/usage.js'
 import type { AskContext, EngineAnswer, EngineClient } from './types.js'
 
 export class MeteredEngine implements EngineClient {
@@ -33,7 +33,7 @@ export class MeteredEngine implements EngineClient {
       this.meter.recordProvider(this.provider, 'aeo-probe', this.inner.model, undefined, true)
       throw e
     }
-    this.meter.recordProvider(this.provider, 'aeo-probe', this.inner.model, answer.usage)
+    this.meter.recordProvider(this.provider, 'aeo-probe', this.inner.model, answer.usage, false, providerSearchCalls(this.provider, answer))
     return answer
   }
 }
