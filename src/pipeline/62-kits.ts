@@ -207,10 +207,9 @@ export function buildKits(i: KitInput): Kit[] {
   const product = i.subject.product_slug
   if (i.subject.kind !== 'venture' || !product || isHeld(i.subject, i.config)) return []
   const neverSay = i.subject.never_say ?? []
-  const owner = ownerRepoOf(product, i.config)
   const hosts = auditHosts(i.domains)
   const ourHost = i.audit.hosts[0]?.host ?? hosts[0] ?? null
-  const hostFixes: KitSiteFix[] = i.audit.hosts.flatMap(h => h.gates.filter(g => !g.pass).map(g => ({ gate: g.gate, host: h.host, url: null, fix: HOST_FIX[g.gate] ?? g.detail, owner_repo: owner })))
+  const hostFixes: KitSiteFix[] = i.audit.hosts.flatMap(h => h.gates.filter(g => !g.pass).map(g => ({ gate: g.gate, host: h.host, url: null, fix: HOST_FIX[g.gate] ?? g.detail, owner_repo: ownerRepoOf(product, i.config, h.host) })))
   const kits: Kit[] = []
   for (const q of i.queries) {
     const d = i.diagnoses.get(q.query_id)
@@ -238,7 +237,7 @@ export function buildKits(i: KitInput): Kit[] {
 
     const page = target.kind === 'update_page' ? i.audit.pages.find(p => p.url === target.url) ?? null : null
     const site_fixes = [
-      ...(page ? pageFixes(page).map(f => ({ gate: f.gate, host: target.host, url: page.url, fix: f.fix, owner_repo: owner })) : []),
+      ...(page ? pageFixes(page).map(f => ({ gate: f.gate, host: target.host, url: page.url, fix: f.fix, owner_repo: ownerRepoOf(product, i.config, target.host) })) : []),
       ...hostFixes,
     ].slice(0, SITE_FIXES_MAX)
 

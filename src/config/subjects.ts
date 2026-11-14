@@ -9,6 +9,12 @@
  *                `subject.engine_held` in the context, which wins when present.
  *   owner_repos  the repository that ships each product's page and site
  *                fixes, named in a kit; null when unknown.
+ *   host_repos   optional: the repository that ships each host, which wins
+ *                over the product's (fleet integration I-10: a fix on
+ *                krishraja.com ships in krish-raja, not mindmake); null for a
+ *                host no repository ships (a Cloudflare or Substack site).
+ *                Keys are lowercase hosts without www. A host with no entry
+ *                falls back to the product's repository.
  *   brand_names  optional: each product's distinctive names, the interim
  *                overlay until Control Center serves subject.brand_names
  *                (brief B3); a product whose name is a common word has none.
@@ -28,18 +34,19 @@ import { PRODUCT_SLUGS } from '../schema/packet.js'
  * product whose name is a common word (ctrl, circle, pulse, full-time,
  * legibility) has none: links and domains only.
  */
-export interface SubjectsConfig { held: string[]; ownerRepos: Record<string, string | null>; brandNames?: Record<string, string[]> }
+export interface SubjectsConfig { held: string[]; ownerRepos: Record<string, string | null>; hostRepos?: Record<string, string | null>; brandNames?: Record<string, string[]> }
 
 const isProductSlug = (s: unknown): s is string => typeof s === 'string' && (PRODUCT_SLUGS as readonly string[]).includes(s)
 const REPO_RE = /^[a-z0-9][a-z0-9-]{0,38}\/[A-Za-z0-9._-]{1,100}$/
 const ABOUT_MAX = 400
+const HOST_RE = /^(?=.{1,253}$)[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/
 const isRecord = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v)
 
 /** Checks the file's shape. Pure; check:config and the loader both call it. */
 export function parseSubjectsConfig(raw: unknown): { ok: true; value: SubjectsConfig } | { ok: false; errors: string[] } {
   const errors: string[] = []
   if (!isRecord(raw)) return { ok: false, errors: ['subjects: must be an object'] }
-  for (const k of Object.keys(raw)) if (!['_about', 'held', 'owner_repos', 'brand_names'].includes(k)) errors.push(`subjects.${k}: unknown field`)
+  for (const k of Object.keys(raw)) if (!['_about', 'held', 'owner_repos', 'host_repos', 'brand_names'].includes(k)) errors.push(`subjects.${k}: unknown field`)
   const about = raw._about
   if (typeof about !== 'string' || !about.trim() || about.length > ABOUT_MAX || EM_DASH_RE.test(about)) errors.push(`subjects._about: one plain line of at most ${ABOUT_MAX} characters, no em dash`)
   const held: string[] = []
@@ -58,6 +65,17 @@ export function parseSubjectsConfig(raw: unknown): { ok: true; value: SubjectsCo
       ownerRepos[slug] = repo as string | null
     }
   } else errors.push('subjects.owner_repos: must be an object')
+  // Optional: absent means every host falls back to its product's repository.
+  const hostRepos: Record<string, string | null> = {}
+  if (raw.host_repos !== undefined) {
+    if (isRecord(raw.host_repos)) {
+      for (const [host, repo] of Object.entries(raw.host_repos)) {
+        if (!HOST_RE.test(host) || host.startsWith('www.')) { errors.push(`subjects.host_repos: "${host.slice(0, 80)}" must be a lowercase host without www`); continue }
+        if (repo !== null && !(typeof repo === 'string' && REPO_RE.test(repo))) { errors.push(`subjects.host_repos.${host}: owner/name or null`); continue }
+        hostRepos[host] = repo as string | null
+      }
+    } else errors.push('subjects.host_repos: must be an object')
+  }
   // Optional: absent means no overlay names for any product.
   const brandNames: Record<string, string[]> = {}
   if (raw.brand_names !== undefined) {
@@ -69,7 +87,7 @@ export function parseSubjectsConfig(raw: unknown): { ok: true; value: SubjectsCo
       }
     } else errors.push('subjects.brand_names: must be an object')
   }
-  return errors.length ? { ok: false, errors } : { ok: true, value: { held, ownerRepos, brandNames } }
+  return errors.length ? { ok: false, errors } : { ok: true, value: { held, ownerRepos, hostRepos, brandNames } }
 }
 
 /**
@@ -110,7 +128,26 @@ export function isHeld(subject: { product_slug?: string | null; engine_held?: un
   return !!subject.product_slug && cfg.held.includes(subject.product_slug)
 }
 
-/** The repository that ships a product's fixes, or null when unknown. */
-export function ownerRepoOf(productSlug: string | null | undefined, cfg: SubjectsConfig): string | null {
-  return productSlug ? cfg.ownerRepos[productSlug] ?? null : null
+/** A host as host_repos keys it: lowercase, no port, no leading www. */
+export function hostKey(host: string): string {
+  return host.trim().toLowerCase().replace(/:\d+$/, '').replace(/^www\./, '')
+}
+
+/**
+ * The repository that ships a fix: the host's own entry when host_repos has
+ * one (even null, a host no repository ships), else the product's, else null.
+ * `basis` says which, so a kit can say when it fell back to the product.
+ */
+export function ownerRepoFor(productSlug: string | null | undefined, cfg: SubjectsConfig, host?: string | null): { repo: string | null; basis: 'host' | 'product' | 'none' } {
+  if (host) {
+    const k = hostKey(host)
+    if (cfg.hostRepos && Object.prototype.hasOwnProperty.call(cfg.hostRepos, k)) return { repo: cfg.hostRepos[k] ?? null, basis: 'host' }
+  }
+  const repo = productSlug ? cfg.ownerRepos[productSlug] ?? null : null
+  return { repo, basis: repo ? 'product' : 'none' }
+}
+
+/** The repository that ships a fix: the host's when host_repos names it, else the product's, else null. */
+export function ownerRepoOf(productSlug: string | null | undefined, cfg: SubjectsConfig, host?: string | null): string | null {
+  return ownerRepoFor(productSlug, cfg, host).repo
 }

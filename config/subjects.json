@@ -1,6 +1,9 @@
 {
-  "_about": "Per venture, by product slug only (this file is public): held ventures, measured with no win kit or proposal (Ruling, Krish, 2026-11-13); the repository that ships each product's fixes; and distinctive names for mention checks until Control Center serves subject.brand_names (none for common words). Control Center's subject.engine_held wins when served (src/config/subjects.ts).",
-  "held": ["legibility", "full-time"],
+  "_about": "Per venture, by product slug only (this file is public): held ventures, measured with no win kit or proposal (Ruling, Krish, 2026-11-13); the repository that ships each product's fixes, and each host's where it differs (Vercel project domains, read 2026-11-14); and distinctive names for mention checks until Control Center serves subject.brand_names (none for common words).",
+  "held": [
+    "legibility",
+    "full-time"
+  ],
   "owner_repos": {
     "mindmake": "krishanraja/mindmake",
     "ctrl": "krishanraja/mindmake",
@@ -11,9 +14,30 @@
     "circle": null,
     "pulse": null
   },
+  "host_repos": {
+    "mindmake.co": "krishanraja/mindmake",
+    "themindmaker.ai": "krishanraja/mindmake",
+    "ctrl.mindmake.co": "krishanraja/mindmake-ctrl",
+    "krishraja.com": "krishanraja/krish-raja",
+    "krishraja.ai": null,
+    "makeyourmindup.ai": "krishanraja/makeyourmindup",
+    "live.themindmaker.ai": "krishanraja/makeyourmindup",
+    "home.makeyourmindup.ai": null,
+    "mindmakerlive.substack.com": null,
+    "legibility.io": "krishanraja/legibility",
+    "fulltime.fm": "krishanraja/full-time",
+    "circle.fractionl.ai": "krishanraja/fractionl-circle",
+    "pulse.fractionl.ai": "krishanraja/fractionl-pulse"
+  },
   "brand_names": {
-    "mindmake": ["Mindmake"],
-    "heartside": ["Heartside"],
-    "publication": ["makeyourmindup"]
+    "mindmake": [
+      "Mindmake"
+    ],
+    "heartside": [
+      "Heartside"
+    ],
+    "publication": [
+      "makeyourmindup"
+    ]
   }
 }

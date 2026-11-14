@@ -3047,21 +3047,21 @@
           "host": "ctrl.mindmake.co",
           "url": "https://ctrl.mindmake.co/blog/style-guide-for-an-ai-assistant",
           "fix": "Point the page's canonical at the page itself.",
-          "owner_repo": "krishanraja/mindmake"
+          "owner_repo": "krishanraja/mindmake-ctrl"
         },
         {
           "gate": "page_answer_first",
           "host": "ctrl.mindmake.co",
           "url": "https://ctrl.mindmake.co/blog/style-guide-for-an-ai-assistant",
           "fix": "Open with the answer capsule right under the H1: 40 to 60 words that answer the question as asked.",
-          "owner_repo": "krishanraja/mindmake"
+          "owner_repo": "krishanraja/mindmake-ctrl"
         },
         {
           "gate": "page_dated",
           "host": "ctrl.mindmake.co",
           "url": "https://ctrl.mindmake.co/blog/style-guide-for-an-ai-assistant",
           "fix": "Date the page: datePublished and dateModified in JSON-LD, and a visible date.",
-          "owner_repo": "krishanraja/mindmake"
+          "owner_repo": "krishanraja/mindmake-ctrl"
         },
         {
           "gate": "sitemap_present",
@@ -3344,21 +3344,21 @@
           "host": "ctrl.mindmake.co",
           "url": "https://ctrl.mindmake.co/blog/style-guide-for-an-ai-assistant",
           "fix": "Point the page's canonical at the page itself.",
-          "owner_repo": "krishanraja/mindmake"
+          "owner_repo": "krishanraja/mindmake-ctrl"
         },
         {
           "gate": "page_answer_first",
           "host": "ctrl.mindmake.co",
           "url": "https://ctrl.mindmake.co/blog/style-guide-for-an-ai-assistant",
           "fix": "Open with the answer capsule right under the H1: 40 to 60 words that answer the question as asked.",
-          "owner_repo": "krishanraja/mindmake"
+          "owner_repo": "krishanraja/mindmake-ctrl"
         },
         {
           "gate": "page_dated",
           "host": "ctrl.mindmake.co",
           "url": "https://ctrl.mindmake.co/blog/style-guide-for-an-ai-assistant",
           "fix": "Date the page: datePublished and dateModified in JSON-LD, and a visible date.",
-          "owner_repo": "krishanraja/mindmake"
+          "owner_repo": "krishanraja/mindmake-ctrl"
         },
         {
           "gate": "sitemap_present",
