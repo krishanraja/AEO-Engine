@@ -4,7 +4,7 @@
  */
 import { randomUUID } from 'node:crypto'
 import { CAPS } from '../config/run.js'
-import type { ControlCenterClient, EngineClient, FirefliesClient, ModelClient } from '../clients/types.js'
+import type { ControlCenterClient, EngineClient, TranscriptSource, ModelClient } from '../clients/types.js'
 import { CachedSite, type SiteFetcher } from '../clients/site.js'
 import { brandNamesFor, subjectsConfig, isHeld } from '../config/subjects.js'
 import type { Ledger } from '../lib/cost.js'
@@ -46,8 +46,8 @@ export interface RunDeps {
   /** Gated engines Krish ruled into the share (AEO_GEMINI_COUNTS). Absent: none, so a gated engine stays beside the packet whatever the context lists. */
   countGated?: readonly GatedEngine[]
   cc: ControlCenterClient
-  /** Null when no Fireflies key is configured; the packet then says so. */
-  fireflies: FirefliesClient | null
+  /** Null when no transcript source is connected; the packet then says so. */
+  transcripts: TranscriptSource | null
   engines: EngineClient[]
   model: ModelClient
   ledger: Ledger
@@ -446,7 +446,7 @@ export async function runAll(deps: RunDeps, opts: RunOpts): Promise<RunResult> {
   deps.usage.acceptBilling(ctx.packet_features)
   log('context_loaded', { subjects: ctx.subjects.length, selected: selected.map(s => s.slug), week_start: opts.weekStart })
   const needsCalls = selected.some(s => s.kind !== 'aspiration')
-  const gathered: Gathered = needsCalls ? await gatherTranscripts(deps.fireflies, deps.now) : { status: 'ok', transcripts: [] }
+  const gathered: Gathered = needsCalls ? await gatherTranscripts(deps.transcripts, deps.now) : { status: 'ok', transcripts: [] }
   const attribution = gathered.transcripts.length ? await classifyTranscripts(deps.model, gathered.transcripts, ctx.subjects, deps.ledger) : new Map<string, Attribution>()
   const shared: Shared = { ctx, gathered, attribution }
 

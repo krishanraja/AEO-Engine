@@ -95,7 +95,7 @@ export type SubjectKind = (typeof SUBJECT_KINDS)[number]
 export const PRODUCT_SLUGS = ['ctrl', 'circle', 'pulse', 'full-time', 'mindmake', 'heartside', 'legibility', 'publication'] as const
 export type ProductSlug = (typeof PRODUCT_SLUGS)[number]
 
-export const THEMES_STATUSES = ['ok', 'no_calls', 'no_attributed_calls', 'fireflies_unavailable', 'not_applicable'] as const
+export const THEMES_STATUSES = ['ok', 'no_calls', 'no_attributed_calls', 'transcripts_unavailable', 'not_applicable'] as const
 export type ThemesStatus = (typeof THEMES_STATUSES)[number]
 
 export const QUERY_SOURCES = ['transcript', 'gap', 'seed', 'striking_distance', 'watch_carry', 'room_signal'] as const

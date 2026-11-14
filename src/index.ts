@@ -35,7 +35,7 @@ import { AnthropicClient } from './clients/anthropic.js'
 import { ClaudeCodeEngine, type SpawnFn } from './clients/claudeCode.js'
 import { ControlCenterHttp } from './clients/controlCenter.js'
 import { GeminiClient } from './clients/gemini.js'
-import { OfflineControlCenter, OfflineEngine, OfflineFireflies, OfflineModel } from './clients/offline.js'
+import { OfflineControlCenter, OfflineEngine, OfflineTranscripts, OfflineModel } from './clients/offline.js'
 import { LiveSite, OfflineSite } from './clients/site.js'
 import { readSharedAudit } from './site.js'
 import { OpenAIClient } from './clients/openai.js'
@@ -220,7 +220,7 @@ export function buildDeps(args: CliArgs, env: NodeJS.ProcessEnv = process.env, n
     return {
       countGated: gatedInShare(env),
       cc: new OfflineControlCenter(dir),
-      fireflies: new OfflineFireflies(dir),
+      transcripts: new OfflineTranscripts(dir),
       // The packet's engines only: a gated engine (gemini) has no fixtures,
       // and the offline twin's packets must not change with a key in the shell.
       engines: resolveEngines(env).filter((e): e is Engine => !isGatedEngine(e)).map(e => new OfflineEngine(e, MODELS[e === 'chatgpt' ? 'openai' : e === 'claude' ? 'anthropic' : e === 'grok' ? 'xai' : 'perplexity'], dir)),
@@ -249,10 +249,9 @@ export function buildDeps(args: CliArgs, env: NodeJS.ProcessEnv = process.env, n
   const live = liveEngines(env, usage, choice.lane, overrides)
   return {
     cc: new ControlCenterHttp(env.CONTROL_CENTER_URL ?? '', env.AEO_ENGINE_SECRET ?? ''),
-    // Fireflies is a retired route (Control Center's tool catalog, 2026-11-13;
-    // its live client was removed 2026-11-14): no call is read, and every
-    // packet says themes_status fireflies_unavailable, never "no calls".
-    fireflies: null,
+    // No call transcript source is connected: no call is read, and every
+    // packet says themes_status transcripts_unavailable, never "no calls".
+    transcripts: null,
     engines: live.engines,
     ...(live.shadow ? { shadow: live.shadow } : {}),
     claudeLane: choice.lane,

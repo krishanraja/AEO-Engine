@@ -481,7 +481,7 @@ test('cost wall: the protocol code never imports the pipeline or a paid client',
   for (const f of ['src/protocol/cli.ts', 'src/protocol/loop.ts', 'src/protocol/reports.ts', 'src/protocol/measure.ts', 'src/protocol/state.ts']) assert.ok(files.includes(f), `${f} is scanned`)
   for (const f of files) {
     const src = readFileSync(join(ROOT, f), 'utf8')
-    for (const banned of ['pipeline/', 'anthropic', 'openai', 'perplexity', 'xai', 'fireflies', 'controlCenter.js', 'claudeCode', 'gemini']) {
+    for (const banned of ['pipeline/', 'anthropic', 'openai', 'perplexity', 'xai', 'controlCenter.js', 'claudeCode', 'gemini']) {
       assert.ok(!new RegExp(`from '[^']*${banned}`).test(src), `${f} imports ${banned}`)
     }
   }

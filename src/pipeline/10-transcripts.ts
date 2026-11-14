@@ -7,8 +7,8 @@
  * sees them and every output string is scrubbed.
  */
 import { CAPS } from '../config/run.js'
-import type { FirefliesClient, ModelClient, Transcript } from '../clients/types.js'
-import { FirefliesUnavailable } from '../clients/types.js'
+import type { TranscriptSource, ModelClient, Transcript } from '../clients/types.js'
+import { TranscriptsUnavailable } from '../clients/types.js'
 import type { Ledger } from '../lib/cost.js'
 import { errText, log } from '../lib/log.js'
 import { CLEAN, callRef, robustJson, scrubPII } from '../lib/text.js'
@@ -19,18 +19,18 @@ import { asArray, asRecord, asString } from '../clients/http.js'
 
 export interface Gathered { status: 'ok' | 'unavailable'; transcripts: Transcript[]; error?: string }
 
-export async function gatherTranscripts(fireflies: FirefliesClient | null, now: Date, days = CAPS.TRANSCRIPT_WINDOW_DAYS): Promise<Gathered> {
-  if (!fireflies) return { status: 'unavailable', transcripts: [], error: 'Fireflies is a retired route; no call is read' }
+export async function gatherTranscripts(source: TranscriptSource | null, now: Date, days = CAPS.TRANSCRIPT_WINDOW_DAYS): Promise<Gathered> {
+  if (!source) return { status: 'unavailable', transcripts: [], error: 'no transcript source is connected; no call is read' }
   const to = now.toISOString()
   const from = new Date(now.getTime() - days * 86_400_000).toISOString()
   try {
-    const list = await fireflies.listTranscripts(from, to)
+    const list = await source.listTranscripts(from, to)
     const transcripts: Transcript[] = []
-    for (const t of list) transcripts.push(await fireflies.getTranscript(t.id))
+    for (const t of list) transcripts.push(await source.getTranscript(t.id))
     log('transcripts_gathered', { window_from: from, window_to: to, count: transcripts.length })
     return { status: 'ok', transcripts }
   } catch (e) {
-    const msg = e instanceof FirefliesUnavailable ? e.message : `unexpected: ${errText(e)}`
+    const msg = e instanceof TranscriptsUnavailable ? e.message : `unexpected: ${errText(e)}`
     log('transcripts_unavailable', { error: msg })
     return { status: 'unavailable', transcripts: [], error: msg }
   }
@@ -112,7 +112,7 @@ export async function themesForSubject(model: ModelClient, subject: ContextSubje
   const mine = attributedTo(subject, gathered, attribution)
   const calls = { considered, attributed: mine.length }
   if (subject.kind === 'aspiration') return { themes_status: 'not_applicable', themes: [], calls }
-  if (gathered.status !== 'ok') return { themes_status: 'fireflies_unavailable', themes: [], calls: { considered: 0, attributed: 0 } }
+  if (gathered.status !== 'ok') return { themes_status: 'transcripts_unavailable', themes: [], calls: { considered: 0, attributed: 0 } }
   if (!considered) return { themes_status: 'no_calls', themes: [], calls }
   if (!mine.length) return { themes_status: 'no_attributed_calls', themes: [], calls }
 
