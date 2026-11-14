@@ -1,0 +1,60 @@
+name: Auto-merge
+
+# Our own pull requests merge themselves as soon as this repository's own
+# checks ("CI") are green (Ruling, Krish, 2026-11-14, decision 1.11:
+# own-pull-requests-only auto-merge in the six engines, the form of
+# control-center's auto-merge.yml). Red checks never merge: the branch is
+# fixed and the next green run merges it. A draft pull request is left alone.
+#
+# Only our own pull requests merge themselves: the check run must come from
+# this repository, and the pull request must have its branch here (never a
+# fork) and be opened by Krish or the Actions bot. The rule lives in
+# .github/scripts/auto-merge-pick.jq and is tested by this repository's
+# auto-merge guard test.
+#
+# A merge made with the Actions token starts no push workflow on main, so a
+# closeout note it carries folds on the next push to main.
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: auto-merge-${{ github.event.workflow_run.head_sha }}
+  cancel-in-progress: false
+
+jobs:
+  merge:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          sparse-checkout: .github/scripts
+          persist-credentials: false
+      - name: Merge the pull request whose checks are green
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+          BRANCH: ${{ github.event.workflow_run.head_branch }}
+          OWNER: ${{ github.repository_owner }}
+          CHECKS: CI
+        run: |
+          prs=$(gh pr list -R "$REPO" --head "$BRANCH" --state open \
+            --json number,headRefOid,isDraft,isCrossRepository,author,headRepositoryOwner)
+          pr=$(printf '%s' "$prs" | jq -r --arg sha "$SHA" --arg owner "$OWNER" -f .github/scripts/auto-merge-pick.jq)
+          if [ -z "$pr" ]; then echo "No open, ready pull request of ours at $SHA on $BRANCH; nothing to merge."; exit 0; fi
+          waiting=$(gh api "repos/$REPO/actions/runs?head_sha=$SHA&per_page=100" \
+            --jq "[.workflow_runs[] | select(.name == \"$CHECKS\") | select(.status != \"completed\" or .conclusion != \"success\")] | length")
+          if [ "$waiting" != "0" ]; then echo "$waiting other $CHECKS run(s) on $SHA are not green yet; the last green one merges."; exit 0; fi
+          gh pr merge "$pr" -R "$REPO" --squash --delete-branch
+          echo "Merged #$pr ($SHA) on green checks."
