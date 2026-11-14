@@ -47,7 +47,32 @@
         "ai_answers_detail": { "type": "boolean", "description": "1.26.0, a venture's engine: ai_answers.standing carries questions, kits, cited_pages, the request's digest and, for growth-mindmake, portfolio; POST answers takes mode, shipped and targets." },
         "answer_requests_v2": { "type": "boolean", "description": "1.26.0, the AI-answers specialist: each answer_requests item carries note, mode, targets and shipped." },
         "aeo_kits_delivered": { "type": "boolean", "description": "1.26.0, the AI-answers specialist: the venture engines carry AEO's win kits to Krish, so propose no kit of your own." },
-        "subscriber_sources": { "type": "boolean", "description": "growth-makeyourmindup (fleet integration I-09): the directive carries new subscribers by Substack source (subscribers)." }
+        "subscriber_sources": { "type": "boolean", "description": "growth-makeyourmindup (fleet integration I-09): the directive carries new subscribers by Substack source (subscribers)." },
+        "library": { "type": "boolean", "description": "1.35.0 (fleet integration I-25), growth-mindmake, growth-heartside, growth-legibility: the directive carries library, the folders and file titles under the folders it declares." }
+      }
+    },
+    "library": {
+      "type": "object",
+      "description": "1.35.0 (features.library, I-25): the folders and file titles under the folders this engine declares, from the daily Drive read. available false says why it is unknown; never an empty library. Ids are for the run only.",
+      "required": ["available", "complete", "as_of"],
+      "properties": {
+        "available": { "type": "boolean" },
+        "complete": { "type": "boolean" },
+        "as_of": { "type": ["string", "null"] },
+        "reason": { "type": "string" },
+        "roots": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["root", "id", "folders", "files"],
+            "properties": {
+              "root": { "type": "string" },
+              "id": { "type": "string" },
+              "folders": { "type": "array", "items": { "type": "object", "required": ["id", "folder", "trashed"], "properties": { "id": { "type": "string" }, "parent_id": { "type": ["string", "null"] }, "name": { "type": "string", "description": "The folder's own name; a name may hold a slash." }, "folder": { "type": "string" }, "link_role": { "type": ["string", "null"] }, "trashed": { "type": "boolean" } } } },
+              "files": { "type": "array", "items": { "type": "object", "required": ["folder", "title", "mime"], "properties": { "folder": { "type": "string" }, "title": { "type": "string" }, "mime": { "type": "string" }, "modified": { "type": ["string", "null"] }, "id": { "type": "string", "description": "Only inside a folder named Current." } } } }
+            }
+          }
+        }
       }
     },
     "subscribers": {

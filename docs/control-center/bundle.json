@@ -1,10 +1,10 @@
 {
-  "version": "1.33.0",
+  "version": "1.36.0",
   "files": {
-    "ENGINE-PROTOCOL.md": "d50b303fd63df76be8917dc5f8c09b90630e8d4052140b485416ba5636197db5",
-    "engine-directive.schema.json": "7c28d47fa4831f6f98c510ba2373907f522cbf9bbf8281a4f7bb66dcb1a52613",
-    "engine-report.schema.json": "70222a8fe48ae5d2068c2da403a65f6253d092f3eedd438af101a663005d3cf8",
+    "ENGINE-PROTOCOL.md": "946615ff7e8a00c31a4bd4f89f66a9efbb154d5b716aebf8f7d7eb664fdd5845",
+    "engine-directive.schema.json": "7115bed6e6216df587df58989b2a97c512b622f1ee8945049fae2e150c59e398",
+    "engine-report.schema.json": "ad3557a40677c4d37e0aa3eab3769e370e7f7acc7ffd1f5bd935a786a3c2b062",
     "engine-report.example.json": "40d1dd3005392f7f9e2907f166863327aed913363bfffc82312a66e704b498ce"
   },
-  "bundle_sha256": "4b7175a8aebbb8979eaefbeea1b7f0f44f2cffa0bbba9cea341da784fe7fde4d"
+  "bundle_sha256": "c1333d7e4b469652dbba3ed338d78953bc9432a9edc96f0095dbf8ea456193c6"
 }
