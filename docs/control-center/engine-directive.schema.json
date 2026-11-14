@@ -46,7 +46,33 @@
         "answer_requests": { "type": "boolean", "description": "1.22.0, the AI-answers specialist: answer_requests carries the venture engines' open requests, and a report may carry answers_served." },
         "ai_answers_detail": { "type": "boolean", "description": "1.26.0, a venture's engine: ai_answers.standing carries questions, kits, cited_pages, the request's digest and, for growth-mindmake, portfolio; POST answers takes mode, shipped and targets." },
         "answer_requests_v2": { "type": "boolean", "description": "1.26.0, the AI-answers specialist: each answer_requests item carries note, mode, targets and shipped." },
-        "aeo_kits_delivered": { "type": "boolean", "description": "1.26.0, the AI-answers specialist: the venture engines carry AEO's win kits to Krish, so propose no kit of your own." }
+        "aeo_kits_delivered": { "type": "boolean", "description": "1.26.0, the AI-answers specialist: the venture engines carry AEO's win kits to Krish, so propose no kit of your own." },
+        "subscriber_sources": { "type": "boolean", "description": "growth-makeyourmindup (fleet integration I-09): the directive carries new subscribers by Substack source (subscribers)." }
+      }
+    },
+    "subscribers": {
+      "type": "object",
+      "description": "growth-makeyourmindup only, with features.subscriber_sources (fleet integration I-09): new subscribers by Substack source as Control Center counts them from Substack's new-subscriber emails, for the last completed New York week and this week so far. Counts and Substack's own source labels only, never a name. Absent when unread or more than 3 days old, never 0 for unknown. No weight in the mix moves on a source's count until Krish rules.",
+      "required": ["rule", "week_of", "total", "organic", "paid", "by_source", "unclassified", "this_week_so_far", "read_on"],
+      "properties": {
+        "rule": { "type": "string" },
+        "week_of": { "type": "string", "format": "date" },
+        "total": { "type": "integer", "minimum": 0 },
+        "organic": { "type": "integer", "minimum": 0 },
+        "paid": { "type": "integer", "minimum": 0 },
+        "by_source": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
+        "unclassified": { "type": "array", "items": { "type": "string" } },
+        "this_week_so_far": {
+          "type": "object",
+          "required": ["since", "total", "organic", "by_source"],
+          "properties": {
+            "since": { "type": "string" },
+            "total": { "type": "integer", "minimum": 0 },
+            "organic": { "type": "integer", "minimum": 0 },
+            "by_source": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } }
+          }
+        },
+        "read_on": { "type": "string", "format": "date" }
       }
     },
     "ai_answers": {
