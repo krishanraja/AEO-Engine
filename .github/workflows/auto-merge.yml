@@ -12,8 +12,12 @@ name: Auto-merge
 # .github/scripts/auto-merge-pick.jq and is tested by this repository's
 # auto-merge guard test.
 #
-# A merge made with the Actions token starts no push workflow on main, so a
-# closeout note it carries folds on the next push to main.
+# A merge made with the Actions token starts no push workflow on main, so the
+# generated fold in harness-repository-context.yml never runs after it. After
+# each merge this workflow starts closeout-fold.yml on main by
+# workflow_dispatch (the one start that token may make, as control-center's
+# auto-merge.yml starts its now-cap.yml), which folds the merged closeout
+# notes into NOW.md.
 on:
   workflow_run:
     workflows: ["CI"]
@@ -22,6 +26,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  actions: write
 
 concurrency:
   group: auto-merge-${{ github.event.workflow_run.head_sha }}
@@ -58,3 +63,5 @@ jobs:
           if [ "$waiting" != "0" ]; then echo "$waiting other $CHECKS run(s) on $SHA are not green yet; the last green one merges."; exit 0; fi
           gh pr merge "$pr" -R "$REPO" --squash --delete-branch
           echo "Merged #$pr ($SHA) on green checks."
+          # The merge's push starts no workflow, so start the closeout fold by hand.
+          gh workflow run closeout-fold.yml -R "$REPO" --ref main || echo "::warning::the closeout fold was not started."
