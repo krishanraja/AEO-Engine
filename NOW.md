@@ -26,6 +26,7 @@ Krish reads the digest on Monday and acts the same week. The packet answers, per
 
 <!-- north-star-state {"week_of":"2026-11-16","week_target":1,"current":1,"current_as_of":"2026-11-14","current_source":"AEO-Engine's research as Control Center holds it (growth_geo_probes and growth_aeo_subjects): questions where a product of ours is the first citation, over the questions asked in the newest research fortnight; a question not asked stays unknown, never lost (Ruling, Krish, 2026-11-12), read by Control Center","urgency":1,"urgency_reason":"at 100% of this week's target"} --> **North Star number: U1, on pace.** Share of tracked buyer questions where Mindmake or one of its products is the first citation: 1%, against 1% this week, on the way to 50% by 25 January 2027. Steady, and one proposal a week that would raise the ceiling.
 
+- our own pull requests (Krish or the Actions bot, branch in this repository, ready, at the commit that passed) now merge themselves when every "CI" run on that commit is green (.github/workflows/auto-merge.yml, rule .github/scripts/auto-merge-pick.jq, tested). Forks, drafts and strangers wait for a person. (2026-11-14)
 - docs/control-center/ is Control Center's protocol bundle 1.33.0 (bundle_sha256 4b7175a8...), copied byte for byte with bundle.json; tests/bundle.test.ts checks every file, and every report test passes against the 1.33.0 schemas. (2026-11-14)
 - The inert Fireflies client is removed (src/clients/fireflies.ts, its import and its test): Fireflies is a retired route, the research workflow has passed no key since 13 November, and no code reads FIREFLIES_API_KEY now, so every packet says themes_status fireflies_unavailable as before; the transcript stage and its offline fixtures stay for a future call source (fleet audit ai-retired-11, AEO's half). (2026-11-14)
 - docs/control-center/ is Control Center's protocol bundle 1.28.0, copied byte for byte with bundle.json (bundle_sha256 b0dfa0d7...), each file checked against its sha256 by tests/bundle.test.ts, and every daily, research and verify report carries one counted line, protocol_copy: current, behind <version> or unknown, from capabilities' protocol_bundle; behind is never a hold (fleet integration I-11). (2026-11-14)
@@ -67,7 +68,7 @@ Krish reads the digest on Monday and acts the same week. The packet answers, per
 
 ## What is next and what is waiting on Krish
 
-- Next (2026-11-14): The first daily report after the merge should say protocol_copy: current.
+- Next (2026-11-14): watch the first pull request after this one merge itself on green.
 - Waiting on Krish: a target for `queries_cited_first` (`docs/GET-GOING.md`, Step 3); and whether Grok should be asked too, which needs `XAI_API_KEY` set (the live runs ask three assistants).
 - North Star check (2026-11-14): holds.
 
