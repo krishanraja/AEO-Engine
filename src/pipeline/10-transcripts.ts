@@ -107,12 +107,15 @@ function attributedTo(subject: ContextSubject, gathered: Gathered, attribution: 
   })
 }
 
+/** What a subject's packet carries when no call source is connected or it failed: what every live run sends today. */
+export const NO_TRANSCRIPTS: Readonly<ThemesResult> = Object.freeze({ themes_status: 'transcripts_unavailable', themes: [], calls: { considered: 0, attributed: 0 } })
+
 export async function themesForSubject(model: ModelClient, subject: ContextSubject, gathered: Gathered, attribution: Map<string, Attribution>, ledger: Ledger): Promise<ThemesResult> {
   const considered = gathered.status === 'ok' ? gathered.transcripts.length : 0
   const mine = attributedTo(subject, gathered, attribution)
   const calls = { considered, attributed: mine.length }
   if (subject.kind === 'aspiration') return { themes_status: 'not_applicable', themes: [], calls }
-  if (gathered.status !== 'ok') return { themes_status: 'transcripts_unavailable', themes: [], calls: { considered: 0, attributed: 0 } }
+  if (gathered.status !== 'ok') return { ...NO_TRANSCRIPTS, themes: [], calls: { ...NO_TRANSCRIPTS.calls } }
   if (!considered) return { themes_status: 'no_calls', themes: [], calls }
   if (!mine.length) return { themes_status: 'no_attributed_calls', themes: [], calls }
 

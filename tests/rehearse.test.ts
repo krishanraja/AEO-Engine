@@ -70,3 +70,21 @@ test('--rehearse implies --dry and is refused for a verify run', () => {
   assert.equal(a.dry, true)
   assert.throws(() => parseArgs(['--rehearse', '--mode', 'verify', '--verify-payload', 'x.json']), /--rehearse is for a research run/)
 })
+
+test('the free rehearsal also sends the shape the live run sends with no call source: transcripts_unavailable, no themes, no calls', async () => {
+  const { liveRunPacket } = await import('../src/lib/rehearse.js')
+  const { NO_TRANSCRIPTS } = await import('../src/pipeline/10-transcripts.js')
+  const { validatePacket } = await import('../src/schema/packet.js')
+  const base = structuredClone(readJson('expected/packet.ctrl.json')) as AeoPacket
+  assert.equal(base.themes_status, 'ok', 'the pinned fixture reads calls, so it never carries the live value')
+  const live = liveRunPacket(base)
+  assert.equal(live.themes_status, 'transcripts_unavailable')
+  assert.equal(live.themes_status, NO_TRANSCRIPTS.themes_status)
+  assert.deepEqual(live.themes, NO_TRANSCRIPTS.themes)
+  assert.deepEqual(live.calls, NO_TRANSCRIPTS.calls)
+  const v = validatePacket(live)
+  assert.equal(v.ok, true, JSON.stringify(v.ok ? [] : v.errors))
+  assert.equal(base.themes_status, 'ok', 'the fixture itself is left untouched')
+  const { readFileSync } = await import('node:fs')
+  assert.match(readFileSync(new URL('../scripts/rehearse-ingest.mts', import.meta.url), 'utf8'), /liveRunPacket/)
+})

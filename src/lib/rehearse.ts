@@ -19,6 +19,7 @@ import { createHash } from 'node:crypto'
 import type { AeoPacket } from '../schema/packet.js'
 import type { ControlCenterClient } from '../clients/types.js'
 import { HttpError } from '../clients/http.js'
+import { NO_TRANSCRIPTS } from '../pipeline/10-transcripts.js'
 
 const REHEARSAL_KEY = 'aeo-engine:rehearsal:never-a-subject'
 
@@ -56,4 +57,15 @@ export async function rehearseIngest(cc: Pick<ControlCenterClient, 'postIngest'>
     if (e instanceof HttpError) return { verdict: 'unexpected', status: e.status, detail: e.message.slice(0, 200) }
     return { verdict: 'unexpected', status: 0, detail: String((e as Error)?.message ?? e).slice(0, 200) }
   }
+}
+
+/**
+ * A pinned packet as the live research run sends it while no call source is
+ * connected (src/pipeline/10-transcripts.ts, NO_TRANSCRIPTS): the free
+ * rehearsal's fixtures read calls, so without this it never sends the
+ * themes_status that every live packet carries. The paid rehearsal of 14
+ * November found production rejecting the old value, fireflies_unavailable.
+ */
+export function liveRunPacket(packet: AeoPacket): AeoPacket {
+  return { ...structuredClone(packet), themes_status: NO_TRANSCRIPTS.themes_status, themes: [], calls: { ...NO_TRANSCRIPTS.calls } }
 }
