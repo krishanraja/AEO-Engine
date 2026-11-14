@@ -26,6 +26,7 @@ Krish reads the digest on Monday and acts the same week. The packet answers, per
 
 <!-- north-star-state {"week_of":"2026-11-16","week_target":1,"current":1,"current_as_of":"2026-11-14","current_source":"AEO-Engine's research as Control Center holds it (growth_geo_probes and growth_aeo_subjects): questions where a product of ours is the first citation, over the questions asked in the newest research fortnight; a question not asked stays unknown, never lost (Ruling, Krish, 2026-11-12), read by Control Center","urgency":1,"urgency_reason":"at 100% of this week's target"} --> **North Star number: U1, on pace.** Share of tracked buyer questions where Mindmake or one of its products is the first citation: 1%, against 1% this week, on the way to 50% by 25 January 2027. Steady, and one proposal a week that would raise the ceiling.
 
+- Every workflow reads Control Center's URL from the repository variable only, and check:config refuses a workflow that reads the secret of that name again (audit seams-12); the test fixtures name Krish's real LinkedIn profile, /in/krish-raja, whose citations the content-engine list must count (audit krish-raja-3, its fix handed to content-engine). (2026-11-14)
 - The meter's billing rows for ChatGPT, Grok and Gemini probes now carry the search calls each provider bills per call (OpenAI web_search_call items, xAI sources used, Gemini grounding queries) as search_calls; Perplexity's request fee stays priced per call at the meter (audit ai-cost-6 and content-engine-3, AEO side). (2026-11-14)
 - Before the 22 November run, production's ingest is proven to accept every new packet field with no row written (AEO rehearsal workflow, 14 November: 12 of 12 features listed, the full-feature and v1 fixtures accepted, zero rows read back), the protocol copy is re-pinned to Control Center's 1.26.0 with its full schemas, and the 22 November run will ask Heartside's 25 requested questions word for word plus 5 of its own, Mindmake's 1 requested question first among its 25, and Legibility's and the publication's first 25 from their names and domains alone (no seed topics, ICP line, touchpoints or requests yet). (2026-11-14)
 - Gemini enters the packet, and so the share, only when Control Center lists engine_gemini AND the repository variable AEO_GEMINI_COUNTS is true; production already lists engine_gemini, so until Krish rules, a Gemini key adds a measured-beside reading in the sealed summary and never moves the North Star (audit aeo-8). (2026-11-14)
@@ -59,7 +60,7 @@ Krish reads the digest on Monday and acts the same week. The packet answers, per
 
 ## What is next and what is waiting on Krish
 
-- Next (2026-11-14): content-engine prices those rows (gpt-5, grok-4, gemini-3.6-flash tokens and search fees) in _prices.ts; then read 22 November's meter_daily against the ledger's spent_usd.
+- Next (2026-11-14): Krish deletes the repository secret CONTROL_CENTER_URL, which nothing reads now.
 - Waiting on Krish: a target for `queries_cited_first` (`docs/GET-GOING.md`, Step 3); and whether Grok should be asked too, which needs `XAI_API_KEY` set (the live runs ask three assistants).
 - North Star check (2026-11-14): holds.
 
