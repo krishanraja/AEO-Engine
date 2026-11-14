@@ -26,6 +26,7 @@ Krish reads the digest on Monday and acts the same week. The packet answers, per
 
 <!-- north-star-state {"week_of":"2026-11-16","week_target":1,"current":1,"current_as_of":"2026-11-14","current_source":"AEO-Engine's research as Control Center holds it (growth_geo_probes and growth_aeo_subjects): questions where a product of ours is the first citation, over the questions asked in the newest research fortnight; a question not asked stays unknown, never lost (Ruling, Krish, 2026-11-12), read by Control Center","urgency":1,"urgency_reason":"at 100% of this week's target"} --> **North Star number: U1, on pace.** Share of tracked buyer questions where Mindmake or one of its products is the first citation: 1%, against 1% this week, on the way to 50% by 25 January 2027. Steady, and one proposal a week that would raise the ceiling.
 
+- The inert Fireflies client is removed (src/clients/fireflies.ts, its import and its test): Fireflies is a retired route, the research workflow has passed no key since 13 November, and no code reads FIREFLIES_API_KEY now, so every packet says themes_status fireflies_unavailable as before; the transcript stage and its offline fixtures stay for a future call source (fleet audit ai-retired-11, AEO's half). (2026-11-14)
 - docs/control-center/ is Control Center's protocol bundle 1.28.0, copied byte for byte with bundle.json (bundle_sha256 b0dfa0d7...), each file checked against its sha256 by tests/bundle.test.ts, and every daily, research and verify report carries one counted line, protocol_copy: current, behind <version> or unknown, from capabilities' protocol_bundle; behind is never a hold (fleet integration I-11). (2026-11-14)
 - Each kit's site fix names the repository that ships its host, read from config/subjects.json host_repos (Vercel project domains, 14 November): krishraja.com ships in krish-raja, ctrl.mindmake.co in mindmake-ctrl (it named mindmake before), Cloudflare and Substack hosts in none, and a host with no entry in its product's repository (fleet integration I-10, AEO's half). The packet field is the existing kits[].site_fixes[].owner_repo, so the contract is unchanged. (2026-11-14)
 - Every workflow reads Control Center's URL from the repository variable only, and check:config refuses a workflow that reads the secret of that name again (audit seams-12); the test fixtures name Krish's real LinkedIn profile, /in/krish-raja, whose citations the content-engine list must count (audit krish-raja-3, its fix handed to content-engine). (2026-11-14)
@@ -64,7 +65,7 @@ Krish reads the digest on Monday and acts the same week. The packet answers, per
 
 ## What is next and what is waiting on Krish
 
-- Next (2026-11-14): Read the first daily report's protocol_copy line after this merges; it should say current.
+- Next (2026-11-14): Krish deletes the repository secret FIREFLIES_API_KEY if it is still set; nothing reads it.
 - Waiting on Krish: a target for `queries_cited_first` (`docs/GET-GOING.md`, Step 3); and whether Grok should be asked too, which needs `XAI_API_KEY` set (the live runs ask three assistants).
 - North Star check (2026-11-14): holds.
 
