@@ -41,7 +41,7 @@ import { PerplexityClient } from './clients/perplexity.js'
 import type { EngineClient, ModelClient } from './clients/types.js'
 import { XaiClient } from './clients/xai.js'
 import { costKindOf } from './pipeline/40-probe.js'
-import { inPacket, isGatedEngine, type Engine } from './schema/packet.js'
+import { inPacket, isGatedEngine, type Engine, type GatedEngine } from './schema/packet.js'
 import { Ledger } from './lib/cost.js'
 import { errText, log } from './lib/log.js'
 import { UsageMeter } from './lib/usage.js'
@@ -175,6 +175,11 @@ function liveEngines(env: NodeJS.ProcessEnv, usage: UsageMeter, lane: ClaudeLane
   return { engines, ...(shadow ? { shadow } : {}) }
 }
 
+/** The gated engines Krish ruled into the share: the repository variable AEO_GEMINI_COUNTS=true, or none (audit aeo-8). */
+export function gatedInShare(env: NodeJS.ProcessEnv): GatedEngine[] {
+  return String(env.AEO_GEMINI_COUNTS ?? '').trim().toLowerCase() === 'true' ? ['gemini'] : []
+}
+
 export function buildDeps(args: CliArgs, env: NodeJS.ProcessEnv = process.env, now = new Date(), overrides: DepsOverrides = {}): RunDeps {
   const ledger = new Ledger(args.capUsd)
   // The Anthropic clients feed it their usage objects. Perplexity, OpenAI, xAI
@@ -187,6 +192,7 @@ export function buildDeps(args: CliArgs, env: NodeJS.ProcessEnv = process.env, n
   if (args.offline) {
     const dir = args.fixtures
     return {
+      countGated: gatedInShare(env),
       cc: new OfflineControlCenter(dir),
       fireflies: new OfflineFireflies(dir),
       // The packet's engines only: a gated engine (gemini) has no fixtures,
@@ -221,6 +227,10 @@ export function buildDeps(args: CliArgs, env: NodeJS.ProcessEnv = process.env, n
     engines: live.engines,
     ...(live.shadow ? { shadow: live.shadow } : {}),
     claudeLane: choice.lane,
+    // Gemini counts in the share only on Krish's ruling, set as the
+    // repository variable AEO_GEMINI_COUNTS=true; until then its answers are
+    // measured beside the packets even when the context lists engine_gemini.
+    countGated: gatedInShare(env),
     model,
     // Fetch only: GET, no script run, an honest User-Agent, a budget per host (src/clients/site.ts).
     site: retry ? null : new LiveSite(),

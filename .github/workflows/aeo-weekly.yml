@@ -366,6 +366,10 @@ jobs:
           # Optional: Gemini as a fourth engine inside its free tier, measured
           # beside the packets until Control Center opens it. Unset: no Gemini.
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # Gemini counts in the share only on Krish's ruling: true here.
+          # Unset: measured beside the packets even once Control Center
+          # lists engine_gemini (audit aeo-8).
+          AEO_GEMINI_COUNTS: ${{ vars.AEO_GEMINI_COUNTS }}
           # code, api, compare or code_then_api (README). Empty: compare for the
           # run of 22 November, code from the research week of 23 November.
           AEO_CLAUDE_LANE: ${{ vars.AEO_CLAUDE_LANE }}

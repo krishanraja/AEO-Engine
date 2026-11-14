@@ -67,7 +67,7 @@ export function verifyShare(amountUsd: number, mine: number, found: number): num
 
 async function verifySubject(subject: ContextSubject, questions: ProposedQuery[], ctx: AeoContext, deps: RunDeps, opts: RunOpts, payload: VerifyPayload): Promise<{ packet: AeoPacket; post: boolean; result: Omit<SubjectResult, 'shipped' | 'slug' | 'packet'> }> {
   const ctxDomains = krishHitsDomains(ctx, subject)
-  const open = openGatedEngines(ctx.packet_features)
+  const open = openGatedEngines(ctx.packet_features).filter(e => (deps.countGated ?? []).includes(e))
   const features = packetFeatures(ctx.packet_features)
   // Only the packet's engines are asked: a gated engine's answers would never count, and its asks would spend the amount.
   const asking = deps.engines.filter(e => inPacket(e.engine, open))
