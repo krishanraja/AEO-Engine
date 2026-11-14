@@ -339,6 +339,7 @@ export function kitCandidate(k: Kit): KitCandidate {
     // What shipping it changes: the page, else the host the new page goes on;
     // off site there is no page of ours, so the kit names itself, never a third party's host.
     reference: (k.target.url ?? (k.target.kind === 'off_site_only' ? k.kit_id : k.target.host) ?? '').slice(0, 500),
+    question: k.question.slice(0, 300),
   }
 }
 
