@@ -124,7 +124,6 @@ Set as repository secrets (never in a file):
 
 | Name | One line |
 |---|---|
-| `CONTROL_CENTER_URL` | Base URL of Control Center, for the context read, the ingest and the command patch. |
 | `AEO_ENGINE_SECRET` | Bearer token Control Center expects on every packet call; also the key material that seals the per-job summaries. |
 | `CONTROL_CENTER_ENGINE_TOKEN` | This engine's own growth engine protocol bearer (`gen1_`), for attempts, the directive, reports and decisions only. |
 | `FIREFLIES_API_KEY` | Retired route (2026-11-13): the research workflow no longer passes it, so packets say `themes_status: fireflies_unavailable`. The code still reads it on a local run where it is set. |
@@ -136,7 +135,7 @@ Set as repository secrets (never in a file):
 | `GEMINI_API_KEY` | Optional, new on 2026-11-13. When set, Gemini is asked inside its free tier, gated out of the packet (above). Sent in a header, never in a URL. |
 | `EXA_API_KEY` | Reserved for a search fallback; not read yet. |
 
-Repository variables: `AEO_MAX_USD_PER_RUN`, the spend ceiling on estimates per run; `CONTROL_CENTER_URL`, the same base URL, which the protocol steps read; `AEO_CLAUDE_LANE`, the Claude lane (above), empty for the dated default.
+Repository variables: `AEO_MAX_USD_PER_RUN`, the spend ceiling on estimates per run; `CONTROL_CENTER_URL`, the base URL of Control Center, the one home of that URL since 2026-11-14 (audit seams-12): every workflow reads it for the context read, the ingest, the command patch and the protocol steps, Control Center forwarding `/api/aeo/*` to content-engine; the secret of the same name is no longer read and is Krish's to delete; `AEO_CLAUDE_LANE`, the Claude lane (above), empty for the dated default.
 
 ## Layout
 

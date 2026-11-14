@@ -35,6 +35,6 @@ jobs:
       - run: npm ci
       - name: Rehearse the ingest against production
         env:
-          CONTROL_CENTER_URL: ${{ secrets.CONTROL_CENTER_URL }}
+          CONTROL_CENTER_URL: ${{ vars.CONTROL_CENTER_URL }}
           AEO_ENGINE_SECRET: ${{ secrets.AEO_ENGINE_SECRET }}
         run: npm run --silent rehearse

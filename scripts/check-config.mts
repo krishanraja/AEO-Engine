@@ -148,6 +148,13 @@ try {
   failures.push(`${directiveWorkflow} is missing`)
 }
 
+// One home for Control Center's URL (audit seams-12): the repository
+// variable. A workflow that reads a secret of that name again has two homes
+// for one URL, which drift without anyone noticing.
+for (const wfFile of readdirSync('.github/workflows').filter(f => f.endsWith('.yml'))) {
+  if (readFileSync(`.github/workflows/${wfFile}`, 'utf8').includes('secrets.CONTROL_CENTER_URL')) failures.push(`.github/workflows/${wfFile} reads secrets.CONTROL_CENTER_URL; the URL lives only in vars.CONTROL_CENTER_URL`)
+}
+
 // The free rehearsal holds no paid key and never starts the research CLI:
 // it reads the context and validates fixture packets, nothing more.
 const rehearsalWorkflow = '.github/workflows/aeo-rehearsal.yml'

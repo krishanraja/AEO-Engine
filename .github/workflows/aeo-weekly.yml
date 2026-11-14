@@ -239,7 +239,7 @@ jobs:
         if: ${{ steps.run.outputs.skip != 'true' }}
         shell: bash
         env:
-          CONTROL_CENTER_URL: ${{ secrets.CONTROL_CENTER_URL }}
+          CONTROL_CENTER_URL: ${{ vars.CONTROL_CENTER_URL }}
           AEO_ENGINE_SECRET: ${{ secrets.AEO_ENGINE_SECRET }}
           AEO_MAX_USD_PER_RUN: ${{ vars.AEO_MAX_USD_PER_RUN }}
           ASKED: ${{ steps.guard.outputs.asked }}
@@ -304,7 +304,7 @@ jobs:
       - name: Read our own sites, once for the run
         continue-on-error: true
         env:
-          CONTROL_CENTER_URL: ${{ secrets.CONTROL_CENTER_URL }}
+          CONTROL_CENTER_URL: ${{ vars.CONTROL_CENTER_URL }}
           AEO_ENGINE_SECRET: ${{ secrets.AEO_ENGINE_SECRET }}
           SUBJECTS: ${{ needs.plan.outputs.subjects }}
         run: npm run --silent site -- --subjects "$SUBJECTS" --out site/audit.json
@@ -370,7 +370,7 @@ jobs:
       # is what sends the failure email.
       - name: Research this subject
         env:
-          CONTROL_CENTER_URL: ${{ secrets.CONTROL_CENTER_URL }}
+          CONTROL_CENTER_URL: ${{ vars.CONTROL_CENTER_URL }}
           AEO_ENGINE_SECRET: ${{ secrets.AEO_ENGINE_SECRET }}
           # No Fireflies key: Control Center's tool catalog lists Fireflies as
           # a retired route (2026-11-13), so the run reads no calls and every
