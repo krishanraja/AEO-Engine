@@ -9,7 +9,7 @@ import { join } from 'node:path'
 import { CAPS, DEFAULT_MAX_USD_PER_RUN, ENGINES, HARD_MAX_USD_PER_RUN, PRICE_USD_PER_CALL, resolveEngines, SUBSCRIPTION_KINDS, type CostKind } from '../src/config/run.js'
 import { parseOwnDomains } from '../src/config/ownDomains.js'
 import { parseSubjectsConfig } from '../src/config/subjects.js'
-import { SITE_FETCH, SITE_USER_AGENT } from '../src/clients/site.js'
+import { PAGE_ACCEPT, SITE_FETCH, SITE_USER_AGENT } from '../src/clients/site.js'
 import { CHILD_ENV_KEYS, childEnv } from '../src/clients/claudeCode.js'
 import { ENGINES_ALL, GATED_ENGINES } from '../src/schema/packet.js'
 import { VERIFY_HARD_MAX_USD } from '../src/schema/verify.js'
@@ -105,6 +105,8 @@ if (SITE_FETCH.minGapMs < 1000) failures.push('SITE_FETCH.minGapMs must keep req
 if (SITE_FETCH.maxHops > 3) failures.push('SITE_FETCH.maxHops may not exceed 3')
 if (CAPS.THIRD_PARTY_MAX_PAGES_PER_SUBJECT > 15 || CAPS.THIRD_PARTY_MAX_PAGES_PER_HOST > 3) failures.push('third-party pages: at most 15 a subject and 3 a host')
 if (!/^AEO-Engine\/\d+\.\d+ \(\+https:\/\/github\.com\/krishanraja\/AEO-Engine; fetch-only audit\)$/.test(SITE_USER_AGENT) || /bot|mozilla|chrome|safari|gecko/i.test(SITE_USER_AGENT)) failures.push('SITE_USER_AGENT must name this engine honestly, never a crawler or a browser')
+// A page read asks for HTML only: every page fact is read from HTML, and a server that negotiates answers Markdown or plain text when the header lists them (BUILD-LOG, 2026-11-15).
+if (!/^text\/html\b/.test(PAGE_ACCEPT) || /markdown|text\/plain|json|\*\//i.test(PAGE_ACCEPT)) failures.push('PAGE_ACCEPT must ask for HTML only: never Markdown, plain text, JSON or a wildcard')
 const httpSrc = readFileSync('src/clients/http.ts', 'utf8')
 const requestTextSrc = httpSrc.slice(httpSrc.indexOf('export async function requestText'), httpSrc.indexOf('/** Throws HttpError unless'))
 if (!/redirect: 'manual'/.test(requestTextSrc)) failures.push('src/clients/http.ts requestText must fetch with redirect: manual')

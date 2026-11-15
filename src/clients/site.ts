@@ -13,6 +13,11 @@
  * - Text only (HTML, XML, plain, Markdown, JSON). A path that names a script,
  *   a stylesheet, an image, a font or a file is never requested, and a
  *   response of another type is refused unread.
+ * - A page read (`html`) asks for HTML only and takes only HTML. Some servers
+ *   answer an Accept header that lists Markdown or plain text with that form,
+ *   and every page fact is read from HTML, so a page answered any other way
+ *   is refused unread rather than misread (BUILD-LOG, 2026-11-15). robots.txt
+ *   and sitemaps are read without it.
  * - A body cap (SITE_MAX_BYTES) and a deadline (SITE_TIMEOUT_MS).
  * - Per host: at most SITE_MAX_REQUESTS_PER_HOST requests in a process, at
  *   least SITE_MIN_GAP_MS apart, each one counted; a host that fails
@@ -37,7 +42,7 @@
 import { CAPS } from '../config/run.js'
 import { sha8 } from '../lib/text.js'
 import { normaliseUrl } from '../lib/urls.js'
-import { asArray, asRecord, asString, isTextType, requestText } from './http.js'
+import { asArray, asRecord, asString, isHtmlType, isTextType, requestText } from './http.js'
 import { readFixture } from './offline.js'
 import { MissingFixture } from './types.js'
 
@@ -57,6 +62,9 @@ export const SITE_FETCH = {
 } as const
 
 const ACCEPT = 'text/html,application/xhtml+xml,application/xml;q=0.9,text/plain;q=0.8,text/markdown;q=0.8,application/json;q=0.7'
+
+/** What a page read asks for: HTML only, never Markdown or plain text (check:config holds it). */
+export const PAGE_ACCEPT = 'text/html,application/xhtml+xml;q=0.9'
 
 /** A path this reader never requests: scripts, styles, images, fonts, media and files. */
 export const ASSET_PATH = /\.(js|mjs|cjs|css|map|png|jpe?g|gif|webp|avif|svg|ico|bmp|tiff?|woff2?|ttf|otf|eot|mp4|webm|mov|m4a|mp3|wav|ogg|pdf|zip|gz|tgz|rar|7z|dmg|exe|wasm|json\.gz)$/i
@@ -78,7 +86,16 @@ export interface SiteStats { requests: number; refused: number; errors: number; 
  * robots.txt again for the hop's own path; false refuses the hop, and the
  * read comes back null.
  */
-export interface GetOptions { allowHop?: (next: URL) => Promise<boolean> }
+export interface GetOptions {
+  allowHop?: (next: URL) => Promise<boolean>
+  /**
+   * A page read: Accept asks for HTML only (PAGE_ACCEPT), and a 2xx answer of
+   * any other type is refused unread, so a page is never read from its
+   * Markdown or plain-text form. Every page read sets it; robots.txt and
+   * sitemaps do not.
+   */
+  html?: boolean
+}
 
 export interface SiteFetcher {
   /**
@@ -195,7 +212,7 @@ export class BudgetedSite implements SiteFetcher {
       if (at > now) await this.clock.sleep(at - now)
       let res: Awaited<ReturnType<Transport>>
       try {
-        res = await this.transport(current.href, { 'user-agent': SITE_USER_AGENT, accept: ACCEPT })
+        res = await this.transport(current.href, { 'user-agent': SITE_USER_AGENT, accept: o.html ? PAGE_ACCEPT : ACCEPT })
       } catch (e) {
         if (e instanceof MissingFixture) throw e
         this.errors++
@@ -214,7 +231,7 @@ export class BudgetedSite implements SiteFetcher {
         current = next
         continue
       }
-      if (!isTextType(res.headers['content-type'])) {
+      if (!(o.html ? isHtmlType : isTextType)(res.headers['content-type'])) {
         // An error page of another type still says its status; a 2xx of another type is refused unread.
         if (res.status >= 200 && res.status < 300) return this.refuse()
         return { status: res.status, headers: res.headers, text: '', url: current.href }

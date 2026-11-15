@@ -195,7 +195,7 @@ export async function auditHost(host: string, fetcher: SiteFetcher, maxPages: nu
   const allowed = (u: URL) => isAllowed(open, READER_TOKEN, pathOf(u))
 
   if (allowed(new URL(`https://${host}/`)) && maxPages > 0) {
-    const home = await fetcher.get(`https://${host}/`)
+    const home = await fetcher.get(`https://${host}/`, { html: true })
     const rec = home ? pageRecord(home) : null
     if (rec) { seen.add(stripUrl(rec.url)); seen.add(stripUrl(`https://${host}/`)); pages.push(rec) }
     gates.push(
@@ -218,7 +218,7 @@ export async function auditHost(host: string, fetcher: SiteFetcher, maxPages: nu
     try { parsed = new URL(u) } catch { continue }
     if (!allowed(parsed)) continue
     seen.add(stripUrl(u))
-    const res = await fetcher.get(u)
+    const res = await fetcher.get(u, { html: true })
     if (!res) continue
     const rec = pageRecord(res)
     if (!pages.some(p => stripUrl(p.url) === stripUrl(rec.url))) pages.push(rec)

@@ -2,6 +2,33 @@
 
 Dated entries, newest first. Each one says why it was done, what failed or would have failed without it, and the mechanism. Control Center's build-signal ingest reads this file; keep names of people, prospects and secrets out of it.
 
+## 2026-11-15: a page is read as HTML only
+
+Why: Ruling (Krish, 2026-11-15): page reads ask for HTML only, and a page
+answered only as Markdown or plain text stays unread. The reader's one Accept
+header listed `text/plain` and `text/markdown` at q=0.8, and sites that
+negotiate on it answered with those forms. The extractor (`src/lib/html.ts`)
+reads HTML, so it found no H1 or H2, or the wrong ones, and other word counts:
+3 of 13 neutral public pages in the comparison below answered so.
+
+Failure it prevents: a page cited first described wrongly in its features and
+in a kit's evidence (no H2s, not answer-first, not server rendered) when the
+page itself has them, and a mention check reading Markdown links as none. Live
+after the change (2026-11-15), the three pages came back as HTML: two matched a
+browser render's H1 and H2 counts exactly and their words within five; the
+third is the 1.1 MB page the 512 KB cap still cuts (a known limit, unchanged).
+
+Mechanism: `GetOptions.html` in `src/clients/site.ts`: a page read sends
+`PAGE_ACCEPT` (`text/html,application/xhtml+xml;q=0.9`) and takes only
+`isHtmlType` (`src/clients/http.ts`); any other 2xx answer is refused unread
+and counted. Every page read sets it: the home page and audited pages in
+`src/pipeline/15-site.ts`, and `getPolitely` in `src/pipeline/45-pages.ts`,
+which the pages-cited-first read and the mention check share. robots.txt and
+sitemaps keep the wider header. `check:config` holds `PAGE_ACCEPT` to HTML
+only. `tests/page-accept.test.ts` runs a server that negotiates as those sites
+did, reproduces the misread under the wide header, and proves each page read
+asks for HTML; reverting the call sites or the type check fails it.
+
 ## 2026-11-15: Camoufox weighed as a browser adapter for the site reader, and refused
 
 Why: the question was whether Camoufox (the public project jo-inc/camoufox-browser,
