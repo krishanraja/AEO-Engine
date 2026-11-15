@@ -26,6 +26,7 @@ Krish reads the digest on Monday and acts the same week. The packet answers, per
 
 <!-- north-star-state {"week_of":"2026-11-16","week_target":1,"current":1,"current_as_of":"2026-11-14","current_source":"AEO-Engine's research as Control Center holds it (growth_geo_probes and growth_aeo_subjects): questions where a product of ours is the first citation, over the questions asked in the newest research fortnight; a question not asked stays unknown, never lost (Ruling, Krish, 2026-11-12), read by Control Center","urgency":1,"urgency_reason":"at 100% of this week's target"} --> **North Star number: U1, on pace.** Share of tracked buyer questions where Mindmake or one of its products is the first citation: 1%, against 1% this week, on the way to 50% by 25 January 2027. Steady, and one proposal a week that would raise the ceiling.
 
+- every page read (our home page and audited pages, the pages cited first, the mention check) asks for HTML only and refuses any other answer unread, so a page a server answers as Markdown or plain text is no longer misread by the HTML extractor (Ruling, Krish, 2026-11-15); robots.txt and sitemaps keep the wider header, and check:config holds the page header to HTML only. (2026-11-15)
 - Camoufox was weighed as a browser adapter for the site reader and refused after a bounded comparison with a real-browser render (BUILD-LOG, 2026-11-15); check:config now refuses Camoufox and its wrappers, which its browser guard had let through, and STATE's known limits name two misreads the comparison found in the fetch reader (Markdown answers to its Accept header, and the 512 KB cap). (2026-11-15)
 - the branch sweep takes an approved list (branch@sha) on a hand run and deletes each named branch only at that exact commit, skipping and logging anything else; the weekly run is unchanged. Copied from ai-harness's canonical script and workflow. (2026-11-15)
 - A weekly branch sweep (`.github/workflows/branch-sweep.yml`, Sunday 03:17 UTC, and by hand) deletes every remote branch whose work is already on main and lists each branch it keeps with why: unmerged work, an open pull request, protected (Ruling, Krish, 2026-11-15). The script is `.github/scripts/branch_sweep.py`, copied unchanged from ai-harness, which holds the canonical copy. (2026-11-15)
@@ -58,6 +59,7 @@ Krish reads the digest on Monday and acts the same week. The packet answers, per
 
 ## What changed recently
 
+- 2026-11-15 3 of 13 public pages in the 15 November comparison answered the old header with Markdown or plain text and were misread; asked for HTML, two matched a browser render's headings exactly, and the third is cut by the 512 KB cap, still a known limit.
 - 2026-11-15 a real-browser read changed the engine's fields on 2 of 13 readable pages, both already flagged as script-filled, and the 3 other differences were the fetch reader's own Accept header and size cap; Camoufox's added value, passing bot checks, is out of bounds.
 - 2026-11-14 2026-11-14 The research run has a cap of 30 USD, the top of Krish's 25 to 30, priced at raised estimates and shared with its retry.
 - 2026-11-14 2026-11-14 themes_status fireflies_unavailable is now transcripts_unavailable, matching production's ingest.
@@ -84,7 +86,7 @@ Krish reads the digest on Monday and acts the same week. The packet answers, per
 
 ## What is next and what is waiting on Krish
 
-- Next (2026-11-15): run the branch sweep by hand with the approved list (not run since #59 merged), then decide whether the site reader asks for HTML only or parses Markdown as Markdown, before the 22 November run reads pages cited first.
+- Next (2026-11-15): run the branch sweep by hand with the approved list (not run since #59 merged), then read the 22 November run's site reader counts for pages refused as non-HTML.
 - Waiting on Krish: a target for `queries_cited_first` (`docs/GET-GOING.md`, Step 3); and whether Grok should be asked too, which needs `XAI_API_KEY` set (the live runs ask three assistants).
 - North Star check (2026-11-15): holds.
 

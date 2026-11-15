@@ -1,4 +1,0 @@
-Status: every page read (our home page and audited pages, the pages cited first, the mention check) asks for HTML only and refuses any other answer unread, so a page a server answers as Markdown or plain text is no longer misread by the HTML extractor (Ruling, Krish, 2026-11-15); robots.txt and sitemaps keep the wider header, and check:config holds the page header to HTML only.
-Changed: 3 of 13 public pages in the 15 November comparison answered the old header with Markdown or plain text and were misread; asked for HTML, two matched a browser render's headings exactly, and the third is cut by the 512 KB cap, still a known limit.
-Next: run the branch sweep by hand with the approved list (not run since #59 merged), then read the 22 November run's site reader counts for pages refused as non-HTML.
-North Star check (2026-11-15): holds.
