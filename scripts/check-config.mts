@@ -83,13 +83,16 @@ try {
 // The site reader fetches and never runs a page (src/clients/site.ts): no
 // browser automation package anywhere in package.json, redirects by hand, a
 // positive budget, and an honest User-Agent that names no crawler or browser.
-const BROWSER_PACKAGES = ['playwright', 'playwright-core', '@playwright/test', 'puppeteer', 'puppeteer-core', 'jsdom', 'happy-dom', 'linkedom', 'selenium-webdriver', 'webdriverio', 'chrome-remote-interface', '@sparticuz/chromium', 'chromium', 'nightmare', 'zombie', 'phantomjs', 'phantomjs-prebuilt', 'cypress']
+// An anti-detection browser (Camoufox and its wrappers) is refused by name and
+// by pattern: its purpose is to pass bot checks a page puts in front of an
+// automated reader, which this reader never does (BUILD-LOG, 2026-11-15).
+const BROWSER_PACKAGES = ['playwright', 'playwright-core', '@playwright/test', 'puppeteer', 'puppeteer-core', 'jsdom', 'happy-dom', 'linkedom', 'selenium-webdriver', 'webdriverio', 'chrome-remote-interface', '@sparticuz/chromium', 'chromium', 'nightmare', 'zombie', 'phantomjs', 'phantomjs-prebuilt', 'cypress', 'camoufox', 'camoufox-js', 'camofox-browser', '@askjo/camofox-browser']
 try {
   const pkg = JSON.parse(readFileSync('package.json', 'utf8')) as Record<string, unknown>
   for (const field of ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies', 'bundledDependencies']) {
     const deps = pkg[field]
     const names = Array.isArray(deps) ? deps.map(String) : deps && typeof deps === 'object' ? Object.keys(deps) : []
-    for (const n of names) if (BROWSER_PACKAGES.includes(n) || /playwright|puppeteer|selenium|headless|chromium/i.test(n)) failures.push(`package.json ${field} names ${n}; the site reader fetches only and never runs a page`)
+    for (const n of names) if (BROWSER_PACKAGES.includes(n) || /playwright|puppeteer|selenium|headless|chromium|camou?fox|stealth/i.test(n)) failures.push(`package.json ${field} names ${n}; the site reader fetches only and never runs a page`)
   }
 } catch (e) {
   failures.push(`package.json could not be read: ${(e as Error).message}`)

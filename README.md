@@ -85,7 +85,7 @@ These three, and each venture's gap classes, share one report line per venture, 
 
 How this engine reads a web page, and the only way it does (`src/clients/site.ts`). During research for the diagnosis a headless browser render of the venture sites fired their tracking pixels; so:
 
-- **Fetch only.** GET only, and never a script run: no browser, no DOM, no JavaScript. `check:config` refuses a browser automation package (playwright, puppeteer, jsdom and the like) in `package.json`.
+- **Fetch only.** GET only, and never a script run: no browser, no DOM, no JavaScript. `check:config` refuses a browser automation package (playwright, puppeteer, jsdom and the like) in `package.json`, and an anti-detection browser (Camoufox and its wrappers) by name and by pattern: a render changes what is measured, and passing a site's bot checks is never this reader's job (`docs/BUILD-LOG.md`, 2026-11-15).
 - **Redirects by hand.** `redirect: 'manual'`; at most three hops, each on the registrable domain the request started on.
 - **Text only.** HTML, XML, plain text, Markdown and JSON. A path naming a script, a stylesheet, an image, a font or a file is never requested; a response of another type is refused unread. The body is cut at 512 KB; the deadline is 15 seconds.
 - **Per host:** at most 40 requests in a process, at least one second apart, each counted; a host that fails three times in a row is read no further. Each request's slot (its count and its start time) is reserved before it waits, so calls made at once to one host still go a second apart and never past the budget.

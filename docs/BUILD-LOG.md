@@ -2,6 +2,76 @@
 
 Dated entries, newest first. Each one says why it was done, what failed or would have failed without it, and the mechanism. Control Center's build-signal ingest reads this file; keep names of people, prospects and secrets out of it.
 
+## 2026-11-15: Camoufox weighed as a browser adapter for the site reader, and refused
+
+Why: the question was whether Camoufox (the public project jo-inc/camoufox-browser,
+an anti-detection browser server on a Firefox fork that spoofs its fingerprint)
+would improve the evidence this engine collects from web pages, as a replaceable
+adapter behind the site reader's `Transport` seam (`src/clients/site.ts`), never
+as a new method.
+
+What was measured (2026-11-15, one run, counts only): twenty neutral public
+pages of the kinds the engine reads (reference, vendor, listicle, news, review,
+directory, two web apps), none a venture's or a prospect's. Arm A was the
+engine's own reader and extractor, unchanged. Arm B was a real-browser render
+(headless Chromium 153 from the pre-installed Playwright, the engine's honest
+User-Agent, images, fonts, media and known analytics and ad hosts blocked) read
+through the same extractor, and it ran only where arm A was allowed by
+robots.txt and served 2xx. Camoufox itself could not be run: its launchers
+download the browser from GitHub releases, which the session's network did not
+serve. On a page that lets an honest reader in, a render is all it can add over
+this reader; what it adds beyond a plain browser is passing bot checks.
+
+- 5 of 20 pages answered the honest reader 403 (a review site, two directories,
+  a listicle, a news site), 1 closed itself with an unreadable robots.txt and 1
+  was unread. The browser arm did not run on them, by rule. These are the pages
+  Camoufox exists to reach, and reaching them means passing a check the site
+  puts in front of automated readers.
+- 13 pages were read both ways. On 8 the reads agreed (the same H1 and H2
+  counts, words within 20 percent). On 3 the difference was this reader's own:
+  each answered its Accept header, which lists text/markdown and text/plain,
+  with Markdown or plain text, which the HTML extractor misreads; asked for
+  HTML only, 2 matched the browser, and the third was a 1.1 MB page that the
+  512 KB cap cut, which read uncapped matched too. On 2 the difference was
+  script rendering (a newsletter's home page, 40 words as served and 466
+  rendered; a web app, 1 and 82), and the client-rendered heuristic flagged
+  both; it flagged 1 more (an app of 67 words both ways) that was not
+  script-filled.
+- 2 of the 13 carried outbound links only after rendering, the case the mention
+  check's known limit names (`docs/STATE.md`, "Known limits").
+- The browser's price per page, median: 2.8 seconds against 0.9, 64 requests
+  against 1, 27 image, font or tracker requests blocked, 2 third-party hosts
+  contacted; 341 MB of browser memory at peak.
+- A synthetic check on a local server: a page served whole read the same both
+  ways (329 words, a link mention); a script-filled shell read 0 words and no
+  mention as served and 329 words and a link mention rendered; a 403 challenge
+  page was not rendered.
+
+Decision: no browser adapter. The engine measures the page as served, which is
+what an assistant's own fetcher reads; a render changes that measurement rather
+than improving it, and where a page is script-filled the as-served read already
+says so. Camoufox's own value, passing bot checks, is out of bounds. Its server
+also sends crash telemetry by default to its maker's relay, which files public
+issues naming the sites that failed (other hosts hashed with a fixed, published
+key, so a list of hosts can be matched back), and it would add a browser of
+about 300 MB downloaded from GitHub releases and a native SQLite build to every
+run, with cookie import, residential proxies and search-engine macros this
+engine must never use.
+
+Failure it prevents: an anti-detection browser package entering `package.json`
+unnoticed. The browser guard in `check:config` named neither Camoufox nor its
+wrappers: `camoufox-js`, `camoufox`, `camofox-browser`,
+`@askjo/camofox-browser`, `camoufox-mcp-server` and `stealth-cli` each passed
+it (tested); it now refuses them by name and by pattern (`camou?fox`,
+`stealth`).
+
+Found on the way and not fixed here (`docs/STATE.md`, "Known limits"): the
+Markdown answer to the reader's Accept header, and the 512 KB cap on a large
+page.
+
+Mechanism: `scripts/check-config.mts` (`BROWSER_PACKAGES` and its pattern).
+The comparison harness is not in this repository, because it runs a browser.
+
 ## 2026-11-12: the one AI-answers specialist every venture's engine calls (protocol 1.22.0)
 
 Why: Ruling (Krish, 2026-11-12): "AEO-Engine becomes the one specialist that
