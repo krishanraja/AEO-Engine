@@ -26,6 +26,7 @@ Krish reads the digest on Monday and acts the same week. The packet answers, per
 
 <!-- north-star-state {"week_of":"2026-11-16","week_target":1,"current":1,"current_as_of":"2026-11-14","current_source":"AEO-Engine's research as Control Center holds it (growth_geo_probes and growth_aeo_subjects): questions where a product of ours is the first citation, over the questions asked in the newest research fortnight; a question not asked stays unknown, never lost (Ruling, Krish, 2026-11-12), read by Control Center","urgency":1,"urgency_reason":"at 100% of this week's target"} --> **North Star number: U1, on pace.** Share of tracked buyer questions where Mindmake or one of its products is the first citation: 1%, against 1% this week, on the way to 50% by 25 January 2027. Steady, and one proposal a week that would raise the ceiling.
 
+- A weekly branch sweep (`.github/workflows/branch-sweep.yml`, Sunday 03:17 UTC, and by hand) deletes every remote branch whose work is already on main and lists each branch it keeps with why: unmerged work, an open pull request, protected (Ruling, Krish, 2026-11-15). The script is `.github/scripts/branch_sweep.py`, copied unchanged from ai-harness, which holds the canonical copy. (2026-11-15)
 - One research run can never spend more than 30 USD of estimates: AEO_MAX_USD_PER_RUN (default 30 since Krish set 30 for 22 November), a dispatch's cap_usd, --cap-usd and every Ledger are clamped to HARD_MAX_USD_PER_RUN, each subject job's share is floored to the cent, a retry of a failed subject gets only what its first attempt left, and the prices are the meter's measured rates from the paid rehearsal of 14 November (Ruling, Krish, 2026-11-14). (2026-11-14)
 - Fireflies is gone from AEO-Engine: the transcript stage reads a generic TranscriptSource (none connected), and every packet says themes_status transcripts_unavailable, the value Control Center's ingest accepts since it stopped accepting fireflies_unavailable (found by the paid rehearsal of 14 November, AEO weekly run 43622644403). (2026-11-14)
 - The free AEO rehearsal now also sends the v1 packet as the live run sends it with no call source (themes_status transcripts_unavailable, no themes, no calls, from the transcript stage's own NO_TRANSCRIPTS), since both pinned fixtures read calls and carry "ok" and so never sent the value every live packet carries. (2026-11-14)
@@ -80,9 +81,9 @@ Krish reads the digest on Monday and acts the same week. The packet answers, per
 
 ## What is next and what is waiting on Krish
 
-- Next (2026-11-14): Read the 22 November run's run_start and run_done lines for cap_usd and the ledger total, and the meter's AEO rows for that day against them.
+- Next (2026-11-15): Read the 22 November run's run_start and run_done lines for cap_usd and the ledger total, and the meter's AEO rows for that day against them.
 - Waiting on Krish: a target for `queries_cited_first` (`docs/GET-GOING.md`, Step 3); and whether Grok should be asked too, which needs `XAI_API_KEY` set (the live runs ask three assistants).
-- North Star check (2026-11-14): holds.
+- North Star check (2026-11-15): holds.
 
 ## Read next
 
