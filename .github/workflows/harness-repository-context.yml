@@ -31,7 +31,7 @@ jobs:
           }
           if (!readFileSync('CLAUDE.md','utf8').includes('@AGENTS.md')) throw new Error('Claude must load shared repository guidance');
           const hook = createHash('sha256').update(readFileSync('.claude/hooks/harness-closeout.mjs')).digest('hex');
-          if (hook !== '9d6d1ac460c0d45df9bbc7a10b6cd40badcee45d6fad9ee95d84139726cf8790') throw new Error('Closeout hook drift: .claude/hooks/harness-closeout.mjs is not the harness copy');
+          if (hook !== '08dfe0930efcb802fb0eeafba2b650b843efa592a9c3370d0122cee6658467ae') throw new Error('Closeout hook drift: .claude/hooks/harness-closeout.mjs is not the harness copy');
           if (!readFileSync('.claude/settings.json','utf8').includes('harness-closeout.mjs')) throw new Error('Closeout hook is not registered in .claude/settings.json');
           console.log('Delivered context hashes, budgets, Claude entry route and closeout hook verified.');
           JS
@@ -59,7 +59,7 @@ jobs:
         # must never be able to grade itself with bytes it edited.
         run: |
           set -euo pipefail
-          echo "9d6d1ac460c0d45df9bbc7a10b6cd40badcee45d6fad9ee95d84139726cf8790  .claude/hooks/harness-closeout.mjs" | sha256sum --check --status || { echo "::error::.claude/hooks/harness-closeout.mjs is not the harness copy"; exit 1; }
+          echo "08dfe0930efcb802fb0eeafba2b650b843efa592a9c3370d0122cee6658467ae  .claude/hooks/harness-closeout.mjs" | sha256sum --check --status || { echo "::error::.claude/hooks/harness-closeout.mjs is not the harness copy"; exit 1; }
           node .claude/hooks/harness-closeout.mjs --ci --base "$BASE_SHA" --head "$HEAD_SHA"
   fold:
     # A closeout note that reaches main is folded into NOW.md and removed, so
@@ -87,7 +87,7 @@ jobs:
           for attempt in 1 2 3; do
             git fetch --quiet origin "$GITHUB_REF_NAME" && git reset --quiet --hard "origin/$GITHUB_REF_NAME" || exit 1
             if ! ls now-notes/*.md >/dev/null 2>&1; then echo "No closeout notes to fold."; exit 0; fi
-            echo "9d6d1ac460c0d45df9bbc7a10b6cd40badcee45d6fad9ee95d84139726cf8790  .claude/hooks/harness-closeout.mjs" | sha256sum --check --status || { echo "::error::.claude/hooks/harness-closeout.mjs is not the harness copy"; exit 1; }
+            echo "08dfe0930efcb802fb0eeafba2b650b843efa592a9c3370d0122cee6658467ae  .claude/hooks/harness-closeout.mjs" | sha256sum --check --status || { echo "::error::.claude/hooks/harness-closeout.mjs is not the harness copy"; exit 1; }
             status=0; node .claude/hooks/harness-closeout.mjs --fold || status=$?
             if [ -z "$(git status --porcelain -- NOW.md now-notes)" ]; then exit "$status"; fi
             git add -A -- NOW.md now-notes

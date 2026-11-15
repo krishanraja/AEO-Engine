@@ -44,12 +44,19 @@
  * docs(canon), docs(closeout), chore(audit)) are exempt, as is a range carrying
  * `Closeout: not needed, <reason>`.
  *
+ * A repository that caps NOW.md runs the fold with `--now-cap <bytes>` (and
+ * `--history <docs/history/file.md>` when its archive is not the default
+ * docs/history/LOG.md). The fold then keeps NOW.md under the cap itself: while
+ * it is over, the oldest dated status line under "Where it is right now" moves
+ * to the history file, newest first, even when no note waits (Ruling, Krish,
+ * 2026-11-15).
+ *
  * Dependency-free on purpose: it runs inside any repository, in any session.
  */
 
 import { execFileSync } from 'node:child_process'
-import { existsSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs'
-import { join, resolve } from 'node:path'
+import { existsSync, mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 export const NOW = 'NOW.md'
@@ -63,7 +70,7 @@ const AUTOMATION_SCOPE = {
   steward: (p) => /\.md$/i.test(p) && p !== NORTH_STAR,
   harness: (p) => ['AGENTS.md', 'CLAUDE.md', 'docs/HARNESS_CONTEXT.md', SETTINGS, ...PUBLISHER_FILES].includes(p),
   canon: (p) => ['AGENTS.md', 'CLAUDE.md'].includes(p),
-  closeout: (p) => p === NOW || NOTE.test(p),
+  closeout: (p) => p === NOW || NOTE.test(p) || HISTORY_PATH.test(p),
   heartbeat: (p) => /^state\//.test(p),
   brain: (p) => /^(brain|state)\//.test(p),
   audit: (p) => /^state\/now-audit\//.test(p),
@@ -79,6 +86,9 @@ export const RULING = /Ruling \(Krish, \d{4}-\d{2}-\d{2}\)/
 const CHECK_LINE = /^- North Star check \((\d{4}-\d{2}-\d{2})\): (holds\.|recalibration proposed\.\s+\S.*)$/
 export const NOTES = 'now-notes'
 export const NOTE = /^now-notes\/(\d{4}-\d{2}-\d{2})-[a-z0-9][a-z0-9-]{0,60}\.md$/
+// Where the fold moves status lines when a repository caps NOW.md.
+export const HISTORY = 'docs/history/LOG.md'
+export const HISTORY_PATH = /^docs\/history\/[A-Za-z0-9._-]+\.md$/
 
 /**
  * Work a reader of NOW.md could need to know about: anything but NOW.md itself,
@@ -259,20 +269,93 @@ export function foldNotes(nowText, notes) {
   return { text: lines.join(eol), folded, problems }
 }
 
-/** Fold every note in now-notes/ into NOW.md on disk, deleting the folded notes. */
-export function foldRepository(cwd) {
+// ------------------------------------------------------------------- the cap
+
+const bytesOf = (s) => Buffer.byteLength(String(s), 'utf8')
+// A status line the fold wrote: `- <status> (YYYY-MM-DD)`, the date at its end.
+const DATED_STATUS = /^- (.*\S)\s+\((\d{4}-\d{2}-\d{2})\)\s*$/
+const HISTORY_ENTRY = /^- (\d{4}-\d{2}-\d{2}) /
+const CONTINUES = /^\s+\S/
+
+/**
+ * NOW.md held to a byte cap. While it is over, the oldest dated status line
+ * under "Where it is right now" (the lowest of the oldest, since the newest
+ * are on top) moves to the history file as `- YYYY-MM-DD <status>`, with any
+ * indented lines under it. A line with no date at its end is never moved.
+ * Returns { text, history, moved, problems }; history is the file's new text,
+ * or the text given when nothing moved.
+ */
+export function capNow(nowText, historyText, cap, historyPath = HISTORY) {
+  const eol = /\r\n/.test(nowText) ? '\r\n' : '\n'
+  const lines = String(nowText).split(/\r?\n/)
+  const moved = [], problems = []
+  while (bytesOf(lines.join(eol)) > cap) {
+    const w = sectionAt(lines, 'Where it is right now')
+    let pick = null
+    if (w) for (let i = w.at + 1; i < w.end; i++) {
+      const m = lines[i].match(DATED_STATUS)
+      if (m && (!pick || m[2] <= pick.date)) pick = { i, date: m[2], status: m[1] }
+    }
+    if (!pick) {
+      problems.push(`${NOW} is ${bytesOf(lines.join(eol))} bytes, over its cap of ${cap}, with no dated status line under "Where it is right now" left to move to ${historyPath}. Move older lines there by hand.`)
+      break
+    }
+    let n = 1
+    while (pick.i + n < w.end && CONTINUES.test(lines[pick.i + n])) n++
+    const under = lines.slice(pick.i + 1, pick.i + n)
+    lines.splice(pick.i, n)
+    moved.push({ date: pick.date, lines: [`- ${pick.date} ${pick.status}`, ...under] })
+  }
+  return { text: lines.join(eol), history: moved.length ? fileHistory(historyText, moved) : historyText, moved, problems }
+}
+
+/** The history file with these entries in place, newest first; created when missing. */
+function fileHistory(historyText, entries) {
+  const eol = historyText != null && /\r\n/.test(historyText) ? '\r\n' : '\n'
+  const lines = historyText != null ? String(historyText).split(/\r?\n/)
+    : [`# ${NOW} history`, '', `Newest first. Status lines the closeout fold moved out of ${NOW} to keep it under its byte cap.`, '']
+  for (const entry of entries) {
+    // Before the first entry no newer than this one; else after the last entry; else at the end.
+    let at = lines.findIndex((l) => { const m = l.match(HISTORY_ENTRY); return !!m && m[1] <= entry.date })
+    if (at < 0) {
+      let last = -1
+      lines.forEach((l, i) => { if (HISTORY_ENTRY.test(l)) last = i })
+      if (last >= 0) { at = last + 1; while (at < lines.length && CONTINUES.test(lines[at])) at++ }
+      else { while (lines.length && !lines[lines.length - 1].trim()) lines.pop(); lines.push(''); at = lines.length }
+    }
+    lines.splice(at, 0, ...entry.lines)
+  }
+  const out = lines.join(eol)
+  return out.endsWith(eol) ? out : out + eol
+}
+
+/**
+ * Fold every note in now-notes/ into NOW.md on disk, deleting the folded notes.
+ * With a cap, NOW.md is then held under it, notes or none; the moved lines go
+ * to the history file (a Markdown file under docs/history/).
+ */
+export function foldRepository(cwd, { cap = null, history = HISTORY } = {}) {
   const dir = join(cwd, NOTES)
   const nowPath = join(cwd, NOW)
-  if (!existsSync(dir)) return { folded: [], problems: [] }
-  const notes = readdirSync(dir).filter((f) => f.endsWith('.md')).map((f) => parseNote(`${NOTES}/${f}`, readFileSync(join(dir, f), 'utf8')))
-  if (!notes.length) return { folded: [], problems: [] }
-  if (!existsSync(nowPath)) return { folded: [], problems: [`${NOW} does not exist; ${notes.length} closeout note(s) wait in ${NOTES}/.`] }
-  const result = foldNotes(readFileSync(nowPath, 'utf8'), notes)
-  if (result.folded.length) {
-    writeFileSync(nowPath, result.text)
+  const none = { folded: [], problems: [], moved: [] }
+  if (cap && !HISTORY_PATH.test(history)) return { ...none, problems: [`The history file must be a Markdown file under docs/history/, not "${history}".`] }
+  const notes = existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith('.md')).map((f) => parseNote(`${NOTES}/${f}`, readFileSync(join(dir, f), 'utf8'))) : []
+  if (!notes.length && !cap) return none
+  if (!existsSync(nowPath)) return notes.length ? { ...none, problems: [`${NOW} does not exist; ${notes.length} closeout note(s) wait in ${NOTES}/.`] } : none
+  const nowText = readFileSync(nowPath, 'utf8')
+  const result = notes.length ? foldNotes(nowText, notes) : { text: nowText, folded: [], problems: [] }
+  let text = result.text, moved = []
+  if (cap) {
+    const historyPath = join(cwd, history)
+    const capped = capNow(text, existsSync(historyPath) ? readFileSync(historyPath, 'utf8') : null, cap, history)
+    text = capped.text; moved = capped.moved; result.problems.push(...capped.problems)
+    if (moved.length) { mkdirSync(dirname(historyPath), { recursive: true }); writeFileSync(historyPath, capped.history) }
+  }
+  if (result.folded.length || moved.length) {
+    writeFileSync(nowPath, text)
     for (const p of result.folded) unlinkSync(join(cwd, p))
   }
-  return result
+  return { folded: result.folded, problems: result.problems, moved }
 }
 
 // ------------------------------------------------------------------ git reads
@@ -369,10 +452,14 @@ const main = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(impor
 if (main) {
   const args = process.argv.slice(2), flag = (f) => { const i = args.indexOf(f); return i < 0 ? null : args[i + 1] }
   if (args.includes('--fold')) {
-    const result = foldRepository(process.cwd())
+    const capArg = flag('--now-cap'), history = flag('--history') || HISTORY
+    const cap = capArg == null ? null : Number(capArg)
+    if (capArg != null && !(Number.isInteger(cap) && cap > 0)) { console.log(`::error::--now-cap takes a whole number of bytes, not "${capArg}".`); process.exit(1) }
+    const result = foldRepository(process.cwd(), { cap, history })
     for (const p of result.folded) console.log(`folded ${p}`)
+    for (const m of result.moved) console.log(`moved the ${m.date} status line to ${history}`)
     for (const p of result.problems) console.log(`::error::${p}`)
-    if (!result.folded.length && !result.problems.length) console.log('No closeout notes to fold.')
+    if (!result.folded.length && !result.moved.length && !result.problems.length) console.log(cap ? `No closeout notes to fold; ${NOW} is within its ${cap}-byte cap.` : 'No closeout notes to fold.')
     process.exit(result.problems.length ? 1 : 0)
   }
   if (args.includes('--ci')) {
