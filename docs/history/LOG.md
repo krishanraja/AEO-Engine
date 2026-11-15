@@ -5,6 +5,10 @@ Newest first. Entries are written by the docs steward (see the steward link in
 describes current behaviour; `NOW.md` and `docs/STATE.md` do. Files moved here
 keep their body verbatim under a Historical banner.
 
+## 2026-11-15
+
+- reconciled at `af9b8b4`: 36 commits since `e2100b9`, all already closed out in NOW.md by their sessions and folds. Corrected the protocol bundle version (1.38.0), the canon release (v2026.11.14.5, #56), and added the cap default and fold-after-merge bullets (#55, #57).
+
 ## 2026-11-14
 
 - reconciled at `e2100b9`: 17 commits since `a9e3b3b`, the AI-answers specialist rebuild (#32, #33) and its closeout folds. `NOW.md` "Where it is right now" cut from 13 bullets to 8 to meet the audit limits; `head`, `as_of`, the protocol copy pointer (36df34bc, 1.22.0) and the Get going line (Steps 1, 2 and 9 ticked, Step 3 next) advanced. `docs/STATE.md` was edited by its owner in the same commits and is left as written.

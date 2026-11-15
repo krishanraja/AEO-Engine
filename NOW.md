@@ -1,8 +1,8 @@
 ---
 repo: krishanraja/AEO-Engine
 product: AEO-Engine
-as_of: 2026-11-14
-head: e2100b9
+as_of: 2026-11-15
+head: af9b8b4
 lifecycle: building
 production_url: none
 state_doc: docs/STATE.md
@@ -22,7 +22,7 @@ AEO-Engine is the fortnightly answer-engine research machine for Krish Raja's ve
 
 Krish reads the digest on Monday and acts the same week. The packet answers, per venture, "which buyer question are we invisible on, and who is cited instead"; per prospect, "what would this company's leaders see if they asked an assistant about their own problem, and is Mindmake in it"; per aspiration, "which of their pages get cited, and why". For the room_face buyer (a senior leader at a PE or VC backed media, adtech, publishing or data business, quietly behind on what is coming) the machine is proof that one person can run demand research on AI agents with the evidence left in: every number in a digest is measured that run, every unknown stays unknown, and a failed engine call writes nothing rather than a guess. Angles a writer can use: the OS reads its own calls and refuses to name anyone in them; the demand score says out loud that there is no prompt-volume corpus and scores from proxies; the run has a price cap it counts against, not a bill it discovers.
 
-## Where it is right now (as of 2026-11-14)
+## Where it is right now (as of 2026-11-15)
 
 <!-- north-star-state {"week_of":"2026-11-16","week_target":1,"current":1,"current_as_of":"2026-11-14","current_source":"AEO-Engine's research as Control Center holds it (growth_geo_probes and growth_aeo_subjects): questions where a product of ours is the first citation, over the questions asked in the newest research fortnight; a question not asked stays unknown, never lost (Ruling, Krish, 2026-11-12), read by Control Center","urgency":1,"urgency_reason":"at 100% of this week's target"} --> **North Star number: U1, on pace.** Share of tracked buyer questions where Mindmake or one of its products is the first citation: 1%, against 1% this week, on the way to 50% by 25 January 2027. Steady, and one proposal a week that would raise the ceiling.
 
@@ -33,7 +33,7 @@ Krish reads the digest on Monday and acts the same week. The packet answers, per
 - closeout notes now fold into NOW.md after every merge: auto-merge.yml starts .github/workflows/closeout-fold.yml on main by workflow_dispatch, because the merge's own push, made with the Actions token, starts no workflow and the generated fold in harness-repository-context.yml ran only on a push (five notes had waited on main). (2026-11-14)
 - The research run's report job asks Control Center's research desk (index_check) whether Brave ranks each kit's https page for its question, at most 10 a UTC day (about 0.05 USD), counting the checks already asked that day; it holds and spends nothing while Control Center does not offer index_check, and never fails the run (src/protocol/indexCheck.ts, Ruling, Krish, 2026-11-14). (2026-11-14)
 - our own pull requests (Krish or the Actions bot, branch in this repository, ready, at the commit that passed) now merge themselves when every "CI" run on that commit is green (.github/workflows/auto-merge.yml, rule .github/scripts/auto-merge-pick.jq, tested). Forks, drafts and strangers wait for a person. (2026-11-14)
-- docs/control-center/ is Control Center's protocol bundle 1.33.0 (bundle_sha256 4b7175a8...), copied byte for byte with bundle.json; tests/bundle.test.ts checks every file, and every report test passes against the 1.33.0 schemas. (2026-11-14)
+- docs/control-center/ is Control Center's protocol bundle 1.38.0 (bundle_sha256 88cbea01...), copied byte for byte with bundle.json; tests/bundle.test.ts checks every file, and every report test passes against the 1.33.0 schemas. (2026-11-14)
 - The former call transcript source is removed (its client, import and test), so no call source is connected and every packet says themes_status transcripts_unavailable; the transcript stage and its offline fixtures stay for a future call source (fleet audit ai-retired-11, AEO's half). (2026-11-14)
 - docs/control-center/ is Control Center's protocol bundle 1.28.0, copied byte for byte with bundle.json (bundle_sha256 b0dfa0d7...), each file checked against its sha256 by tests/bundle.test.ts, and every daily, research and verify report carries one counted line, protocol_copy: current, behind <version> or unknown, from capabilities' protocol_bundle; behind is never a hold (fleet integration I-11). (2026-11-14)
 - Each kit's site fix names the repository that ships its host, read from config/subjects.json host_repos (Vercel project domains, 14 November): krishraja.com ships in krish-raja, ctrl.mindmake.co in mindmake-ctrl (it named mindmake before), Cloudflare and Substack hosts in none, and a host with no entry in its product's repository (fleet integration I-10, AEO's half). The packet field is the existing kits[].site_fixes[].owner_repo, so the contract is unchanged. (2026-11-14)
@@ -59,7 +59,9 @@ Krish reads the digest on Monday and acts the same week. The packet answers, per
 - 2026-11-14 2026-11-14 themes_status fireflies_unavailable is now transcripts_unavailable, matching production's ingest.
 - 2026-11-14 2026-11-14 The paid rehearsal overspent its approval; the cap now holds across a retry, at raised estimates.
 - 2026-11-14 2026-11-14 Kits' pages are checked on Brave, which Claude's search draws on, inside a 0.05 USD daily cap.
-- 2026-11-14 The protocol copy is the published bundle at 1.33.0.
+- 2026-11-14 The protocol copy is the published bundle at 1.38.0 (refreshed from 1.33.0 through 1.36.0, #54).
+- 2026-11-14 The 30 USD per-run cap is the code's own default and every workflow fallback, so it holds for 22 November whether or not AEO_MAX_USD_PER_RUN is set; spend figures from the paid rehearsal left the public repository (#55, Ruling, Krish, 2026-11-14).
+- 2026-11-14 Closeout notes fold after every auto-merge: a merge made with the Actions token starts no push workflow, so five notes had waited on main (#57).
 - 2026-11-14 The protocol copy is the published bundle at 1.28.0, and each report says whether it is current.
 - 2026-11-14 A site fix names the repository that ships its host, not only its product's.
 - 2026-11-14 Non-Anthropic probe rows carry search_calls, so the meter can price the per-search fees once it holds the rates.
@@ -96,7 +98,7 @@ Krish reads the digest on Monday and acts the same week. The packet answers, per
 
 ## Do not trust
 
-- `docs/control-center/`: Control Center's protocol bundle (`docs/app/growth/protocol-bundle/`), copied byte for byte: ENGINE-PROTOCOL.md, both schemas, the worked example and `bundle.json` (version 1.33.0, each file's sha256, one `bundle_sha256`). Never edited here: a new version is a fresh copy, which `tests/bundle.test.ts` checks, and each run reports `protocol_copy` against the bundle capabilities serve (`src/protocol/bundle.ts`).
+- `docs/control-center/`: Control Center's protocol bundle (`docs/app/growth/protocol-bundle/`), copied byte for byte: ENGINE-PROTOCOL.md, both schemas, the worked example and `bundle.json` (version 1.38.0, each file's sha256, one `bundle_sha256`). Never edited here: a new version is a fresh copy, which `tests/bundle.test.ts` checks, and each run reports `protocol_copy` against the bundle capabilities serve (`src/protocol/bundle.ts`).
 - `docs/NORTH_STAR.md`: its verification stamp (18 October) is older than its 2026-10-23 paragraph on the number and urgency. The text is Krish's and stands; only he changes the file, stamp included.
-- `AGENTS.md`, the Krish canon block: rendered at release v2026.10.30.1 (last synced in #28, merged). The block belongs to the harness.
+- `AGENTS.md`, the Krish canon block: rendered at release v2026.11.14.5 (last synced in #56, merged). The block belongs to the harness.
 - `docs/BUILD-LOG.md`: no entries between 2026-09-08 and 2026-10-19 or between 2026-10-19 and 2026-11-11, so the usage meter, the Claude probe timeout, the fortnightly schedule and the voice pass are recorded in `docs/STATE.md`, `docs/history/LOG.md` and "What changed recently" instead. Its 2026-09-08 line that every client carries a 120 second timeout no longer holds for the Claude probe path (four minutes, `docs/STATE.md`).
