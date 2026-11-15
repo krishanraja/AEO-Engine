@@ -1,4 +1,0 @@
-Status: Camoufox was weighed as a browser adapter for the site reader and refused after a bounded comparison with a real-browser render (BUILD-LOG, 2026-11-15); check:config now refuses Camoufox and its wrappers, which its browser guard had let through, and STATE's known limits name two misreads the comparison found in the fetch reader (Markdown answers to its Accept header, and the 512 KB cap).
-Changed: a real-browser read changed the engine's fields on 2 of 13 readable pages, both already flagged as script-filled, and the 3 other differences were the fetch reader's own Accept header and size cap; Camoufox's added value, passing bot checks, is out of bounds.
-Next: run the branch sweep by hand with the approved list (not run since #59 merged), then decide whether the site reader asks for HTML only or parses Markdown as Markdown, before the 22 November run reads pages cited first.
-North Star check (2026-11-15): holds.
