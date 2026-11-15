@@ -50,6 +50,16 @@ export function isTextType(contentType: string | null | undefined): boolean {
     || t === 'application/json' || t === 'application/ld+json'
 }
 
+/**
+ * HTML, the only form a page read takes (the site reader's `html` option):
+ * every page fact is defined on HTML (src/lib/html.ts), so a page answered as
+ * Markdown or plain text is not read as if it were HTML.
+ */
+export function isHtmlType(contentType: string | null | undefined): boolean {
+  const t = String(contentType ?? '').split(';')[0].trim().toLowerCase()
+  return t === 'text/html' || t === 'application/xhtml+xml'
+}
+
 export interface TextResult { status: number; headers: Headers; text: string; url: string; truncated: boolean }
 
 /**

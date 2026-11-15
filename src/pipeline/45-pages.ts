@@ -173,9 +173,13 @@ export async function robotsAllows(fetcher: SiteFetcher, url: string | URL): Pro
   return !!robots && isAllowed(robots, READER_TOKEN, u.pathname + u.search)
 }
 
-/** One third-party read, after robotsAllows said yes: each same-domain redirect hop is asked of robots.txt again before it is followed. */
+/**
+ * One third-party page read, after robotsAllows said yes: HTML only (a page
+ * answered as Markdown or plain text is unread, never misread), and each
+ * same-domain redirect hop is asked of robots.txt again before it is followed.
+ */
 export function getPolitely(fetcher: SiteFetcher, url: string): Promise<SitePage | null> {
-  return fetcher.get(url, { allowHop: next => robotsAllows(fetcher, next) })
+  return fetcher.get(url, { html: true, allowHop: next => robotsAllows(fetcher, next) })
 }
 
 /** A URL a kit may name: http(s), no email or handle, no redirect token; its href normalised (ASCII). */
