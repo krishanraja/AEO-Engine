@@ -1,8 +1,8 @@
 ---
 repo: krishanraja/AEO-Engine
 product: AEO-Engine
-as_of: 2026-11-18
-head: 674a1fd
+as_of: 2026-11-20
+head: 74cce06
 lifecycle: building
 production_url: none
 state_doc: docs/STATE.md
@@ -22,7 +22,7 @@ AEO-Engine is the fortnightly answer-engine research machine for Krish Raja's ve
 
 Krish reads the digest on Monday and acts the same week. The packet answers, per venture, "which buyer question are we invisible on, and who is cited instead"; per prospect, "what would this company's leaders see if they asked an assistant about their own problem, and is Mindmake in it"; per aspiration, "which of their pages get cited, and why". For the room_face buyer (a senior leader at a PE or VC backed media, adtech, publishing or data business, quietly behind on what is coming) the machine is proof that one person can run demand research on AI agents with the evidence left in: every number in a digest is measured that run, every unknown stays unknown, and a failed engine call writes nothing rather than a guess. Angles a writer can use: the OS reads its own calls and refuses to name anyone in them; the demand score says out loud that there is no prompt-volume corpus and scores from proxies; the run has a price cap it counts against, not a bill it discovers.
 
-## Where it is right now (as of 2026-11-18)
+## Where it is right now (as of 2026-11-20)
 
 <!-- north-star-state {"week_of":"2026-11-16","week_target":1,"current":1,"current_as_of":"2026-11-14","current_source":"AEO-Engine's research as Control Center holds it (growth_geo_probes and growth_aeo_subjects): questions where a product of ours is the first citation, over the questions asked in the newest research fortnight; a question not asked stays unknown, never lost (Ruling, Krish, 2026-11-12), read by Control Center","urgency":1,"urgency_reason":"at 100% of this week's target"} --> **North Star number: U1, on pace.** Share of tracked buyer questions where Mindmake or one of its products is the first citation: 1%, against 1% this week, on the way to 50% by 25 January 2027. Steady, and one proposal a week that would raise the ceiling.
 
@@ -69,5 +69,5 @@ Krish reads the digest on Monday and acts the same week. The packet answers, per
 
 - `docs/control-center/`: Control Center's protocol bundle (`docs/app/growth/protocol-bundle/`), copied byte for byte: ENGINE-PROTOCOL.md, both schemas, the worked example and `bundle.json` (version 1.38.0, each file's sha256, one `bundle_sha256`). Never edited here: a new version is a fresh copy, which `tests/bundle.test.ts` checks, and each run reports `protocol_copy` against the bundle capabilities serve (`src/protocol/bundle.ts`).
 - `docs/NORTH_STAR.md`: its stamp (2026-11-12) is older than the latest code changes. The text is Krish's and stands; only he changes the file, stamp included.
-- `AGENTS.md`, the Krish canon block: rendered at release v2026.11.15.2 (last synced in #64, merged). The block belongs to the harness.
+- `AGENTS.md`, the Krish canon block: rendered at release v2026.11.18.7 (last synced in #66, merged). The block belongs to the harness.
 - `docs/BUILD-LOG.md`: no entries between 2026-09-08 and 2026-10-19 or between 2026-10-19 and 2026-11-11, so the usage meter, the Claude probe timeout, the fortnightly schedule and the voice pass are recorded in `docs/STATE.md`, `docs/history/LOG.md` and "What changed recently" instead. Its 2026-09-08 line that every client carries a 120 second timeout no longer holds for the Claude probe path (four minutes, `docs/STATE.md`).
