@@ -5,6 +5,10 @@ Newest first. Entries are written by the docs steward (see the steward link in
 describes current behaviour; `NOW.md` and `docs/STATE.md` do. Files moved here
 keep their body verbatim under a Historical banner.
 
+## 2026-11-26
+
+- reconciled at `0d54262`: one commit since `3762a6e`, the canon block sync to v2026.11.25.2 (#69), no documentation consequence beyond the release named in `NOW.md`; `head` and `as_of` advanced. The audit's `north_star_check` warning (check dated 2026-11-15, limit 7 days) stays: the line was not re-dated, because only a session that re-read the North Star can write `holds`. `docs/STATE.md` and `docs/NORTH_STAR.md` keep their stamps; neither was re-checked.
+
 ## 2026-11-25
 
 - reconciled at `3762a6e`: three commits since `74cce06` (a North Star number refresh and two canon block syncs, v2026.11.23.2 and v2026.11.24.7), no documentation consequence beyond the canon release named in `NOW.md`; `head` and `as_of` advanced. The 22 November research run is not recorded in the repository, so `NOW.md` calls it unverified. The North Star check line stays dated 2026-11-15 and was not re-dated, because only a session that re-read the North Star can write `holds`. `docs/STATE.md` and `docs/NORTH_STAR.md` keep their stamps; neither was re-checked.

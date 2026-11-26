@@ -1,8 +1,8 @@
 ---
 repo: krishanraja/AEO-Engine
 product: AEO-Engine
-as_of: 2026-11-25
-head: 3762a6e
+as_of: 2026-11-26
+head: 0d54262
 lifecycle: building
 production_url: none
 state_doc: docs/STATE.md
@@ -69,5 +69,5 @@ Krish reads the digest on Monday and acts the same week. The packet answers, per
 
 - `docs/control-center/`: Control Center's protocol bundle (`docs/app/growth/protocol-bundle/`), copied byte for byte: ENGINE-PROTOCOL.md, both schemas, the worked example and `bundle.json` (version 1.38.0, each file's sha256, one `bundle_sha256`). Never edited here: a new version is a fresh copy, which `tests/bundle.test.ts` checks, and each run reports `protocol_copy` against the bundle capabilities serve (`src/protocol/bundle.ts`).
 - `docs/NORTH_STAR.md`: its stamp (2026-11-12) is older than the latest code changes. The text is Krish's and stands; only he changes the file, stamp included.
-- `AGENTS.md`, the Krish canon block: rendered at release v2026.11.24.7 (last synced in #68, merged). The block belongs to the harness.
+- `AGENTS.md`, the Krish canon block: rendered at release v2026.11.25.2 (last synced in #69, merged). The block belongs to the harness.
 - `docs/BUILD-LOG.md`: no entries between 2026-09-08 and 2026-10-19 or between 2026-10-19 and 2026-11-11, so the usage meter, the Claude probe timeout, the fortnightly schedule and the voice pass are recorded in `docs/STATE.md`, `docs/history/LOG.md` and "What changed recently" instead. Its 2026-09-08 line that every client carries a 120 second timeout no longer holds for the Claude probe path (four minutes, `docs/STATE.md`).
