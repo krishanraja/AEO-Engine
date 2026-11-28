@@ -1,7 +1,7 @@
 ---
 repo: krishanraja/AEO-Engine
 product: AEO-Engine
-as_of: 2026-11-26
+as_of: 2026-11-28
 head: 0d54262
 lifecycle: building
 production_url: none
@@ -22,7 +22,7 @@ AEO-Engine is the fortnightly answer-engine research machine for Krish Raja's ve
 
 Krish reads the digest on Monday and acts the same week. The packet answers, per venture, "which buyer question are we invisible on, and who is cited instead"; per prospect, "what would this company's leaders see if they asked an assistant about their own problem, and is Mindmake in it"; per aspiration, "which of their pages get cited, and why". For the room_face buyer (a senior leader at a PE or VC backed media, adtech, publishing or data business, quietly behind on what is coming) the machine is proof that one person can run demand research on AI agents with the evidence left in: every number in a digest is measured that run, every unknown stays unknown, and a failed engine call writes nothing rather than a guess. Angles a writer can use: the OS reads its own calls and refuses to name anyone in them; the demand score says out loud that there is no prompt-volume corpus and scores from proxies; the run has a price cap it counts against, not a bill it discovers.
 
-## Where it is right now (as of 2026-11-25)
+## Where it is right now (as of 2026-11-28)
 
 <!-- north-star-state {"week_of":"2026-11-23","week_target":5.9,"current":2.5,"current_as_of":"2026-11-23","current_source":"AEO-Engine's research as Control Center holds it (growth_geo_probes and growth_aeo_subjects): questions where a product of ours is the first citation, over the questions asked in the newest research fortnight; a question not asked stays unknown, never lost (Ruling, Krish, 2026-11-12), read by Control Center","urgency":3,"urgency_reason":"at 42% of this week's target"} --> **North Star number: U3, well behind.** Share of tracked buyer questions where Mindmake or one of its products is the first citation: 2.5%, against 5.9% this week, on the way to 50% by 25 January 2027. Two experiments a week, growth output doubled.
 
@@ -31,7 +31,7 @@ Krish reads the digest on Monday and acts the same week. The packet answers, per
 - **Contract.** `docs/packet.schema.json` is identical to Control Center's copy; the validator here also carries the rules Control Center enforces beyond the schema (a venture names its product slug, a Monday `week_start`, empty themes unless the status is ok, unique query ids).
 - **Aim.** `docs/NORTH_STAR.md` (Krish, 2026-10-18): by January 2027, Mindmake and its products are cited first on the buyer questions the ventures answer, and the engine can show the week each one was won. Not reached. The denominator is the questions asked that fortnight (1 of 100 = 1% on 8 Nov, recorded there); Control Center measures the share.
 - **Growth engine protocol and autonomy.** Registered as `aeo-engine` on 2026-10-18; a daily `cc-growth-directive` workflow and one report per research run. Ruled 2026-10-19: the engine proposes a plan, Krish approves, it builds up to go-live, and it goes live only on his approved go-live decision. The copy in `docs/control-center/` is Control Center's protocol bundle 1.38.0, copied byte for byte (`tests/bundle.test.ts` checks every file's sha256; version read from `bundle.json` 2026-11-17); an instruction from Krish is acked `blocked` with when the research will reach it and is never an approval.
-- **Get going.** "Get going" runs the next unticked step of `docs/GET-GOING.md`. Steps 0, 1, 2, 4, 6, 7, 8 and 9 are ticked (1, 2 and 9 built offline 2026-11-13, proof pending the 22 November run); Step 3, a target for `queries_cited_first`, is Krish's and is next.
+- **Get going.** "Get going" runs the next unticked step of `docs/GET-GOING.md`. Steps 0, 1, 2, 4, 6, 7, 8 and 9 are ticked (1, 2 and 9 built offline 2026-11-13; the 22 November run that would prove them is not recorded here as read); Step 3, a target for `queries_cited_first`, is Krish's and is next.
 - **Spend and housekeeping.** One research run can never spend more than 30 USD of estimates (default 30, hard max in code, shared with a subject's retry; Ruling, Krish, 2026-11-14). Every page read asks for HTML only. A weekly branch sweep (Sunday 03:17 UTC) deletes branches already on main (Ruling, Krish, 2026-11-15); its approved-list hand run is off the next step.
 - **Waiting.** `XAI_API_KEY` is unset, so Grok is not asked; `EXA_API_KEY`, which no code reads yet, cannot be read from here (`docs/STATE.md`, Waiting).
 
